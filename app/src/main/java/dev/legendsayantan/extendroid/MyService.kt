@@ -27,6 +27,7 @@ import android.os.Looper
 import android.view.Display
 import android.view.View
 import androidx.annotation.RequiresApi
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchStarterOnDisplay
 
 
 class MyService : Service() {
@@ -43,14 +44,11 @@ class MyService : Service() {
         super.onCreate()
         startForegroundService()
         // Initialize your media projection here
-        val projectionManager: MediaProjectionManager by lazy { getSystemService(
-            MEDIA_PROJECTION_SERVICE
-        ) as MediaProjectionManager }
+        val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection =
             projectionManager.getMediaProjection(result, data!!)
         createVirtualDisplay(mediaProjection!!)
     }
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun createVirtualDisplay(mediaProjection: MediaProjection) {
         val metrics = resources.displayMetrics
         val screenDensity = metrics.densityDpi
@@ -78,14 +76,7 @@ class MyService : Service() {
 
 
         if (presentationDisplay != null) {
-            // Create an Intent to launch the app by its package name
-            val bdl: Bundle = ActivityOptions.makeBasic().setLaunchDisplayId(presentationDisplay.displayId).toBundle()
-            val ctx = createDisplayContext(presentationDisplay)
-            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-            val intent: Intent = Intent(ctx, StarterActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val state = am.isActivityStartAllowedOnDisplay(ctx,presentationDisplay.displayId,intent)
-            startActivity(intent)
+            launchStarterOnDisplay(presentationDisplay)
         } else {
             println("Presentation display is null")
         }

@@ -1,63 +1,96 @@
 package dev.legendsayantan.extendroid
 
-import android.content.Context
 import android.content.Intent
-import android.graphics.PixelFormat
-import android.hardware.display.DisplayManager
-import android.media.ImageReader
-import android.media.projection.MediaProjection
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
-import android.util.DisplayMetrics
-import android.view.Display
-import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.card.MaterialCardView
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantAudioRecordPerm
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionPerm
+import rikka.shizuku.Shizuku
 
 
 class MainActivity : AppCompatActivity() {
     val REQUEST_CODE = 1000
-    private var mediaProjection : MediaProjection? = null
-    val projectionManager: MediaProjectionManager by lazy { getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-        request()
-    }
-    fun startDisplay(mySurface:Surface){
-        val displayManager: DisplayManager =
-            getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val displayMetrics: DisplayMetrics = getResources().displayMetrics
-
-        val virtualDisplay = displayManager.createVirtualDisplay(
-            "MyVirtualDisplay",  // Name of the virtual display
-            1920, 1280,  // Width and height
-            displayMetrics.densityDpi,  // Screen density
-            mySurface,  // Surface for the virtual display
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC // Flags
-        )
-
-
-        // Identify the presentation display based on your criteria, e.g., display ID
-        var presentationDisplay: Display? = null
-        presentationDisplay = virtualDisplay.display
+        findViewById<MaterialCardView>(R.id.startStopBtn).setOnClickListener {
+            if (getAppStatus()) {
+                stopApp()
+            } else {
+                startApp()
+            }
+        }
     }
 
-    fun request(){
 
+    override fun onResume() {
+        super.onResume()
+        updateStatuses()
+    }
+
+    private fun updateStatuses() {
+        findViewById<TextView>(R.id.statusText).text = "${getShizukuStatus()}\n${getServerStatus()}"
+        findViewById<TextView>(R.id.actionText).text = if (getAppStatus()) "Stop" else "Start"
+        findViewById<ImageView>(R.id.actionImage).setImageResource(if (getAppStatus()) R.drawable.baseline_stop_24 else R.drawable.baseline_play_arrow_24)
+    }
+
+    private fun startApp() {
+        requestShizukuIfRequired {
+            // Start the app here
+//            grantAudioRecordPerm()
+//            grantMediaProjectionPerm()
+            Handler(mainLooper).postDelayed({
+                startMediaProjection()
+            }, 2000)
+        }
+    }
+
+    private fun startMediaProjection() {
         val projectionManager =
             getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
-
-// Start an activity for result to request permission
+        // Start an activity for result to request permission
         val intent = projectionManager.createScreenCaptureIntent()
         startActivityForResult(intent, REQUEST_CODE)
+    }
+
+    private fun stopApp() {
+        TODO("Not yet implemented")
+    }
+
+
+    private fun getShizukuStatus(): String {
+        return "Shizuku Status: " + if (Shizuku.pingBinder())
+            (if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) "Ready" else "Need Permission")
+        else "Inactive"
+    }
+
+    private fun getServerStatus(): String {
+        return "Http Server Status: not available"
+    }
+
+    private fun getAppStatus(): Boolean {
+        return false
+    }
+
+    private fun requestShizukuIfRequired(callback: () -> Unit) {
+        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            Shizuku.addRequestPermissionResultListener({ i: Int, i1: Int ->
+                if (i1 == PackageManager.PERMISSION_GRANTED) {
+                    callback()
+                }
+            }, Handler(mainLooper))
+            Shizuku.requestPermission(0)
+        } else {
+            callback()
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -74,10 +107,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-
-
-
 
 
 }

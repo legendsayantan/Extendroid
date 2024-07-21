@@ -6,11 +6,13 @@ plugins {
 android {
     namespace 'dev.legendsayantan.extendroid'
     compileSdk 34
+    //noinspection GradleDependency
 
     defaultConfig {
         applicationId "dev.legendsayantan.extendroid"
-        minSdk 27
-        targetSdk 34
+        minSdk 29
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 30
         versionCode 1
         versionName "1.0"
 
@@ -23,6 +25,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    buildFeatures{
+        aidl true
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -34,6 +39,8 @@ android {
 
 dependencies {
 
+    def shizuku_version = '13.1.5'
+
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material
@@ -42,4 +49,7 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
+
+    implementation "dev.rikka.shizuku:api:$shizuku_version"
+    implementation "dev.rikka.shizuku:provider:$shizuku_version"
 }
