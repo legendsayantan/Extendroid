@@ -10,8 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.card.MaterialCardView
-import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantAudioRecordPerm
-import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionPerm
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionAdb
 import rikka.shizuku.Shizuku
 
 
@@ -27,6 +26,7 @@ class MainActivity : AppCompatActivity() {
                 startApp()
             }
         }
+        registerNewSessionBtnListener()
     }
 
 
@@ -44,8 +44,7 @@ class MainActivity : AppCompatActivity() {
     private fun startApp() {
         requestShizukuIfRequired {
             // Start the app here
-//            grantAudioRecordPerm()
-//            grantMediaProjectionPerm()
+            grantMediaProjectionAdb()
             Handler(mainLooper).postDelayed({
                 startMediaProjection()
             }, 2000)
@@ -62,7 +61,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopApp() {
-        TODO("Not yet implemented")
+        stopService(Intent(this, ExtendService::class.java))
     }
 
 
@@ -77,16 +76,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getAppStatus(): Boolean {
-        return false
+        return ExtendService.running
     }
 
     private fun requestShizukuIfRequired(callback: () -> Unit) {
         if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            Shizuku.addRequestPermissionResultListener({ i: Int, i1: Int ->
+            Shizuku.addRequestPermissionResultListener { _: Int, i1: Int ->
                 if (i1 == PackageManager.PERMISSION_GRANTED) {
                     callback()
                 }
-            }, Handler(mainLooper))
+            }
             Shizuku.requestPermission(0)
         } else {
             callback()
@@ -98,12 +97,25 @@ class MainActivity : AppCompatActivity() {
 
         if (requestCode == REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
-                MyService.result = resultCode
-                MyService.data = data
-                startForegroundService(Intent(this, MyService::class.java))
+                ExtendService.result = resultCode
+                ExtendService.data = data
+                startForegroundService(Intent(this, ExtendService::class.java))
+                updateStatuses()
             } else {
                 // Handle the case where the user denied the permission
                 Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun registerNewSessionBtnListener() {
+        findViewById<MaterialCardView>(R.id.addBtn).setOnClickListener {
+            if (getAppStatus()) {
+                NewSessionDialog(this) { pkg, size, helper ->
+                    ExtendService.onAttachWindow(pkg, size, helper)
+                }.show()
+            }else{
+                Toast.makeText(this, "App not running!", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -39,7 +39,7 @@ android {
 
 dependencies {
 
-    def shizuku_version = '13.1.5'
+    def shizuku_version = "13.1.5"
 
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat

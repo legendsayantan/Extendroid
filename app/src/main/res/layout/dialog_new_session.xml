@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="?attr/colorPrimary"
+    app:strokeColor="?attr/colorOnSecondary"
+    app:strokeWidth="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="15dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create new session"
+            android:gravity="center"
+            android:textSize="20sp" />
+
+
+        <LinearLayout
+            android:layout_marginVertical="15dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:text="Window Specs : "
+                android:gravity="center"
+                android:textSize="16sp"
+                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
+            <ImageView
+                android:id="@+id/q_480"
+                android:src="@drawable/outline_480"
+                android:layout_weight="1"
+                android:scaleX="0.75"
+                android:scaleY="0.75"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                app:tint="?attr/colorOnSecondary" />
+            <ImageView
+                android:id="@+id/q_hd"
+                android:src="@drawable/outline_hd_24"
+                android:layout_weight="1"
+                android:alpha="0.5"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                app:tint="?attr/colorOnSecondary" />
+            <ImageView
+                android:id="@+id/q_2k"
+                android:src="@drawable/outline_2k_24"
+                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                app:tint="?attr/colorOnSecondary" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/a_16_9"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/baseline_crop_16_9_24"
+                    app:tint="?attr/colorOnSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="16:9" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/a_3_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/baseline_crop_3_2_24"
+                    app:tint="?attr/colorOnSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="3:2" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/a_1_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:alpha="0.5"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/baseline_crop_square_24"
+                    app:tint="?attr/colorOnSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="1:1" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/a_2_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:rotation="90"
+                    android:src="@drawable/baseline_crop_3_2_24"
+                    app:tint="?attr/colorOnSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="2:3" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/a_9_16"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:rotation="90"
+                    android:src="@drawable/baseline_crop_16_9_24"
+                    app:tint="?attr/colorOnSecondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="9:16" />
+            </LinearLayout>
+        </LinearLayout>
+        <CheckBox
+            android:id="@+id/startHelper"
+            android:text="Use Start Helper (only use if needed)"
+            android:textColor="?attr/colorOnSecondary"
+            android:layout_width="match_parent"
+            android:layout_marginHorizontal="25dp"
+            android:layout_height="wrap_content"/>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/apps"
+            android:layout_marginTop="15dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

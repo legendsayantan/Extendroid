@@ -5,11 +5,12 @@ import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.os.UserHandle
 import android.view.Display
+import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
@@ -19,7 +20,7 @@ import rikka.shizuku.shared.BuildConfig
  * @author legendsayantan
  */
 class ShizukuActions {
-    private var bndr: IUserService? = null
+    //private var bndr: IUserService? = null
 
     fun Context.getServiceArgs(): Shizuku.UserServiceArgs? {
         return Shizuku.UserServiceArgs(
@@ -31,17 +32,17 @@ class ShizukuActions {
 
     init {
 
-        val connection = object : ServiceConnection {
-            override fun onServiceConnected(componentName: ComponentName, binder: IBinder?) {
-                if (binder != null && binder.pingBinder()) {
-                    bndr = IUserService.Stub.asInterface(binder)
-                }
-            }
-
-            override fun onServiceDisconnected(componentName: ComponentName) {
-                bndr = null;
-            }
-        }
+//        val connection = object : ServiceConnection {
+//            override fun onServiceConnected(componentName: ComponentName, binder: IBinder?) {
+//                if (binder != null && binder.pingBinder()) {
+//                    bndr = IUserService.Stub.asInterface(binder)
+//                }
+//            }
+//
+//            override fun onServiceDisconnected(componentName: ComponentName) {
+//                bndr = null;
+//            }
+//        }
     }
     companion object {
 
@@ -109,6 +110,10 @@ class ShizukuActions {
             )
         }
 
+        fun Context.grantMediaProjectionAdb(){
+            execute("appops set $packageName PROJECT_MEDIA allow")
+        }
+
         fun Context.launchStarterOnDisplay(display: Display) {
             val intent = Intent(createDisplayContext(display), StarterActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -119,5 +124,28 @@ class ShizukuActions {
             val userHandleConstructor = userHandleReflect.getConstructor(Int::class.java)
             startActivityAsUserMethod.invoke(this,intent,options.toBundle(),userHandleConstructor.newInstance(Shizuku.getUid()))
         }
+
+        fun Context.launchStarterOnDisplayAdb(displayId: Int, pkg:String){
+            launchComponentOnDisplayAdb(displayId,"$packageName/.StarterActivity --es pkg $pkg")
+        }
+
+        fun launchComponentOnDisplayAdb(displayId: Int,component: String){
+            execute("am start -n $component --display $displayId")
+        }
+
+        fun execute(command: String, root: Boolean = false): Pair<Int, String?> = runCatching {
+            IShizukuService.Stub.asInterface(Shizuku.getBinder()).newProcess(arrayOf(if (root) "su" else "sh"), null, null)
+                .run {
+                    ParcelFileDescriptor.AutoCloseOutputStream(outputStream).use {
+                        it.write(command.toByteArray())
+                    }
+                    waitFor() to inputStream.text.ifBlank { errorStream.text }.also { destroy() }
+                }
+        }.getOrElse { 0 to it.stackTraceToString() }
+
+        private val ParcelFileDescriptor.text
+            get() = ParcelFileDescriptor.AutoCloseInputStream(this).use { it.bufferedReader().readText() }
     }
+
+
 }

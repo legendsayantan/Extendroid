@@ -34,7 +34,7 @@
             android:exported="true" />
 
         <service
-            android:name=".MyService"
+            android:name=".ExtendService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="mediaProjection" />

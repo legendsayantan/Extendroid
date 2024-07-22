@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Extendroid</string>
+    <string name="create_session">Create Session</string>
 </resources>
