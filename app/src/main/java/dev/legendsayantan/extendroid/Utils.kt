@@ -2,6 +2,7 @@ package dev.legendsayantan.extendroid
 
 import android.content.Context
 import android.content.Intent
+import android.util.TypedValue
 
 /**
  * @author legendsayantan
@@ -23,6 +24,10 @@ class Utils {
                 }
             }
             return launchableApps
+        }
+        fun Context.dpToPx(dp: Float): Int {
+            return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
         }
     }
 }

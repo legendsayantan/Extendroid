@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         registerNewSessionBtnListener()
+        refreshStatus = { Handler(mainLooper).post { updateStatuses() } }
     }
 
 
@@ -120,5 +121,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    companion object{
+        var refreshStatus = {}
+    }
 
 }

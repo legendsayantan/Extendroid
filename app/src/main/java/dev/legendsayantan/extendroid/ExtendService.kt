@@ -17,12 +17,19 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.view.Display
+import android.view.KeyEvent
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.dispatchMotionEventOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchComponentOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchStarterOnDisplayAdb
 
 
 class ExtendService : Service() {
     val displayCache = hashMapOf<Int, VirtualDisplay>()
+    val overlayWorker by lazy { OverlayWorker(this) }
+    var idOffset = 0
+    var lastId = 0
+
+
 
 
     override fun onBind(intent: Intent): IBinder? {
@@ -33,6 +40,7 @@ class ExtendService : Service() {
     override fun onCreate() {
         super.onCreate()
         running = true
+        MainActivity.refreshStatus()
         startForegroundService()
         // Initialize your media projection here
         val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -53,45 +61,60 @@ class ExtendService : Service() {
                 PixelFormat.RGBA_8888, 2
             )
 
-            val vDisplay = mediaProjection.createVirtualDisplay(
-                pkg,
-                resolution.first,
-                resolution.second,
-                screenDensity,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-                imageReaderNew.surface,
-                null,
-                null
-            )
+            var presentationDisplay: Display? = null
+            val newId = ++lastId
+            overlayWorker.createWindow(newId, resolution,{ windowSurface->
+                val vDisplay = mediaProjection.createVirtualDisplay(
+                    pkg,
+                    resolution.first,
+                    resolution.second,
+                    screenDensity,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                    windowSurface,
+                    null,
+                    null
+                )
 
-            val presentationDisplay: Display? = vDisplay.display
+                presentationDisplay = vDisplay.display
 
 
-            if (presentationDisplay != null) {
-                if (helper) {
-                    launchStarterOnDisplayAdb(presentationDisplay.displayId, pkg)
-                } else {
-                    Utils.launchComponents[pkg]?.let {
-                        println("$pkg/$it")
-                        launchComponentOnDisplayAdb(presentationDisplay.displayId, "$pkg/$it")
+                if (presentationDisplay != null) {
+                    idOffset = presentationDisplay!!.displayId-newId
+                    if (helper) {
+                        launchStarterOnDisplayAdb(presentationDisplay!!.displayId, pkg)
+                    } else {
+                        Utils.launchComponents[pkg]?.let {
+                            println("$pkg/$it")
+                            launchComponentOnDisplayAdb(presentationDisplay!!.displayId, "$pkg/$it")
+                        }
                     }
+                } else {
+                    println("Presentation display is null")
                 }
-            } else {
-                println("Presentation display is null")
-            }
 
-            imageReaderNew.setOnImageAvailableListener({ reader ->
-                val image = reader.acquireLatestImage()
-                // Do something with the image
+                imageReaderNew.setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireLatestImage()
+                    // Do something with the image
 
-                image?.close()
-            }, Handler(Looper.getMainLooper()))
+                    image?.close()
+                }, Handler(Looper.getMainLooper()))
 
-            val state = presentationDisplay?.state
+            },{ motionEvent ->
+                dispatchMotionEventOnDisplayAdb(newId+idOffset,motionEvent)
+            },{ keyCode->
+                ShizukuActions.dispatchKeyEventOnDisplayAdb(newId+idOffset, keyCode)
+            },{
+                onDetachWindow(pkg, newId+idOffset, true)
+            })
+
+
             presentationDisplay?.displayId ?: -1
         }
 
         onDetachWindow = { pkg, id, terminate ->
+            if(terminate){
+                ShizukuActions.dispatchKeyEventOnDisplayAdb(id,KeyEvent.KEYCODE_HOME)
+            }
             displayCache[id]?.release()
             displayCache.remove(id)
         }

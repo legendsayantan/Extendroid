@@ -10,6 +10,8 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.UserHandle
 import android.view.Display
+import android.view.KeyEvent
+import android.view.MotionEvent
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
@@ -131,6 +133,22 @@ class ShizukuActions {
 
         fun launchComponentOnDisplayAdb(displayId: Int,component: String){
             execute("am start -n $component --display $displayId")
+        }
+
+        fun dispatchMotionEventOnDisplayAdb(displayId: Int, event: MotionEvent, scale:Float=1f){
+            val eventType = when(event.action){
+                MotionEvent.ACTION_DOWN -> "DOWN"
+                MotionEvent.ACTION_UP -> "UP"
+                MotionEvent.ACTION_MOVE -> "MOVE"
+                else -> "CANCEL"
+            }
+            val x = event.x * scale
+            val y = event.y * scale
+            execute("input -d $displayId motionevent $eventType $x $y")
+        }
+
+        fun dispatchKeyEventOnDisplayAdb(displayId: Int,key:Int){
+            execute("input -d $displayId keyevent $key")
         }
 
         fun execute(command: String, root: Boolean = false): Pair<Int, String?> = runCatching {

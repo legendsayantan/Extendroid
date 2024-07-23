@@ -178,7 +178,7 @@
         </LinearLayout>
         <CheckBox
             android:id="@+id/startHelper"
-            android:text="Use Start Helper (only use if needed)"
+            android:text="Use Start Helper (only if needed)"
             android:textColor="?attr/colorOnSecondary"
             android:layout_width="match_parent"
             android:layout_marginHorizontal="25dp"
