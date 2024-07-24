@@ -5,29 +5,54 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
+import android.view.SurfaceControl
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.materialswitch.MaterialSwitch
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.setMainDisplayPowerMode
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionAdb
+import dev.legendsayantan.extendroid.adapters.SessionsAdapter
 import rikka.shizuku.Shizuku
 
 
 class MainActivity : AppCompatActivity() {
     val REQUEST_CODE = 1000
+    val prefs by lazy { getSharedPreferences("prefs", MODE_PRIVATE) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         findViewById<MaterialCardView>(R.id.startStopBtn).setOnClickListener {
-            if (getAppStatus()) {
+            if (isServiceRunning()) {
                 stopApp()
             } else {
                 startApp()
             }
         }
-        registerNewSessionBtnListener()
-        refreshStatus = { Handler(mainLooper).post { updateStatuses() } }
+        registerNewSessionBtnListener(intent)
+        registerDisableScreenBtnListener()
+        registerFloatingMenuSwitch()
+        refreshStatus = {
+            try {
+                Handler(mainLooper).post { updateStatuses() }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        registerNewSessionBtnListener(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isServiceRunning()) {
+            ShizukuActions.dispatchForceStop(packageName)
+        }
     }
 
 
@@ -38,8 +63,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatuses() {
         findViewById<TextView>(R.id.statusText).text = "${getShizukuStatus()}\n${getServerStatus()}"
-        findViewById<TextView>(R.id.actionText).text = if (getAppStatus()) "Stop" else "Start"
-        findViewById<ImageView>(R.id.actionImage).setImageResource(if (getAppStatus()) R.drawable.baseline_stop_24 else R.drawable.baseline_play_arrow_24)
+        findViewById<TextView>(R.id.actionText).text = if (isServiceRunning()) "Stop" else "Start"
+        findViewById<ImageView>(R.id.actionImage).setImageResource(if (isServiceRunning()) R.drawable.rounded_stop_24 else R.drawable.baseline_play_arrow_24)
+        val recyclerView = findViewById<RecyclerView>(R.id.sessions)
+        val dataList = ExtendService.queryWindows()
+        recyclerView?.adapter = SessionsAdapter(applicationContext, dataList) { id ->
+            ExtendService.onDetachWindow(id, true)
+        }
+        recyclerView.invalidate()
     }
 
     private fun startApp() {
@@ -76,7 +107,7 @@ class MainActivity : AppCompatActivity() {
         return "Http Server Status: not available"
     }
 
-    private fun getAppStatus(): Boolean {
+    private fun isServiceRunning(): Boolean {
         return ExtendService.running
     }
 
@@ -109,20 +140,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun registerNewSessionBtnListener() {
-        findViewById<MaterialCardView>(R.id.addBtn).setOnClickListener {
-            if (getAppStatus()) {
-                NewSessionDialog(this) { pkg, size, helper ->
-                    ExtendService.onAttachWindow(pkg, size, helper)
-                }.show()
-            }else{
-                Toast.makeText(this, "App not running!", Toast.LENGTH_SHORT).show()
+    private fun registerNewSessionBtnListener(intent: Intent) {
+        val task = {
+            val d = NewSessionDialog(this) { pkg, size, helper ->
+                ExtendService.onAttachWindow(pkg, size, helper) { id ->
+                    updateStatuses()
+                }
             }
+            if (intent.getBooleanExtra("add", false)) d.setOnDismissListener { finish() }
+            d.show()
+            if (!isServiceRunning()) {
+                startApp()
+            }
+        }
+        if (intent.getBooleanExtra("add", false)) task()
+        findViewById<MaterialCardView>(R.id.addBtn).setOnClickListener {
+            task()
         }
     }
 
-    companion object{
+    fun registerDisableScreenBtnListener() {
+        findViewById<MaterialCardView>(R.id.disableScreen).setOnClickListener {
+            setMainDisplayPowerMode(0)
+        }
+    }
+
+    fun registerFloatingMenuSwitch() {
+        val switch = findViewById<MaterialSwitch>(R.id.controlSwitch)
+        switch.isChecked = prefs.getBoolean("floatingmenu", false)
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("floatingmenu", isChecked).apply()
+        }
+        shouldShowMenu = { switch.isChecked }
+    }
+
+    companion object {
         var refreshStatus = {}
+        var shouldShowMenu: () -> Boolean = { false }
     }
 
 }

@@ -8,7 +8,7 @@ import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
-import com.legendsayantan.launcher1.util.RecyclerGridAdapter
+import dev.legendsayantan.extendroid.adapters.RecyclerGridAdapter
 import dev.legendsayantan.extendroid.Utils.Companion.getLaunchableApps
 
 /**
@@ -19,6 +19,7 @@ class NewSessionDialog(context: Context, val onSelectionDone: (String,Pair<Int,I
     var aspect = 1f
 
     init {
+        context.setTheme(R.style.Theme_Extendroid)
         setContentView(R.layout.dialog_new_session)
         window?.setBackgroundDrawableResource(android.R.color.transparent)
         window?.setLayout(

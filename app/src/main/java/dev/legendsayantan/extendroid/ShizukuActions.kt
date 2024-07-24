@@ -10,13 +10,14 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.UserHandle
 import android.view.Display
-import android.view.KeyEvent
 import android.view.MotionEvent
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 import rikka.shizuku.shared.BuildConfig
+import java.io.File
+
 
 /**
  * @author legendsayantan
@@ -26,7 +27,8 @@ class ShizukuActions {
 
     fun Context.getServiceArgs(): Shizuku.UserServiceArgs? {
         return Shizuku.UserServiceArgs(
-            ComponentName(packageName,UserService::class.java.name))
+            ComponentName(packageName, UserService::class.java.name)
+        )
             .processNameSuffix("user_service")
             .debuggable(BuildConfig.DEBUG)
             .version(1)
@@ -46,6 +48,7 @@ class ShizukuActions {
 //            }
 //        }
     }
+
     companion object {
 
         @SuppressLint("PrivateApi")
@@ -98,8 +101,8 @@ class ShizukuActions {
                     SystemServiceHelper.getSystemService(Context.APP_OPS_SERVICE)
                 )
             )
-            val iAppOpsConstructor = iAppOps.getConstructor(Context::class.java,iAppOpsService)
-            val iAppOpsInstance = iAppOpsConstructor.newInstance(this,iAppOpsServiceInstance)
+            val iAppOpsConstructor = iAppOps.getConstructor(Context::class.java, iAppOpsService)
+            val iAppOpsInstance = iAppOpsConstructor.newInstance(this, iAppOpsServiceInstance)
 
 
             startOpMethod.invoke(
@@ -112,7 +115,7 @@ class ShizukuActions {
             )
         }
 
-        fun Context.grantMediaProjectionAdb(){
+        fun Context.grantMediaProjectionAdb() {
             execute("appops set $packageName PROJECT_MEDIA allow")
         }
 
@@ -122,21 +125,31 @@ class ShizukuActions {
             val options = ActivityOptions.makeBasic().setLaunchDisplayId(display.displayId)
             val contextReflect = Class.forName("android.content.Context")
             val userHandleReflect = Class.forName("android.os.UserHandle")
-            val startActivityAsUserMethod = contextReflect.getMethod("startActivityAsUser",Intent::class.java,Bundle::class.java,UserHandle::class.java)
+            val startActivityAsUserMethod = contextReflect.getMethod(
+                "startActivityAsUser",
+                Intent::class.java,
+                Bundle::class.java,
+                UserHandle::class.java
+            )
             val userHandleConstructor = userHandleReflect.getConstructor(Int::class.java)
-            startActivityAsUserMethod.invoke(this,intent,options.toBundle(),userHandleConstructor.newInstance(Shizuku.getUid()))
+            startActivityAsUserMethod.invoke(
+                this,
+                intent,
+                options.toBundle(),
+                userHandleConstructor.newInstance(Shizuku.getUid())
+            )
         }
 
-        fun Context.launchStarterOnDisplayAdb(displayId: Int, pkg:String){
-            launchComponentOnDisplayAdb(displayId,"$packageName/.StarterActivity --es pkg $pkg")
+        fun Context.launchStarterOnDisplayAdb(displayId: Int, pkg: String) {
+            launchComponentOnDisplayAdb(displayId, "$packageName/.StarterActivity --es pkg $pkg")
         }
 
-        fun launchComponentOnDisplayAdb(displayId: Int,component: String){
+        fun launchComponentOnDisplayAdb(displayId: Int, component: String) {
             execute("am start -n $component --display $displayId")
         }
 
-        fun dispatchMotionEventOnDisplayAdb(displayId: Int, event: MotionEvent, scale:Float=1f){
-            val eventType = when(event.action){
+        fun dispatchMotionEventOnDisplayAdb(displayId: Int, event: MotionEvent, scale: Float = 1f) {
+            val eventType = when (event.action) {
                 MotionEvent.ACTION_DOWN -> "DOWN"
                 MotionEvent.ACTION_UP -> "UP"
                 MotionEvent.ACTION_MOVE -> "MOVE"
@@ -147,12 +160,33 @@ class ShizukuActions {
             execute("input -d $displayId motionevent $eventType $x $y")
         }
 
-        fun dispatchKeyEventOnDisplayAdb(displayId: Int,key:Int){
+        fun dispatchKeyEventOnDisplayAdb(displayId: Int, key: Int) {
             execute("input -d $displayId keyevent $key")
         }
 
-        fun execute(command: String, root: Boolean = false): Pair<Int, String?> = runCatching {
+        fun dispatchForceStop(packageName: String) {
+            execute("am force-stop $packageName")
+        }
+
+        fun Context.setMainDisplayPowerMode(powerMode:Int) {
+            val tempFile = File(obbDir, "DisplayToggle.dex")
+            if(!tempFile.exists()){
+                tempFile.parentFile?.mkdirs()
+                tempFile.createNewFile()
+                val assetFile = assets.open("classes/DisplayToggle.dex")
+                tempFile.outputStream().use { assetFile.copyTo(it) }
+            }
+            val data = execute("CLASSPATH=${tempFile.absolutePath} app_process / DisplayToggle $powerMode")
+            println(data)
+        }
+
+        fun runOnly(command: String, root: Boolean = false) = kotlin.runCatching {
             IShizukuService.Stub.asInterface(Shizuku.getBinder()).newProcess(arrayOf(if (root) "su" else "sh"), null, null)
+        }
+
+        fun execute(command: String, root: Boolean = false): Pair<Int, String?> = runCatching {
+            IShizukuService.Stub.asInterface(Shizuku.getBinder())
+                .newProcess(arrayOf(if (root) "su" else "sh"), null, null)
                 .run {
                     ParcelFileDescriptor.AutoCloseOutputStream(outputStream).use {
                         it.write(command.toByteArray())
@@ -162,7 +196,8 @@ class ShizukuActions {
         }.getOrElse { 0 to it.stackTraceToString() }
 
         private val ParcelFileDescriptor.text
-            get() = ParcelFileDescriptor.AutoCloseInputStream(this).use { it.bufferedReader().readText() }
+            get() = ParcelFileDescriptor.AutoCloseInputStream(this)
+                .use { it.bufferedReader().readText() }
     }
 
 

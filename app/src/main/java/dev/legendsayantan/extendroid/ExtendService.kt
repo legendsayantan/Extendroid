@@ -16,20 +16,21 @@ import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.view.Display
+import android.util.DisplayMetrics
 import android.view.KeyEvent
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.dispatchMotionEventOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchComponentOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchStarterOnDisplayAdb
+import dev.legendsayantan.extendroid.ShizukuActions.Companion.setMainDisplayPowerMode
+import dev.legendsayantan.extendroid.data.ActiveSession
 
 
 class ExtendService : Service() {
     val displayCache = hashMapOf<Int, VirtualDisplay>()
     val overlayWorker by lazy { OverlayWorker(this) }
-    var idOffset = 0
+    var idToDisplayIdMap = hashMapOf<Int, Int>()
+    var activeSessions = arrayListOf<ActiveSession>()
     var lastId = 0
-
-
 
 
     override fun onBind(intent: Intent): IBinder? {
@@ -44,9 +45,29 @@ class ExtendService : Service() {
         startForegroundService()
         // Initialize your media projection here
         val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        if (data == null) {
+            stopSelf()
+            return
+        }
         mediaProjection =
             projectionManager.getMediaProjection(result, data!!)
         createVirtualDisplay(mediaProjection!!)
+
+        queryWindows = {
+            activeSessions
+        }
+        if (MainActivity.shouldShowMenu()) {
+            overlayWorker.showMenu({
+                startActivity(
+                    Intent(
+                        this,
+                        MainActivity::class.java
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("add", true)
+                )
+            }, {
+                setMainDisplayPowerMode(0)
+            })
+        }
     }
 
     private fun createVirtualDisplay(mediaProjection: MediaProjection) {
@@ -55,39 +76,46 @@ class ExtendService : Service() {
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
 
-        onAttachWindow = { pkg: String, resolution: Pair<Int, Int>, helper: Boolean ->
+        onAttachWindow = { pkg: String, resolution: Pair<Int, Int>, helper: Boolean, callback ->
             val imageReaderNew = ImageReader.newInstance(
                 resolution.first, resolution.second,
                 PixelFormat.RGBA_8888, 2
             )
 
-            var presentationDisplay: Display? = null
             val newId = ++lastId
-            overlayWorker.createWindow(newId, resolution,{ windowSurface->
+            overlayWorker.createWindow(newId, resolution, pkg, { windowSurface ->
                 val vDisplay = mediaProjection.createVirtualDisplay(
                     pkg,
                     resolution.first,
                     resolution.second,
-                    screenDensity,
+                    (DisplayMetrics.DENSITY_DEFAULT+screenDensity)/2,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                     windowSurface,
                     null,
                     null
                 )
 
-                presentationDisplay = vDisplay.display
+                val presentationDisplay = vDisplay.display
 
 
                 if (presentationDisplay != null) {
-                    idOffset = presentationDisplay!!.displayId-newId
+                    idToDisplayIdMap[newId] = presentationDisplay.displayId
+                    activeSessions.add(
+                        ActiveSession(
+                            presentationDisplay.displayId,
+                            pkg,
+                            "${resolution.first}x${resolution.second}"
+                        )
+                    )
                     if (helper) {
-                        launchStarterOnDisplayAdb(presentationDisplay!!.displayId, pkg)
+                        launchStarterOnDisplayAdb(presentationDisplay.displayId, pkg)
                     } else {
                         Utils.launchComponents[pkg]?.let {
                             println("$pkg/$it")
-                            launchComponentOnDisplayAdb(presentationDisplay!!.displayId, "$pkg/$it")
+                            launchComponentOnDisplayAdb(presentationDisplay.displayId, "$pkg/$it")
                         }
                     }
+                    callback(presentationDisplay.displayId)
                 } else {
                     println("Presentation display is null")
                 }
@@ -99,24 +127,26 @@ class ExtendService : Service() {
                     image?.close()
                 }, Handler(Looper.getMainLooper()))
 
-            },{ motionEvent ->
-                dispatchMotionEventOnDisplayAdb(newId+idOffset,motionEvent)
-            },{ keyCode->
-                ShizukuActions.dispatchKeyEventOnDisplayAdb(newId+idOffset, keyCode)
-            },{
-                onDetachWindow(pkg, newId+idOffset, true)
+            }, { motionEvent ->
+                dispatchMotionEventOnDisplayAdb(idToDisplayIdMap[newId] ?: -1, motionEvent)
+            }, { keyCode ->
+                ShizukuActions.dispatchKeyEventOnDisplayAdb(idToDisplayIdMap[newId] ?: -1, keyCode)
+            }, {
+                onDetachWindow(idToDisplayIdMap[newId] ?: -1, true)
+                activeSessions.removeAt(activeSessions.indexOfFirst {
+                    it.id == (idToDisplayIdMap[newId] ?: -1)
+                })
+                MainActivity.refreshStatus()
             })
-
-
-            presentationDisplay?.displayId ?: -1
         }
 
-        onDetachWindow = { pkg, id, terminate ->
-            if(terminate){
-                ShizukuActions.dispatchKeyEventOnDisplayAdb(id,KeyEvent.KEYCODE_HOME)
+        onDetachWindow = { id, terminate ->
+            if (terminate) {
+                ShizukuActions.dispatchKeyEventOnDisplayAdb(id, KeyEvent.KEYCODE_HOME)
+                displayCache[id]?.release()
+                displayCache.remove(id)
             }
-            displayCache[id]?.release()
-            displayCache.remove(id)
+            overlayWorker.deleteWindow(idToDisplayIdMap.filter { it.value == id }.keys.first())
         }
 
     }
@@ -152,6 +182,8 @@ class ExtendService : Service() {
         running = false
         // Stop media projection here
         mediaProjection?.stop()
+        overlayWorker.hideMenu()
+        MainActivity.refreshStatus()
         super.onDestroy()
     }
 
@@ -163,10 +195,10 @@ class ExtendService : Service() {
         private const val SERVICE_CHANNEL = "Service"
 
         //listeners
-        var onAttachWindow: (String, Pair<Int, Int>, Boolean) -> Int
-                /**DisplayId**/
-                = { packageName, resolution, helper -> -1 }
-        var onDetachWindow: (String, Int, Boolean) -> Unit =
-            { packageName, displayId, terminate -> }
+        var onAttachWindow: (String, Pair<Int, Int>, Boolean, (Int) -> Unit) -> Unit =
+            { packageName, resolution, helper, callback -> }
+        var onDetachWindow: (Int, Boolean) -> Unit =
+            { displayId, terminate -> }
+        var queryWindows: () -> List<ActiveSession> = { listOf() }
     }
 }

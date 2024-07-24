@@ -29,5 +29,24 @@ class Utils {
             return TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
         }
+
+        fun Context.getAppNameFromPackage(pkg:String):String{
+            val packageManager = packageManager
+            val app = packageManager.getApplicationInfo(pkg, 0)
+            return app.loadLabel(packageManager).toString()
+        }
+
+        fun Context.getAppIconFromPackage(pkg:String) = packageManager.getApplicationIcon(pkg)
+
+        fun Context.getBackgroundColor(): Int {
+            val typedValue = TypedValue()
+            theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+            return typedValue.data
+        }
+        fun Context.getForegroundColor():Int {
+            val typedValue = TypedValue()
+            theme.resolveAttribute(android.R.attr.textColor, typedValue, true)
+            return typedValue.data
+        }
     }
 }

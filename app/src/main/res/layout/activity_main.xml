@@ -54,14 +54,55 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <LinearLayout
+        android:id="@+id/btns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@+id/startStopBtn">
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/disableScreen"
+            android:layout_weight="1"
+            app:cardBackgroundColor="?attr/colorPrimary"
+            app:strokeColor="?attr/colorOnSecondary"
+            app:strokeWidth="2dp"
+            android:layout_marginVertical="10dp"
+            android:layout_width="0dp"
+            android:layout_height="match_parent">
+            <TextView
+                android:text="Disable Screen"
+                android:layout_marginHorizontal="15dp"
+                android:layout_marginVertical="10dp"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+        </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView
+            app:cardBackgroundColor="?attr/colorPrimary"
+            android:layout_marginStart="15dp"
+            app:strokeColor="?attr/colorOnSecondary"
+            app:strokeWidth="2dp"
+            android:layout_marginVertical="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/controlSwitch"
+                android:text="floating menu"
+                android:textColor="?attr/colorOnSecondary"
+                android:layout_marginHorizontal="15dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="15dp"
+        android:layout_marginHorizontal="15dp"
         android:textSize="16sp"
         android:text="Status:"
-        app:layout_constraintTop_toBottomOf="@+id/startStopBtn" />
+        app:layout_constraintTop_toBottomOf="@+id/btns"/>
 
     <TextView
         android:id="@+id/textView"
@@ -74,6 +115,8 @@
         app:layout_constraintTop_toBottomOf="@+id/statusText"/>
 
     <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/sessions"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"

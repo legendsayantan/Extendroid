@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Extendroid</string>
     <string name="create_session">Create Session</string>
+    <string name="app_pkg">dev.legendsayantan.extendroid</string>
 </resources>

@@ -1,31 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    android:layout_height="match_parent">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="15dp"
-        app:cardCornerRadius="0dp"
         android:clipChildren="true"
+        app:cardCornerRadius="0dp"
         app:cardPreventCornerOverlap="false"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
-            android:gravity="center"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:gravity="center">
+
             <SurfaceView
                 android:id="@+id/surfaceView"
-                android:foregroundGravity="center"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:foregroundGravity="center" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -33,136 +33,140 @@
         android:id="@+id/handle"
         android:layout_width="34dp"
         android:layout_height="34dp"
-        android:rotation="90"
         android:elevation="2dp"
         android:src="@drawable/baseline_circle_24"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/container"
-        app:layout_constraintBottom_toTopOf="@id/container"
-        app:tint="@color/theme1" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="?attr/colorPrimary" />
 
     <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/image"
         android:layout_width="20dp"
         android:layout_height="20dp"
-        android:rotation="90"
         android:elevation="3dp"
+        android:rotation="90"
         android:src="@drawable/baseline_drag_indicator_24"
+        app:layout_constraintBottom_toBottomOf="@id/handle"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/container"
-        app:layout_constraintBottom_toTopOf="@id/container"/>
+        app:layout_constraintTop_toTopOf="@id/handle"
+        app:tint="?attr/colorOnSecondary"/>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/menu"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="@id/container"
-        android:elevation="2dp"
-        app:layout_constraintBottom_toTopOf="@id/container"
-        app:layout_constraintStart_toStartOf="@id/handle"
-        app:layout_constraintEnd_toEndOf="@id/handle"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:elevation="2dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/handle"
+        app:layout_constraintEnd_toEndOf="@id/handle"
+        app:layout_constraintStart_toStartOf="@id/handle"
+        app:layout_constraintTop_toTopOf="parent">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/back"
             android:layout_width="34dp"
             android:layout_height="34dp"
+            android:layout_marginEnd="5dp"
             android:elevation="2dp"
             android:rotation="90"
-            android:layout_marginEnd="5dp"
             android:src="@drawable/baseline_circle_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/downscale"
-            app:tint="@color/theme1" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:elevation="3dp"
             android:layout_marginEnd="12dp"
+            android:elevation="3dp"
             android:src="@drawable/baseline_arrow_back_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/downscale"/>
+            app:layout_constraintEnd_toStartOf="@+id/downscale"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnSecondary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/downscale"
             android:layout_width="34dp"
             android:layout_height="34dp"
+            android:layout_marginEnd="5dp"
             android:elevation="2dp"
             android:rotation="90"
-            android:layout_marginEnd="5dp"
             android:src="@drawable/baseline_circle_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/space"
-            app:tint="@color/theme1" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:elevation="3dp"
             android:layout_marginEnd="12dp"
+            android:elevation="3dp"
             android:src="@drawable/outline_zoom_out_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/space"/>
+            app:layout_constraintEnd_toStartOf="@+id/space"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnSecondary" />
 
         <Space
             android:id="@+id/space"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
             android:layout_width="34dp"
-            android:layout_height="34dp"/>
+            android:layout_height="34dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/upscale"
             android:layout_width="34dp"
             android:layout_height="34dp"
+            android:layout_marginStart="5dp"
             android:elevation="2dp"
             android:rotation="90"
-            android:layout_marginStart="5dp"
             android:src="@drawable/baseline_circle_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@+id/space"
-            app:tint="@color/theme1" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:elevation="3dp"
             android:layout_marginStart="12dp"
+            android:elevation="3dp"
             android:src="@drawable/baseline_zoom_in_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/space"/>
+            app:layout_constraintStart_toEndOf="@+id/space"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnSecondary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/close"
             android:layout_width="34dp"
             android:layout_height="34dp"
+            android:layout_marginStart="5dp"
             android:elevation="2dp"
             android:rotation="90"
-            android:layout_marginStart="5dp"
             android:src="@drawable/baseline_circle_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@+id/upscale"
-            app:tint="@color/theme1" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorPrimary" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:elevation="3dp"
             android:layout_marginStart="12dp"
+            android:elevation="3dp"
             android:src="@drawable/baseline_close_24"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/upscale"/>
+            app:layout_constraintStart_toEndOf="@+id/upscale"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnSecondary" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

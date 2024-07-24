@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:theme="@style/Theme.MaterialComponents"
+    app:cardCornerRadius="15dp"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:background="?attr/colorPrimary"
+        android:theme="@style/Theme.Extendroid"
+        android:paddingHorizontal="5dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <ImageView
+            android:id="@+id/addBtn"
+            android:theme="@style/Theme.Extendroid"
+            android:src="@drawable/baseline_add_24"
+            android:layout_width="wrap_content"
+            android:layout_margin="10dp"
+            android:layout_height="wrap_content"
+            app:tint="?attr/colorOnSecondary" />
+        <ImageView
+            android:id="@+id/lightOff"
+            android:src="@drawable/outline_light_off_24"
+            android:theme="@style/Theme.Extendroid"
+            android:layout_width="wrap_content"
+            android:layout_marginVertical="10dp"
+            android:layout_height="wrap_content"
+            app:tint="?attr/colorOnSecondary"/>
+        <ImageView
+            android:id="@+id/handle"
+            android:theme="@style/Theme.Extendroid"
+            android:src="@drawable/baseline_drag_indicator_24"
+            android:layout_width="wrap_content"
+            android:rotation="90"
+            android:layout_margin="10dp"
+            android:layout_height="wrap_content"
+            app:tint="?attr/colorOnSecondary"/>
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
