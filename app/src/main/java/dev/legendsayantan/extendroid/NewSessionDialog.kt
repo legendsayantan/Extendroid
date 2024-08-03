@@ -9,7 +9,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
 import dev.legendsayantan.extendroid.adapters.RecyclerGridAdapter
-import dev.legendsayantan.extendroid.Utils.Companion.getLaunchableApps
+import dev.legendsayantan.extendroid.lib.Utils.Companion.getLaunchableApps
 
 /**
  * @author legendsayantan

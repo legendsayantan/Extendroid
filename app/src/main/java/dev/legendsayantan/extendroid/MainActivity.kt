@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
-import android.view.SurfaceControl
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -13,10 +12,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
-import dev.legendsayantan.extendroid.ShizukuActions.Companion.setMainDisplayPowerMode
-import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionAdb
-import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
+import dev.legendsayantan.extendroid.lib.ShizukuActions.Companion.setMainDisplayPowerMode
+import dev.legendsayantan.extendroid.lib.ShizukuActions.Companion.grantMediaProjectionAdb
+import dev.legendsayantan.extendroid.lib.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.adapters.SessionsAdapter
+import dev.legendsayantan.extendroid.lib.ShizukuActions
+import dev.legendsayantan.extendroid.services.ExtendService
 import rikka.shizuku.Shizuku
 
 

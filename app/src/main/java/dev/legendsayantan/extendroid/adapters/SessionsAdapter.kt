@@ -8,8 +8,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import dev.legendsayantan.extendroid.R
-import dev.legendsayantan.extendroid.Utils.Companion.getAppNameFromPackage
-import dev.legendsayantan.extendroid.Utils.Companion.getForegroundColor
+import dev.legendsayantan.extendroid.lib.Utils.Companion.getAppNameFromPackage
 import dev.legendsayantan.extendroid.data.ActiveSession
 
 /**

@@ -2,4 +2,6 @@
     <string name="app_name">Extendroid</string>
     <string name="create_session">Create Session</string>
     <string name="app_pkg">dev.legendsayantan.extendroid</string>
+    <string name="screen_tile_label">Disable Screen</string>
+    <string name="add_session_tile_label">Create Session</string>
 </resources>

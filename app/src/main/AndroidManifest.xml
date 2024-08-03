@@ -2,10 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"
+    <uses-permission
+        android:name="android.permission.INTERACT_ACROSS_USERS_FULL"
         tools:ignore="ProtectedPermissions" />
 
     <supports-screens android:anyDensity="true" />
@@ -23,19 +24,42 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:resizeableActivity="true"
         android:label="@string/app_name"
+        android:resizeableActivity="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Extendroid"
         tools:targetApi="31">
+        <service
+            android:name=".services.AddSessionTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/baseline_add_24"
+            android:label="@string/add_session_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".services.ScreenTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/outline_light_off_24"
+            android:label="@string/screen_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".StarterActivity"
-            android:resizeableActivity="true"
-            android:exported="true" />
+            android:exported="true"
+            android:resizeableActivity="true" />
 
         <service
-            android:name=".ExtendService"
+            android:name=".services.ExtendService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="mediaProjection" />
@@ -53,9 +77,9 @@
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
             android:enabled="true"
             android:exported="true"
+            android:multiprocess="false"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 
