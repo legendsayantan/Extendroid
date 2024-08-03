@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.KeyEvent
+import android.view.MotionEvent
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.dispatchMotionEventOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchComponentOnDisplayAdb
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.launchStarterOnDisplayAdb
@@ -31,6 +32,10 @@ class ExtendService : Service() {
     var idToDisplayIdMap = hashMapOf<Int, Int>()
     var activeSessions = arrayListOf<ActiveSession>()
     var lastId = 0
+    lateinit var motionDispatcher: Thread
+    lateinit var keyDispatcher : Thread
+    var motionEvents : ArrayList<Pair<Int,MotionEvent>> = arrayListOf()
+    var keyEvents : ArrayList<Pair<Int,Int>> = arrayListOf()
 
 
     override fun onBind(intent: Intent): IBinder? {
@@ -68,6 +73,24 @@ class ExtendService : Service() {
                 setMainDisplayPowerMode(0)
             })
         }
+        motionDispatcher = Thread{
+            while (true){
+                if(motionEvents.isNotEmpty()){
+                    val event = motionEvents.removeAt(0)
+                    dispatchMotionEventOnDisplayAdb(event.first, event.second)
+                }
+            }
+        }
+        keyDispatcher = Thread{
+            while (true){
+                if(keyEvents.isNotEmpty()){
+                    val event = keyEvents.removeAt(0)
+                    ShizukuActions.dispatchKeyEventOnDisplayAdb(event.first, event.second)
+                }
+            }
+        }
+        motionDispatcher.start()
+        keyDispatcher.start()
     }
 
     private fun createVirtualDisplay(mediaProjection: MediaProjection) {
@@ -133,9 +156,9 @@ class ExtendService : Service() {
                 }, Handler(Looper.getMainLooper()))
 
             }, { motionEvent ->
-                dispatchMotionEventOnDisplayAdb(idToDisplayIdMap[newId] ?: -1, motionEvent)
+                motionEvents.add(Pair(idToDisplayIdMap[newId] ?: -1, motionEvent))
             }, { keyCode ->
-                ShizukuActions.dispatchKeyEventOnDisplayAdb(idToDisplayIdMap[newId] ?: -1, keyCode)
+                keyEvents.add(Pair(idToDisplayIdMap[newId] ?: -1, keyCode))
             }, {
                 onDetachWindow(idToDisplayIdMap[newId] ?: -1, true)
                 activeSessions.removeAt(activeSessions.indexOfFirst {
@@ -151,7 +174,7 @@ class ExtendService : Service() {
                 displayCache[id]?.release()
                 displayCache.remove(id)
             }
-            overlayWorker.deleteWindow(idToDisplayIdMap.filter { it.value == id }.keys.first())
+            idToDisplayIdMap.filter { it.value == id }.keys.firstOrNull()?.let { overlayWorker.deleteWindow(it) }
         }
 
     }
@@ -185,6 +208,8 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         running = false
+        motionDispatcher.interrupt()
+        keyDispatcher.interrupt()
         // Stop media projection here
         mediaProjection?.stop()
         overlayWorker.hideMenu()

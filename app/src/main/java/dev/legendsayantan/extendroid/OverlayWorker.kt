@@ -1,6 +1,7 @@
 package dev.legendsayantan.extendroid
 
 import android.animation.Animator
+import android.animation.Animator.AnimatorListener
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
@@ -174,7 +175,14 @@ class OverlayWorker(val context: Context) {
                             menu.scaleY = 0f
                             menu.visibility = View.VISIBLE
                         }
-                        menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setListener(null).start()
+                        menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setListener(object: AnimatorListener{
+                            override fun onAnimationStart(animation: Animator) {}
+                            override fun onAnimationEnd(animation: Animator) {
+                                menu.invalidate()
+                            }
+                            override fun onAnimationCancel(animation: Animator) {}
+                            override fun onAnimationRepeat(animation: Animator) {}
+                        }).start()
                     }else if(movedX in -10..10 && movedY in -10..10){
                         maximize(view)
                     }
@@ -234,8 +242,9 @@ class OverlayWorker(val context: Context) {
         imageView.setImageDrawable(context.getAppIconFromPackage(pkg))
         imageView.imageTintList = null
         imageView.rotation = 0f
-        imageView.scaleX = 2f
-        imageView.scaleY = 2f
+        imageView.scaleX = 1.75f
+        imageView.scaleY = 1.75f
+        imageView.translationY = 10f
         windowManager.updateViewLayout(view, params.apply {
             width = context.dpToPx(50f)
             height = context.dpToPx(100f)
@@ -256,6 +265,7 @@ class OverlayWorker(val context: Context) {
         imageView.rotation = 90f
         imageView.scaleX = 1f
         imageView.scaleY = 1f
+        imageView.translationY = 0f
         windowManager.updateViewLayout(view, view.layoutParams.apply {
             width = windowSizes[view]?.first ?: context.dpToPx(50f)
             height = windowSizes[view]?.second ?: context.dpToPx(50f)
