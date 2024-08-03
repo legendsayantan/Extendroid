@@ -84,6 +84,11 @@ class ExtendService : Service() {
 
             val newId = ++lastId
             overlayWorker.createWindow(newId, resolution, pkg, { windowSurface ->
+                if(resolution.first>screenWidth || resolution.second>screenHeight){
+                    do {
+                        val newParam = overlayWorker.scaleWindow(newId, pkg, false)
+                    }while (newParam.height>screenHeight || newParam.width>screenWidth)
+                }
                 val vDisplay = mediaProjection.createVirtualDisplay(
                     pkg,
                     resolution.first,

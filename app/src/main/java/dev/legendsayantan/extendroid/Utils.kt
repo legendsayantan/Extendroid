@@ -2,7 +2,9 @@ package dev.legendsayantan.extendroid
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.TypedValue
+import java.util.Locale
 
 /**
  * @author legendsayantan
@@ -47,6 +49,16 @@ class Utils {
             val typedValue = TypedValue()
             theme.resolveAttribute(android.R.attr.textColor, typedValue, true)
             return typedValue.data
+        }
+
+        fun Context.miuiRequirements(){
+            if ("xiaomi" == Build.MANUFACTURER.lowercase(Locale.ROOT)) {
+                val intent = Intent("miui.intent.action.APP_PERM_EDITOR")
+                intent.setClassName("com.miui.securitycenter",
+                    "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                intent.putExtra("extra_pkgname", packageName)
+                startActivity(intent)
+            }
         }
     }
 }

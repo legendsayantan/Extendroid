@@ -138,11 +138,15 @@ class OverlayWorker(val context: Context) {
         val handle = view.findViewById<AppCompatImageView>(R.id.handle)
         var x = 0
         var y = 0
+        var movedX = 0
+        var movedY = 0
         handle.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     x = event.rawX.toInt()
                     y = event.rawY.toInt()
+                    movedX = 0
+                    movedY = 0
                 }
 
                 MotionEvent.ACTION_MOVE -> {
@@ -153,31 +157,34 @@ class OverlayWorker(val context: Context) {
                     val params = view.layoutParams as WindowManager.LayoutParams
                     params.x -= dx
                     params.y += dy
+                    movedX -= dx
+                    movedY += dy
                     windowManager.updateViewLayout(view, params)
                 }
 
                 MotionEvent.ACTION_UP -> {
-                    if (isMinimized(view)) {
+                    if (!isMinimized(view)) {
+                        menuTimer.cancel()
+                        menuTimer.purge()
+                        menuTimer = Timer()
+                        menuTimer.schedule(timerTask { taskMenuClose() }, 2500)
+                        if (menu.visibility == View.GONE) {
+                            menu.alpha = 0f
+                            menu.scaleX = 0f
+                            menu.scaleY = 0f
+                            menu.visibility = View.VISIBLE
+                        }
+                        menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setListener(null).start()
+                    }else if(movedX in -10..10 && movedY in -10..10){
                         maximize(view)
                     }
-                    menuTimer.cancel()
-                    menuTimer.purge()
-                    menuTimer = Timer()
-                    menuTimer.schedule(timerTask { taskMenuClose() }, 2500)
-                    if (menu.visibility == View.GONE) {
-                        menu.alpha = 0f
-                        menu.scaleX = 0f
-                        menu.scaleY = 0f
-                        menu.visibility = View.VISIBLE
-                    }
-                    menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setListener(null).start()
                 }
             }
             return@setOnTouchListener true
         }
     }
 
-    private fun scaleWindow(id: Int, pkg: String, up: Boolean) {
+    fun scaleWindow(id: Int, pkg: String, up: Boolean): WindowManager.LayoutParams {
         val extraAreaPx = context.dpToPx(15f)
         val view = windows[id]!!
         val oldScale = windowScales[id] ?: 1.0f
@@ -190,13 +197,13 @@ class OverlayWorker(val context: Context) {
         if (
             (updatedWidth.toInt() > displayMetrics.widthPixels
                     || updatedHeight.toInt() > displayMetrics.heightPixels) && up
-        ) return
+        ) return params
         if (
             (updatedWidth.toInt() < context.dpToPx(120f)
                     || updatedHeight.toInt() < context.dpToPx(80f)) && !up
         ) {
             minimize(view, pkg)
-            return
+            return params
         }
         params.width = updatedWidth.toInt()
         params.height = updatedHeight.toInt()
@@ -204,6 +211,7 @@ class OverlayWorker(val context: Context) {
         surfaceView.scaleX = newScale
         surfaceView.scaleY = newScale
         windowScales[id] = newScale
+        return params
     }
 
     fun deleteWindow(id: Int) {
@@ -226,9 +234,11 @@ class OverlayWorker(val context: Context) {
         imageView.setImageDrawable(context.getAppIconFromPackage(pkg))
         imageView.imageTintList = null
         imageView.rotation = 0f
+        imageView.scaleX = 2f
+        imageView.scaleY = 2f
         windowManager.updateViewLayout(view, params.apply {
             width = context.dpToPx(50f)
-            height = context.dpToPx(50f)
+            height = context.dpToPx(100f)
         })
     }
 
@@ -244,6 +254,8 @@ class OverlayWorker(val context: Context) {
         imageView.setImageResource(R.drawable.baseline_drag_indicator_24)
         imageView.imageTintList = ColorStateList.valueOf(context.getForegroundColor())
         imageView.rotation = 90f
+        imageView.scaleX = 1f
+        imageView.scaleY = 1f
         windowManager.updateViewLayout(view, view.layoutParams.apply {
             width = windowSizes[view]?.first ?: context.dpToPx(50f)
             height = windowSizes[view]?.second ?: context.dpToPx(50f)

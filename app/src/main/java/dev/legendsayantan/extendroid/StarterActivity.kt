@@ -12,7 +12,7 @@ import androidx.core.view.WindowInsetsCompat
 class StarterActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.dialog_new_session)
+        setContentView(R.layout.activity_starter)
         val packageName = intent.getStringExtra("pkg")
         val intent = packageName?.let { packageManager.getLaunchIntentForPackage(it) }
         intent?.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT or Intent.FLAG_ACTIVITY_NEW_TASK)

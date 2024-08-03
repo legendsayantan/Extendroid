@@ -15,6 +15,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.setMainDisplayPowerMode
 import dev.legendsayantan.extendroid.ShizukuActions.Companion.grantMediaProjectionAdb
+import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.adapters.SessionsAdapter
 import rikka.shizuku.Shizuku
 
@@ -141,6 +142,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerNewSessionBtnListener(intent: Intent) {
+        askXiaomiPermsIfNecessary()
         val task = {
             val d = NewSessionDialog(this) { pkg, size, helper ->
                 ExtendService.onAttachWindow(pkg, size, helper) { id ->
@@ -159,19 +161,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun registerDisableScreenBtnListener() {
+    private fun registerDisableScreenBtnListener() {
         findViewById<MaterialCardView>(R.id.disableScreen).setOnClickListener {
             setMainDisplayPowerMode(0)
         }
     }
 
-    fun registerFloatingMenuSwitch() {
+    private fun registerFloatingMenuSwitch() {
         val switch = findViewById<MaterialSwitch>(R.id.controlSwitch)
         switch.isChecked = prefs.getBoolean("floatingmenu", false)
         switch.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("floatingmenu", isChecked).apply()
         }
         shouldShowMenu = { switch.isChecked }
+    }
+
+    private fun askXiaomiPermsIfNecessary(){
+        if(!prefs.getBoolean("miui",false)){
+            Toast.makeText(this,"Please allow these permissions!",Toast.LENGTH_SHORT).show()
+            miuiRequirements()
+            prefs.edit().putBoolean("miui",true).apply()
+        }
     }
 
     companion object {
