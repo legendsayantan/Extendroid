@@ -53,6 +53,5 @@ dependencies {
     implementation libs.shizuku.api
     implementation libs.shizuku.provider
 
-    implementation libs.stream.webrtc.android
     implementation libs.google.code.gson
 }
