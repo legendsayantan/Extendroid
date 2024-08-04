@@ -107,7 +107,7 @@ class ExtendService : Service() {
 
         onAttachWindow = { pkg, resolution, helper, windowMode, callback ->
             val newId = ++lastId
-            val startAndSaveSession :(Display)->Unit = { d ->
+            val startAndSaveSession: (Display) -> Unit = { d ->
                 idToDisplayIdMap[newId] = d.displayId
                 activeSessions.add(
                     ActiveSession(
@@ -127,7 +127,7 @@ class ExtendService : Service() {
                 }
                 callback(d.displayId)
             }
-            if(windowMode!=WindowMode.WIRELESS){
+            if (windowMode != WindowMode.WIRELESS) {
                 overlayWorker.createWindow(newId, resolution, pkg, windowMode, { windowSurface ->
                     if (resolution.first > screenWidth || resolution.second > screenHeight) {
                         do {
@@ -150,7 +150,7 @@ class ExtendService : Service() {
 
                     if (presentationDisplay != null) {
                         startAndSaveSession(presentationDisplay)
-                        if(windowMode==WindowMode.BOTH){
+                        if (windowMode == WindowMode.BOTH) {
                             overlayWorker.startStreaming(newId)
                         }
                     } else {
@@ -165,7 +165,7 @@ class ExtendService : Service() {
                     onDetachWindow(idToDisplayIdMap[newId] ?: -1, true)
                     MainActivity.refreshStatus()
                 })
-            }else{
+            } else {
                 val imageReaderNew = ImageReader.newInstance(
                     resolution.first, resolution.second,
                     PixelFormat.RGBA_8888, 2
@@ -183,9 +183,9 @@ class ExtendService : Service() {
                 )
 
                 val presentationDisplay = vDisplay.display
-                if(presentationDisplay!=null){
+                if (presentationDisplay != null) {
                     startAndSaveSession(presentationDisplay)
-                    StreamHandler.start(newId,imageReaderNew)
+                    StreamHandler.start(newId, imageReaderNew)
                 }
             }
         }
@@ -196,9 +196,11 @@ class ExtendService : Service() {
                 displayCache[id]?.release()
                 displayCache.remove(id)
             }
-            idToDisplayIdMap.filter { it.value == id }.keys.firstOrNull()?.let { overlayWorker.deleteWindow(it) }
-            idToDisplayIdMap.filter { it.value == id }.keys.firstOrNull()?.let { StreamHandler.stop(it) }
-            activeSessions.removeIf { it.id==id }
+            idToDisplayIdMap.filter { it.value == id }.keys.firstOrNull()?.let {
+                overlayWorker.deleteWindow(it)
+                StreamHandler.stop(it)
+            }
+            activeSessions.removeIf { it.id == id }
         }
 
     }
@@ -234,10 +236,12 @@ class ExtendService : Service() {
         running = false
         try {
             motionDispatcher.interrupt()
-        }catch (_:Exception){}
+        } catch (_: Exception) {
+        }
         try {
             keyDispatcher.interrupt()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         // Stop media projection here
         mediaProjection?.stop()
         overlayWorker.hideMenu()
@@ -246,9 +250,10 @@ class ExtendService : Service() {
     }
 
     companion object {
-        enum class WindowMode{
+        enum class WindowMode {
             POPUP, WIRELESS, BOTH
         }
+
         var result: Int = 0
         var data: Intent? = null
         var running = false
