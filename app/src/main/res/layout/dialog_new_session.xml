@@ -27,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
             <TextView
-                android:text="Window Specs : "
+                android:text="Window Specs"
                 android:gravity="center"
                 android:textSize="16sp"
                 android:layout_weight="1"
@@ -53,6 +53,13 @@
             <ImageView
                 android:id="@+id/q_2k"
                 android:src="@drawable/outline_2k_24"
+                android:layout_weight="1"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                app:tint="?attr/colorOnSecondary" />
+            <ImageView
+                android:id="@+id/q_4k"
+                android:src="@drawable/outline_4k_24"
                 android:layout_weight="1"
                 android:layout_width="wrap_content"
                 android:layout_height="30dp"
@@ -177,13 +184,54 @@
                     android:text="9:16" />
             </LinearLayout>
         </LinearLayout>
-        <CheckBox
-            android:id="@+id/startHelper"
-            android:text="Use Start Helper (only if needed)"
-            android:textColor="?attr/colorOnSecondary"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:orientation="horizontal"
             android:layout_marginHorizontal="25dp"
-            android:layout_height="wrap_content"/>
+            android:layout_marginVertical="5dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/popup"
+                app:strokeColor="?attr/colorOnSecondary"
+                app:strokeWidth="5px"
+                android:layout_width="wrap_content"
+                app:cardBackgroundColor="?attr/colorPrimary"
+                android:layout_height="match_parent">
+
+                <ImageView
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:scaleX="0.6"
+                    android:scaleY="0.6"
+                    android:src="@drawable/rounded_select_window_24"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/wireless"
+                app:strokeColor="?attr/colorOnSecondary"
+                app:strokeWidth="0dp"
+                android:layout_width="wrap_content"
+                android:layout_marginHorizontal="10dp"
+                app:cardBackgroundColor="?attr/colorPrimary"
+                android:layout_height="match_parent">
+
+                <ImageView
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:scaleX="0.6"
+                    android:scaleY="0.6"
+                    android:src="@drawable/outline_wifi_tethering_24"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/startHelper"
+                android:text="@string/attempt_forced_start"
+                android:textColor="?attr/colorOnSecondary"
+                android:layout_width="0dp"
+                android:gravity="end|center_vertical"
+                android:layout_weight="1"
+                android:layout_height="50dp"/>
+        </LinearLayout>
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/apps"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"

@@ -39,17 +39,20 @@ android {
 
 dependencies {
 
-    def shizuku_version = "13.1.5"
 
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
     implementation libs.material
     implementation libs.androidx.activity
     implementation libs.androidx.constraintlayout
+    implementation libs.androidx.camera.core
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
 
-    implementation "dev.rikka.shizuku:api:$shizuku_version"
-    implementation "dev.rikka.shizuku:provider:$shizuku_version"
+    implementation libs.shizuku.api
+    implementation libs.shizuku.provider
+
+    implementation libs.stream.webrtc.android
+    implementation libs.google.code.gson
 }

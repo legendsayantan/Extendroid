@@ -5,6 +5,7 @@ import android.animation.Animator.AnimatorListener
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.util.DisplayMetrics
 import android.view.Gravity
@@ -14,6 +15,7 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
@@ -24,6 +26,7 @@ import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.lib.Utils.Companion.dpToPx
 import dev.legendsayantan.extendroid.lib.Utils.Companion.getAppIconFromPackage
 import dev.legendsayantan.extendroid.lib.Utils.Companion.getForegroundColor
+import dev.legendsayantan.extendroid.services.ExtendService
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
@@ -36,6 +39,7 @@ class OverlayWorker(val context: Context) {
     private val displayMetrics: DisplayMetrics = context.resources.displayMetrics
     private val layoutInflater: LayoutInflater = LayoutInflater.from(context)
     private val windows: HashMap<Int, View> = hashMapOf()
+    private val renderers : HashMap<Int,View> = hashMapOf()
     private val windowSizes = hashMapOf<View, Pair<Int, Int>>()
     private val windowScales = hashMapOf<Int, Float>()
     private val menuView: View by lazy { layoutInflater.inflate(R.layout.menu_control, null) }
@@ -50,6 +54,7 @@ class OverlayWorker(val context: Context) {
         id: Int,
         resolution: Pair<Int, Int>,
         pkg: String,
+        mode: ExtendService.Companion.WindowMode,
         onSurfaceReady: (Surface) -> Unit,
         onTouch: (MotionEvent) -> Unit,
         onKeyEvent: (Int) -> Unit,
@@ -70,33 +75,57 @@ class OverlayWorker(val context: Context) {
         println("saved id $id")
         windows[id] = view
 
-        val surfaceView = view.findViewById<SurfaceView>(R.id.surfaceView)
-        surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                surfaceView.bringToFront()
-                onSurfaceReady(holder.surface)
-            }
+        if(mode == ExtendService.Companion.WindowMode.POPUP){
+            renderers[id] = view.findViewById<SurfaceView>(R.id.surfaceView).apply {
+                holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                    this@apply.bringToFront()
+                    onSurfaceReady(holder.surface)
+                }
 
-            override fun surfaceChanged(
-                holder: SurfaceHolder,
-                format: Int,
-                width: Int,
-                height: Int
-            ) {
-                //TODO("Not yet implemented")
-            }
+                override fun surfaceChanged(
+                    holder: SurfaceHolder,
+                    format: Int,
+                    width: Int,
+                    height: Int
+                ) {
+                    println("changed")
+                }
 
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                //TODO("Not yet implemented")
+                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                    //TODO("Not yet implemented")
+                }
+            })
             }
-        })
-        surfaceView.layoutParams = surfaceView.layoutParams.apply {
+        }else{
+            renderers[id] = view.findViewById<TextureView>(R.id.textureView).apply {
+                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                        onSurfaceReady(Surface(surface))
+                    }
+
+                    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                        println("changed")
+                    }
+
+                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                        return true
+                    }
+
+                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                        println("updated")
+                    }
+                }
+            }
+        }
+        renderers[id]?.visibility = View.VISIBLE
+        renderers[id]?.layoutParams = renderers[id]?.layoutParams?.apply {
             width = resolution.first
             height = resolution.second
         }
 
         //Touch handling
-        surfaceView.setOnTouchListener { v, event ->
+        renderers[id]?.setOnTouchListener { v, event ->
             onTouch(event)
             return@setOnTouchListener true
         }
@@ -177,17 +206,20 @@ class OverlayWorker(val context: Context) {
                             menu.scaleY = 0f
                             menu.visibility = View.VISIBLE
                         }
-                        menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setListener(object: AnimatorListener{
-                            override fun onAnimationStart(animation: Animator) {
-                                menu.invalidate()
-                            }
-                            override fun onAnimationEnd(animation: Animator) {
-                                menu.invalidate()
-                            }
-                            override fun onAnimationCancel(animation: Animator) {}
-                            override fun onAnimationRepeat(animation: Animator) {}
-                        }).start()
-                    }else if(movedX in -10..10 && movedY in -10..10){
+                        menu.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                            .setListener(object : AnimatorListener {
+                                override fun onAnimationStart(animation: Animator) {
+                                    menu.invalidate()
+                                }
+
+                                override fun onAnimationEnd(animation: Animator) {
+                                    menu.invalidate()
+                                }
+
+                                override fun onAnimationCancel(animation: Animator) {}
+                                override fun onAnimationRepeat(animation: Animator) {}
+                            }).start()
+                    } else if (movedX in -10..10 && movedY in -10..10) {
                         maximize(view)
                     }
                 }
@@ -201,10 +233,10 @@ class OverlayWorker(val context: Context) {
         val view = windows[id]!!
         val oldScale = windowScales[id] ?: 1.0f
         val newScale = oldScale + if (up) 0.15f else -0.15f
-        val surfaceView = view.findViewById<SurfaceView>(R.id.surfaceView)
+        val renderArea = renderers[id]
         val params = view.layoutParams as WindowManager.LayoutParams
-        val updatedWidth = surfaceView.width * newScale
-        val updatedHeight = (surfaceView.height * newScale) + extraAreaPx
+        val updatedWidth = renderArea?.width?.times(newScale)?:0
+        val updatedHeight = (renderArea?.height?.times(newScale))?.plus(extraAreaPx)?:0
         if (
             (updatedWidth.toInt() > displayMetrics.widthPixels
                     || updatedHeight.toInt() > displayMetrics.heightPixels) && up
@@ -219,8 +251,8 @@ class OverlayWorker(val context: Context) {
         params.width = updatedWidth.toInt()
         params.height = updatedHeight.toInt()
         windowManager.updateViewLayout(view, params)
-        surfaceView.scaleX = newScale
-        surfaceView.scaleY = newScale
+        renderArea?.scaleX = newScale
+        renderArea?.scaleY = newScale
         windowScales[id] = newScale
         return params
     }
@@ -275,6 +307,14 @@ class OverlayWorker(val context: Context) {
         })
     }
 
+    fun startStreaming(id: Int) {
+        if(renderers[id] is TextureView) StreamHandler.start(id, renderers[id] as TextureView)
+    }
+
+    fun stopStreaming(id:Int){
+        StreamHandler.stop(id)
+    }
+
 
     @SuppressLint("ClickableViewAccessibility")
     fun showMenu(onAdd: () -> Unit, onLightOff: () -> Unit) {
@@ -322,8 +362,9 @@ class OverlayWorker(val context: Context) {
     }
 
     fun hideMenu() {
-       try {
-           windowManager.removeView(menuView)
-       }catch (_:Exception){}
+        try {
+            windowManager.removeView(menuView)
+        } catch (_: Exception) {
+        }
     }
 }

@@ -2,6 +2,7 @@ package dev.legendsayantan.extendroid
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
@@ -42,6 +43,9 @@ class MainActivity : AppCompatActivity() {
                 Handler(mainLooper).post { updateStatuses() }
             } catch (_: Exception) {
             }
+        }
+        setImage = {
+            findViewById<ImageView>(R.id.image).setImageBitmap(it)
         }
     }
 
@@ -145,8 +149,8 @@ class MainActivity : AppCompatActivity() {
     private fun registerNewSessionBtnListener(intent: Intent) {
         askXiaomiPermsIfNecessary()
         val task = {
-            val d = NewSessionDialog(this) { pkg, size, helper ->
-                ExtendService.onAttachWindow(pkg, size, helper) { id ->
+            val d = NewSessionDialog(this) { pkg, size, helper, mode ->
+                ExtendService.onAttachWindow(pkg, size, helper, mode) { id ->
                     updateStatuses()
                 }
             }
@@ -188,6 +192,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         var refreshStatus = {}
         var shouldShowMenu: () -> Boolean = { false }
+
+        var setImage : (Bitmap)->Unit = {}
     }
 
 }

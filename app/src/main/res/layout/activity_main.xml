@@ -125,6 +125,13 @@
 
     </androidx.recyclerview.widget.RecyclerView>
 
+    <ImageView
+        android:id="@+id/image"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        app:layout_constraintBottom_toTopOf="@+id/addBtn"
+        tools:layout_editor_absoluteX="25dp" />
+
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/addBtn"
         app:cardCornerRadius="30dp"

@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.lib.Utils.Companion.getAppNameFromPackage
 import dev.legendsayantan.extendroid.data.ActiveSession
+import dev.legendsayantan.extendroid.services.ExtendService
 
 /**
  * @author legendsayantan
@@ -39,13 +40,15 @@ class SessionsAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val current = data[position]
         holder.textName.text = context.getAppNameFromPackage(current.pkg)
-        var detailsStart = ""
-        if (current.port != -1) {
-            holder.imageType.setImageResource(R.drawable.outline_wifi_tethering_24)
-            detailsStart = "Port ${current.port}"
-        } else {
-            detailsStart = "Window ${current.id}"
-        }
+        val detailsStart =
+            "Window ${current.id}" + if (current.mode != ExtendService.Companion.WindowMode.POPUP) ", Port ${current.port}" else ""
+        holder.imageType.setImageResource(
+            listOf(
+                R.drawable.rounded_select_window_24,
+                R.drawable.outline_wifi_tethering_24,
+                R.drawable.baseline_cast_24
+            )[current.mode.ordinal]
+        )
         holder.textDetails.text = "$detailsStart - ${current.windowInfo}"
         holder.imageStop.setOnClickListener { onStop(current.id) }
     }

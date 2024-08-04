@@ -2,9 +2,15 @@ package dev.legendsayantan.extendroid.lib
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.media.Image
 import android.os.Build
 import android.util.TypedValue
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.core.content.ContextCompat
 import java.util.Locale
+
 
 /**
  * @author legendsayantan
@@ -59,6 +65,18 @@ class Utils {
                 intent.putExtra("extra_pkgname", packageName)
                 startActivity(intent)
             }
+        }
+        private var bitmapBuffer: Bitmap? = null
+        fun toBitmap(image: Image): Bitmap {
+            if (bitmapBuffer == null) {
+                bitmapBuffer = Bitmap.createBitmap(
+                    image.width,
+                    image.height,
+                    Bitmap.Config.ARGB_8888
+                )
+            }
+            bitmapBuffer!!.copyPixelsFromBuffer(image.planes[0].buffer)
+            return bitmapBuffer!!
         }
     }
 }

@@ -13,8 +13,8 @@ In case you still want to use it, [Download here](https://github.com/legendsayan
 
 ## Features
 - [x] Start other apps in pop-up windows (some apps don't work)
-- [x] Scalable windows with custom resolutions
+- [x] Scalable windows with variety of resolutions
 - [x] Disable physical display but keep apps awake
-- [x] Stream individual windows to desktop via usb (needs scrcpy)
-- [ ] Stream individual windows to desktop via wifi
-
+- [x] Stream and control individual app windows to desktop via usb (needs scrcpy)
+- [ ] Stream individual app windows to desktop via wifi
+- [ ] Control individual app windows to desktop via wifi
