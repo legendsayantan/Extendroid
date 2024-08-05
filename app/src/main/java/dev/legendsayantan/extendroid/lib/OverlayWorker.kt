@@ -307,12 +307,13 @@ class OverlayWorker(val context: Context) {
         })
     }
 
-    fun startStreaming(id: Int) {
-        if(renderers[id] is TextureView) StreamHandler.start(id, renderers[id] as TextureView)
+    fun startStreaming(id: Int,udpServer: UdpServer) : Int{
+        return if(renderers[id] is TextureView) StreamHandler.start(id, renderers[id] as TextureView, udpServer = udpServer)
+        else -1
     }
 
-    fun stopStreaming(id:Int){
-        StreamHandler.stop(id)
+    fun stopStreaming(id:Int,udpServer: UdpServer){
+        StreamHandler.stop(id, udpServer)
     }
 
 

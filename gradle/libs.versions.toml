@@ -28,6 +28,7 @@ shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizu
 stream-webrtc-android = { module = "io.getstream:stream-webrtc-android", version.ref = "streamWebrtcAndroid" }
 google-code-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gsonVersion" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
+google-guava = { group = "com.google.guava", name = "guava", version = "32.0.1-jre" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

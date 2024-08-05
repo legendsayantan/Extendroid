@@ -18,6 +18,7 @@ import dev.legendsayantan.extendroid.lib.ShizukuActions.Companion.grantMediaProj
 import dev.legendsayantan.extendroid.lib.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.adapters.SessionsAdapter
 import dev.legendsayantan.extendroid.lib.ShizukuActions
+import dev.legendsayantan.extendroid.lib.Utils
 import dev.legendsayantan.extendroid.services.ExtendService
 import rikka.shizuku.Shizuku
 
@@ -110,7 +111,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getServerStatus(): String {
-        return "Http Server Status: not available"
+        return "Streaming Server : ${Utils.getLocalIp().joinToString()}"
     }
 
     private fun isServiceRunning(): Boolean {

@@ -54,4 +54,5 @@ dependencies {
     implementation libs.shizuku.provider
 
     implementation libs.google.code.gson
+    implementation libs.google.guava
 }

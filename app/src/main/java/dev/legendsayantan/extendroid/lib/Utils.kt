@@ -3,12 +3,16 @@ package dev.legendsayantan.extendroid.lib
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.Image
 import android.os.Build
 import android.util.TypedValue
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.core.content.ContextCompat
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.util.Enumeration
 import java.util.Locale
 
 
@@ -77,6 +81,50 @@ class Utils {
             }
             bitmapBuffer!!.copyPixelsFromBuffer(image.planes[0].buffer)
             return bitmapBuffer!!
+        }
+
+        fun getLocalIp(): List<String>{
+            val en: Enumeration<NetworkInterface> = NetworkInterface.getNetworkInterfaces()
+            val ipArray = arrayListOf<String>()
+            while (en.hasMoreElements()) {
+                val intf: NetworkInterface = en.nextElement()
+                val enumIpAddr: Enumeration<InetAddress> = intf.inetAddresses
+                while (enumIpAddr.hasMoreElements()) {
+                    val inetAddress: InetAddress = enumIpAddr.nextElement()
+                    if (!inetAddress.isLoopbackAddress && !inetAddress.isLinkLocalAddress && inetAddress.isSiteLocalAddress) {
+                        ipArray.add(inetAddress.hostAddress as String)
+                    }
+                }
+            }
+            return ipArray
+        }
+
+        fun diffBitmaps(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
+            // Check if the bitmaps have the same dimensions
+            if (bitmap1.width != bitmap2.width || bitmap1.height != bitmap2.height) {
+                throw IllegalArgumentException("Bitmaps must have the same dimensions")
+            }
+
+            // Create a mutable bitmap to store the difference
+            val diffBitmap = Bitmap.createBitmap(bitmap1.width, bitmap1.height, Bitmap.Config.ARGB_8888)
+
+            for (y in 0 until bitmap1.height) {
+                for (x in 0 until bitmap1.width) {
+                    val pixel1 = bitmap1.getPixel(x, y)
+                    val pixel2 = bitmap2.getPixel(x, y)
+
+                    // Compare the pixels
+                    if (pixel1 != pixel2) {
+                        // Highlight the difference in the diffBitmap
+                        diffBitmap.setPixel(x, y, pixel2) // You can change the highlight color if you want
+                    } else {
+                        // If the pixels are the same, set the diffBitmap pixel to transparent
+                        diffBitmap.setPixel(x, y, Color.TRANSPARENT)
+                    }
+                }
+            }
+
+            return diffBitmap
         }
     }
 }

@@ -7,17 +7,22 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.Display
 import android.view.KeyEvent
 import android.view.MotionEvent
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.reflect.TypeToken
 import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.lib.OverlayWorker
 import dev.legendsayantan.extendroid.R
@@ -28,7 +33,11 @@ import dev.legendsayantan.extendroid.lib.ShizukuActions.Companion.launchStarterO
 import dev.legendsayantan.extendroid.lib.ShizukuActions.Companion.setMainDisplayPowerMode
 import dev.legendsayantan.extendroid.lib.Utils
 import dev.legendsayantan.extendroid.data.ActiveSession
+import dev.legendsayantan.extendroid.data.TouchMotionEvent
+import dev.legendsayantan.extendroid.data.TouchMotionEvent.Companion.asMotionEvent
 import dev.legendsayantan.extendroid.lib.StreamHandler
+import dev.legendsayantan.extendroid.lib.UdpServer
+import java.io.ByteArrayOutputStream
 
 
 class ExtendService : Service() {
@@ -40,8 +49,20 @@ class ExtendService : Service() {
     lateinit var motionDispatcher: Thread
     lateinit var keyDispatcher: Thread
     var motionEvents: ArrayList<Pair<Int, MotionEvent>> = arrayListOf()
+    var motionData: ArrayList<Pair<Int, ByteArray>> = arrayListOf()
     var keyEvents: ArrayList<Pair<Int, Int>> = arrayListOf()
+    val gson by lazy { GsonBuilder().setLenient().create() }
+    val udpServer by lazy {
+        UdpServer { id, type, data ->
+            when (type) {
+                UdpServer.Type.MOTIONEVENT -> {
+                    motionData.add(Pair(idToDisplayIdMap[id]!!, data))
+                }
 
+                else -> {}
+            }
+        }
+    }
 
     override fun onBind(intent: Intent): IBinder? {
         // Implement your binding logic here if needed
@@ -83,6 +104,19 @@ class ExtendService : Service() {
                     val event = motionEvents.removeAt(0)
                     dispatchMotionEventOnDisplayAdb(event.first, event.second)
                 }
+                if (motionData.isNotEmpty()) {
+                    val event = motionData.removeAt(0)
+                    var json = String(event.second)
+                    json = json.filter { it != '\u0000' && it!='?' }
+                    println(json)
+                    json = json.substring(0,json.indexOf('}')+1)
+                    println(json)
+                    val motionEvent = gson.fromJson(
+                        json,
+                        TypeToken.get(TouchMotionEvent::class.java)
+                    ).asMotionEvent()
+                    dispatchMotionEventOnDisplayAdb(event.first, motionEvent)
+                }
             }
         }
         keyDispatcher = Thread {
@@ -107,14 +141,15 @@ class ExtendService : Service() {
 
         onAttachWindow = { pkg, resolution, helper, windowMode, callback ->
             val newId = ++lastId
-            val startAndSaveSession: (Display) -> Unit = { d ->
+            val startAndSaveSession: (Display, Int) -> Unit = { d, port ->
                 idToDisplayIdMap[newId] = d.displayId
                 activeSessions.add(
                     ActiveSession(
                         d.displayId,
                         pkg,
                         "${resolution.first}x${resolution.second}",
-                        windowMode
+                        windowMode,
+                        port
                     )
                 )
                 if (helper) {
@@ -149,10 +184,12 @@ class ExtendService : Service() {
 
 
                     if (presentationDisplay != null) {
-                        startAndSaveSession(presentationDisplay)
-                        if (windowMode == WindowMode.BOTH) {
-                            overlayWorker.startStreaming(newId)
-                        }
+                        startAndSaveSession(
+                            presentationDisplay,
+                            if (windowMode == WindowMode.BOTH) {
+                                overlayWorker.startStreaming(newId, udpServer)
+                            } else -1
+                        )
                     } else {
                         println("Presentation display is null")
                     }
@@ -184,8 +221,14 @@ class ExtendService : Service() {
 
                 val presentationDisplay = vDisplay.display
                 if (presentationDisplay != null) {
-                    startAndSaveSession(presentationDisplay)
-                    StreamHandler.start(newId, imageReaderNew)
+                    startAndSaveSession(
+                        presentationDisplay,
+                        StreamHandler.start(
+                            newId,
+                            imageReader = imageReaderNew,
+                            udpServer = udpServer
+                        )
+                    )
                 }
             }
         }
@@ -198,9 +241,19 @@ class ExtendService : Service() {
             }
             idToDisplayIdMap.filter { it.value == id }.keys.firstOrNull()?.let {
                 overlayWorker.deleteWindow(it)
-                StreamHandler.stop(it)
+                StreamHandler.stop(it, udpServer)
             }
             activeSessions.removeIf { it.id == id }
+        }
+
+        StreamHandler.onFrameAvailable = { id, compression, image ->
+            if (image != null) {
+                val stream = ByteArrayOutputStream(image.byteCount)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    image.compress(Bitmap.CompressFormat.WEBP_LOSSY, compression, stream)
+                } else image.compress(Bitmap.CompressFormat.WEBP, compression, stream)
+                udpServer.send(id, stream.toByteArray())
+            }
         }
 
     }
@@ -245,6 +298,7 @@ class ExtendService : Service() {
         // Stop media projection here
         mediaProjection?.stop()
         overlayWorker.hideMenu()
+        udpServer.closeAll()
         MainActivity.refreshStatus()
         super.onDestroy()
     }
