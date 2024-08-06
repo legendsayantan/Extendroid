@@ -5,7 +5,6 @@ import android.graphics.SurfaceTexture
 import android.media.ImageReader
 import android.os.HandlerThread
 import android.view.TextureView
-import java.util.ArrayList
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
@@ -15,7 +14,7 @@ import kotlin.concurrent.timerTask
 class StreamHandler {
     companion object {
         private const val MAX_FRAME_RATE = 15
-        var onFrameAvailable: (Int, Int, Bitmap?) -> Unit = { id, compress, bitmap -> }
+        var onFrameAvailable: (Int, Int, Bitmap?) -> Unit = { id, quality, bitmap -> }
         private val allThreads = hashMapOf<Int, StreamThread>()
 
         init {
@@ -35,10 +34,11 @@ class StreamHandler {
         ): Int {
             val thread = StreamThread(
                 id,
-                calculateCompression(textureView, imageReader)
+                calculateOptimalQuality(textureView, imageReader)
             ).apply { start() }
             var lastFrameTime = 0L
             val frameDuration = 1000 / MAX_FRAME_RATE
+            var lastFrame : Bitmap? = null
             if (textureView != null) {
                 textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                     override fun onSurfaceTextureAvailable(
@@ -61,9 +61,11 @@ class StreamHandler {
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
                         val now = System.currentTimeMillis()
-                        if (now - lastFrameTime > frameDuration) {
-                            textureView.bitmap?.let { bitmap -> thread.queue.add(bitmap) }
+                        val frame = textureView.bitmap
+                        if (now - lastFrameTime > frameDuration && frame?.sameAs(lastFrame) == false) {
+                            thread.queue.add(frame)
                             lastFrameTime = now
+                            lastFrame = frame
                         }
                     }
                 }
@@ -97,15 +99,22 @@ class StreamHandler {
             udpServer.close(id)
         }
 
-        private fun calculateCompression(
+        private fun calculateOptimalQuality(
             textureView: TextureView?,
             imageReader: ImageReader?
         ): Int {
-            return (21600 / (textureView?.let {
-                (it.height + it.width) / 2
+            val pixelCount = ((textureView?.let {
+                it.height * it.width
             } ?: imageReader?.let {
-                (it.height + it.width) / 2
-            } ?: 720))
+                it.height * it.width
+            } ?: (720 * 1080)))
+            val x1 = 480*480
+            val y1 = 30
+            val x2 = 2160*3840
+            val y2 = 0
+            val m = (y2 - y1).toDouble() / (x2 - x1).toDouble()
+            val b = y1 - m * x1
+            return (m * pixelCount + b).toInt()
         }
 
 

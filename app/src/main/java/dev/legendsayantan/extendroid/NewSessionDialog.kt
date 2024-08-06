@@ -3,13 +3,14 @@ package dev.legendsayantan.extendroid
 import android.app.Dialog
 import android.content.Context
 import android.os.Handler
+import android.util.DisplayMetrics
 import android.view.WindowManager
-import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
 import dev.legendsayantan.extendroid.adapters.RecyclerGridAdapter
 import dev.legendsayantan.extendroid.lib.Utils.Companion.getLaunchableApps
 import dev.legendsayantan.extendroid.services.ExtendService
@@ -19,10 +20,12 @@ import dev.legendsayantan.extendroid.services.ExtendService
  */
 class NewSessionDialog(
     context: Context,
-    val onSelectionDone: (String, Pair<Int, Int>, Boolean, ExtendService.Companion.WindowMode) -> Unit
+    val onSelectionDone: (String, Pair<Int, Int>, Int, Boolean, ExtendService.Companion.WindowMode) -> Unit
 ) : Dialog(context) {
-    var quality = 720
+    var quality = 480
     var aspect = 1f
+    var autoDensity = true
+    var density = DisplayMetrics.DENSITY_DEFAULT
 
     init {
         context.setTheme(R.style.Theme_Extendroid)
@@ -36,20 +39,34 @@ class NewSessionDialog(
 
     override fun show() {
         super.show()
-        val qualities = hashMapOf(
+        val qualities = linkedMapOf(
             Pair(R.id.q_480, 480),
             Pair(R.id.q_hd, 720),
             Pair(R.id.q_2k, 1080),
             Pair(R.id.q_4k, 2160)
         )
-        val aspects = hashMapOf(
+        val aspects = linkedMapOf(
             Pair(R.id.a_16_9, 16f / 9f),
             Pair(R.id.a_3_2, 3f / 2f),
             Pair(R.id.a_1_1, 1f),
             Pair(R.id.a_2_3, 2f / 3f),
             Pair(R.id.a_9_16, 9f / 16f)
         )
+        val densities = arrayOf(
+            DisplayMetrics.DENSITY_LOW.toString(),
+            DisplayMetrics.DENSITY_MEDIUM.toString(),
+            ((DisplayMetrics.DENSITY_MEDIUM+DisplayMetrics.DENSITY_HIGH)/2).toString(),
+            DisplayMetrics.DENSITY_HIGH.toString(),
+            DisplayMetrics.DENSITY_XHIGH.toString(),
+            DisplayMetrics.DENSITY_XXHIGH.toString(),
+            DisplayMetrics.DENSITY_XXXHIGH.toString(),
+        )
+
+        val qualityToDensityIndex : () -> Float = {
+            ((densities.size - qualities.size) + qualities.values.indexOf(quality).toFloat())
+        }
         val startHelper = findViewById<MaterialSwitch>(R.id.startHelper)
+        val densityPicker = findViewById<Slider>(R.id.densityPicker)
         val modes = hashMapOf(
             Pair(R.id.popup, ExtendService.Companion.WindowMode.POPUP),
             Pair(R.id.wireless, ExtendService.Companion.WindowMode.WIRELESS)
@@ -70,6 +87,7 @@ class NewSessionDialog(
                         onSelectionDone(
                             selectedPkg,
                             calculateWidthAndHeight(),
+                            (density + context.resources.displayMetrics.densityDpi)/2,
                             startHelper.isChecked,
                             mode
                         )
@@ -85,6 +103,9 @@ class NewSessionDialog(
                     findViewById<ImageView>(it.key).alpha = 1f
                 }
                 view.alpha = 0.5f
+                if(autoDensity){
+                    densityPicker.value = qualityToDensityIndex()
+                }
             }
         }
 
@@ -96,6 +117,16 @@ class NewSessionDialog(
                 }
                 view.alpha = 0.5f
             }
+        }
+
+        densityPicker.value = qualityToDensityIndex()
+        densityPicker.valueFrom = 0f
+        densityPicker.valueTo = densities.size-1f
+        densityPicker.stepSize = 1f
+        densityPicker.setLabelFormatter { densities[it.toInt()]+" dpi" }
+        densityPicker.addOnChangeListener { _, value, fromUser ->
+            if(fromUser) autoDensity = false
+            density = densities[value.toInt()].toInt()
         }
 
         modes.forEach {

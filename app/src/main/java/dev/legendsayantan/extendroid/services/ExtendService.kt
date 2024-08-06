@@ -139,7 +139,7 @@ class ExtendService : Service() {
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
 
-        onAttachWindow = { pkg, resolution, helper, windowMode, callback ->
+        onAttachWindow = { pkg, resolution, density, helper, windowMode, callback ->
             val newId = ++lastId
             val startAndSaveSession: (Display, Int) -> Unit = { d, port ->
                 idToDisplayIdMap[newId] = d.displayId
@@ -173,7 +173,7 @@ class ExtendService : Service() {
                         pkg,
                         resolution.first,
                         resolution.second,
-                        (DisplayMetrics.DENSITY_DEFAULT + screenDensity) / 2,
+                        density,
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                         windowSurface,
                         null,
@@ -212,7 +212,7 @@ class ExtendService : Service() {
                     pkg,
                     resolution.first,
                     resolution.second,
-                    (DisplayMetrics.DENSITY_DEFAULT + screenDensity) / 2,
+                    density,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                     imageReaderNew.surface,
                     null,
@@ -246,12 +246,12 @@ class ExtendService : Service() {
             activeSessions.removeIf { it.id == id }
         }
 
-        StreamHandler.onFrameAvailable = { id, compression, image ->
+        StreamHandler.onFrameAvailable = { id, quality, image ->
             if (image != null) {
                 val stream = ByteArrayOutputStream(image.byteCount)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    image.compress(Bitmap.CompressFormat.WEBP_LOSSY, compression, stream)
-                } else image.compress(Bitmap.CompressFormat.WEBP, compression, stream)
+                    image.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, stream)
+                } else image.compress(Bitmap.CompressFormat.WEBP, quality, stream)
                 udpServer.send(id, stream.toByteArray())
             }
         }
@@ -315,8 +315,8 @@ class ExtendService : Service() {
         private const val SERVICE_CHANNEL = "Service"
 
         //listeners
-        var onAttachWindow: (String, Pair<Int, Int>, Boolean, WindowMode, (Int) -> Unit) -> Unit =
-            { packageName, resolution, helper, mode, callback -> }
+        var onAttachWindow: (String, Pair<Int, Int>, Int, Boolean, WindowMode, (Int) -> Unit) -> Unit =
+            { packageName, resolution, density, helper, mode, callback -> }
         var onDetachWindow: (Int, Boolean) -> Unit =
             { displayId, terminate -> }
         var queryWindows: () -> List<ActiveSession> = { listOf() }

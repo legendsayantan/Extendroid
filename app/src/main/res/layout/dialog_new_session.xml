@@ -39,6 +39,7 @@
                 android:layout_weight="1"
                 android:scaleX="0.75"
                 android:scaleY="0.75"
+                android:alpha="0.5"
                 android:layout_width="wrap_content"
                 android:layout_height="30dp"
                 app:tint="?attr/colorOnSecondary" />
@@ -46,7 +47,6 @@
                 android:id="@+id/q_hd"
                 android:src="@drawable/outline_hd_24"
                 android:layout_weight="1"
-                android:alpha="0.5"
                 android:layout_width="wrap_content"
                 android:layout_height="30dp"
                 app:tint="?attr/colorOnSecondary" />
@@ -183,6 +183,27 @@
                     android:gravity="center"
                     android:text="9:16" />
             </LinearLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_marginHorizontal="25dp"
+            android:layout_marginBottom="5dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:text="Simulated Density"
+                android:gravity="center"
+                android:layout_marginBottom="5dp"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
+            <com.google.android.material.slider.Slider
+                android:id="@+id/densityPicker"
+                app:trackHeight="25dp"
+                app:thumbHeight="30dp"
+                app:trackColorInactive="?attr/colorOnSecondary"
+                app:trackColorActive="?attr/colorSecondary"
+                app:thumbColor="?attr/colorOnPrimary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout
             android:orientation="horizontal"

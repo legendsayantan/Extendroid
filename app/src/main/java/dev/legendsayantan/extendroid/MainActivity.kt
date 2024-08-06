@@ -150,8 +150,8 @@ class MainActivity : AppCompatActivity() {
     private fun registerNewSessionBtnListener(intent: Intent) {
         askXiaomiPermsIfNecessary()
         val task = {
-            val d = NewSessionDialog(this) { pkg, size, helper, mode ->
-                ExtendService.onAttachWindow(pkg, size, helper, mode) { id ->
+            val d = NewSessionDialog(this) { pkg, size, density, helper, mode ->
+                ExtendService.onAttachWindow(pkg, size, density, helper, mode) { id ->
                     updateStatuses()
                 }
             }
