@@ -19,6 +19,8 @@ import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 import rikka.shizuku.shared.BuildConfig
 import java.io.File
+import java.io.IOException
+import java.security.MessageDigest
 
 
 /**
@@ -170,20 +172,23 @@ class ShizukuActions {
             execute("am force-stop $packageName")
         }
 
-        fun Context.setMainDisplayPowerMode(powerMode:Int) {
+        fun Context.setMainDisplayPowerMode(powerMode: Int) {
             val tempFile = File(obbDir, "DisplayToggle.dex")
-            if(!tempFile.exists()){
+            val assetFile = assets.open("classes/DisplayToggle.dex")
+            if (!tempFile.exists() || !tempFile.readBytes().contentEquals(assetFile.readBytes())) {
+                //overwrite expired binary
                 tempFile.parentFile?.mkdirs()
                 tempFile.createNewFile()
-                val assetFile = assets.open("classes/DisplayToggle.dex")
                 tempFile.outputStream().use { assetFile.copyTo(it) }
             }
-            val data = execute("CLASSPATH=${tempFile.absolutePath} app_process / DisplayToggle $powerMode")
+            val data =
+                execute("CLASSPATH=${tempFile.absolutePath} app_process / DisplayToggle $powerMode")
             println(data)
         }
 
         fun runOnly(command: String, root: Boolean = false) = kotlin.runCatching {
-            IShizukuService.Stub.asInterface(Shizuku.getBinder()).newProcess(arrayOf(if (root) "su" else "sh","-c",command), null, null)
+            IShizukuService.Stub.asInterface(Shizuku.getBinder())
+                .newProcess(arrayOf(if (root) "su" else "sh", "-c", command), null, null)
         }
 
         fun execute(command: String, root: Boolean = false): Pair<Int, String?> = runCatching {

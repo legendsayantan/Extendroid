@@ -20,6 +20,24 @@
             android:layout_height="wrap_content"
             app:tint="?attr/colorOnSecondary" />
         <ImageView
+            android:id="@+id/dim"
+            android:src="@drawable/baseline_dark_mode_24"
+            android:theme="@style/Theme.Extendroid"
+            android:layout_width="wrap_content"
+            android:rotationY="180"
+            android:layout_marginVertical="10dp"
+            android:layout_height="wrap_content"
+            app:tint="?attr/colorOnSecondary"/>
+        <ImageView
+            android:id="@+id/blur"
+            android:src="@drawable/baseline_blur_on_24"
+            android:theme="@style/Theme.Extendroid"
+            android:layout_width="wrap_content"
+            android:rotationY="180"
+            android:layout_margin="10dp"
+            android:layout_height="wrap_content"
+            app:tint="?attr/colorOnSecondary"/>
+        <ImageView
             android:id="@+id/lightOff"
             android:src="@drawable/outline_light_off_24"
             android:theme="@style/Theme.Extendroid"
