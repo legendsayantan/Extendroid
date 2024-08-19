@@ -16,11 +16,9 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
-import android.util.DisplayMetrics
 import android.view.Display
 import android.view.KeyEvent
 import android.view.MotionEvent
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import dev.legendsayantan.extendroid.MainActivity
@@ -166,7 +164,7 @@ class ExtendService : Service() {
                 overlayWorker.createWindow(newId, resolution, pkg, windowMode, { windowSurface ->
                     if (resolution.first > screenWidth || resolution.second > screenHeight) {
                         do {
-                            val newParam = overlayWorker.scaleWindow(newId, pkg, false)
+                            val newParam = overlayWorker.scaleWindow(newId, false)
                         } while (newParam.height > screenHeight || newParam.width > screenWidth)
                     }
                     val vDisplay = mediaProjection.createVirtualDisplay(

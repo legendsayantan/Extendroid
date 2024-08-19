@@ -69,7 +69,7 @@ class OverlayWorker(val context: Context) {
                 resolution.first,
                 resolution.second + context.dpToPx(16f),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 0
             ).apply {
                 gravity = Gravity.END or Gravity.TOP
@@ -85,19 +85,8 @@ class OverlayWorker(val context: Context) {
                         this@apply.bringToFront()
                         onSurfaceReady(holder.surface)
                     }
-
-                    override fun surfaceChanged(
-                        holder: SurfaceHolder,
-                        format: Int,
-                        width: Int,
-                        height: Int
-                    ) {
-                        println("changed")
-                    }
-
-                    override fun surfaceDestroyed(holder: SurfaceHolder) {
-                        //TODO("Not yet implemented")
-                    }
+                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+                    override fun surfaceDestroyed(holder: SurfaceHolder) {}
                 })
             }
         } else {
@@ -111,21 +100,9 @@ class OverlayWorker(val context: Context) {
                         onSurfaceReady(Surface(surface))
                     }
 
-                    override fun onSurfaceTextureSizeChanged(
-                        surface: SurfaceTexture,
-                        width: Int,
-                        height: Int
-                    ) {
-                        println("changed")
-                    }
-
-                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                        return true
-                    }
-
-                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-                        println("updated")
-                    }
+                    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { return true }
+                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
                 }
             }
         }
@@ -148,19 +125,7 @@ class OverlayWorker(val context: Context) {
         val upscale = view.findViewById<MaterialCardView>(R.id.upscale)
         val close = view.findViewById<MaterialCardView>(R.id.close)
         val listOfMenu = listOf(back,downscale,upscale,close)
-        back.setOnClickListener {
-            onKeyEvent(KeyEvent.KEYCODE_BACK)
-        }
-        downscale.setOnClickListener {
-            scaleWindow(id, pkg, false)
-        }
-        upscale.setOnClickListener {
-            scaleWindow(id, pkg, true)
-        }
-        close.setOnClickListener {
-            deleteWindow(id)
-            onWindowClosed()
-        }
+
         //set app logo
         val imageView = view.findViewById<AppCompatImageView>(R.id.image)
         imageView.setImageDrawable(context.getAppIconFromPackage(pkg))
@@ -183,6 +148,29 @@ class OverlayWorker(val context: Context) {
                         }).start()
                 }
             }
+        }
+        val rescheduleTaskMenuClose = {
+            menuTimer.cancel()
+            menuTimer.purge()
+            menuTimer = Timer()
+            menuTimer.schedule(timerTask { taskMenuClose() }, 2000)
+        }
+        //menu actions
+        back.setOnClickListener {
+            rescheduleTaskMenuClose()
+            onKeyEvent(KeyEvent.KEYCODE_BACK)
+        }
+        downscale.setOnClickListener {
+            rescheduleTaskMenuClose()
+            scaleWindow(id, false)
+        }
+        upscale.setOnClickListener {
+            rescheduleTaskMenuClose()
+            scaleWindow(id, true)
+        }
+        close.setOnClickListener {
+            deleteWindow(id)
+            onWindowClosed()
         }
         val handle = view.findViewById<MaterialCardView>(R.id.handle)
         var x = 0
@@ -213,10 +201,7 @@ class OverlayWorker(val context: Context) {
 
                 MotionEvent.ACTION_UP -> {
                     if (!isMinimized(view)) {
-                        menuTimer.cancel()
-                        menuTimer.purge()
-                        menuTimer = Timer()
-                        menuTimer.schedule(timerTask { taskMenuClose() }, 2500)
+                        rescheduleTaskMenuClose()
                         menu.visibility = View.VISIBLE
                         listOfMenu.forEachIndexed { index, view ->
                             view.scaleX = 0f
@@ -246,7 +231,7 @@ class OverlayWorker(val context: Context) {
         }
     }
 
-    fun scaleWindow(id: Int, pkg: String, up: Boolean): WindowManager.LayoutParams {
+    fun scaleWindow(id: Int, up: Boolean): WindowManager.LayoutParams {
         val extraAreaPx = context.dpToPx(16f)
         val view = windows[id]!!
         val oldScale = windowScales[id] ?: 1.0f
@@ -263,7 +248,7 @@ class OverlayWorker(val context: Context) {
             (updatedWidth.toInt() < context.dpToPx(120f)
                     || updatedHeight.toInt() < context.dpToPx(80f)) && !up
         ) {
-            minimize(view, pkg)
+            minimize(view)
             return params
         }
         val widthDiff = updatedWidth.toInt() - params.width
@@ -305,7 +290,7 @@ class OverlayWorker(val context: Context) {
         }
     }
 
-    private fun minimize(view: View, pkg: String) {
+    private fun minimize(view: View) {
         val params = view.layoutParams
         windowSizes[view] = Pair(params.width, params.height)
         val containerView = view.findViewById<LinearLayout>(R.id.container)
@@ -358,7 +343,7 @@ class OverlayWorker(val context: Context) {
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         or (if(dim>0) WindowManager.LayoutParams.FLAG_DIM_BEHIND else 0)
                         or (if(blur>0) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0),
                 0

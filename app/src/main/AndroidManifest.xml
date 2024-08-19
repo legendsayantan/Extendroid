@@ -58,6 +58,7 @@
         <activity
             android:name=".StarterActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:resizeableActivity="true" />
 
         <service
@@ -68,6 +69,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

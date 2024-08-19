@@ -119,6 +119,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestShizukuIfRequired(callback: () -> Unit) {
+        if (!Shizuku.pingBinder()) {
+            Toast.makeText(this,"⚠ Shizuku not present!",Toast.LENGTH_LONG).show()
+            return
+        }
         if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
             Shizuku.addRequestPermissionResultListener { _: Int, i1: Int ->
                 if (i1 == PackageManager.PERMISSION_GRANTED) {
@@ -155,7 +159,10 @@ class MainActivity : AppCompatActivity() {
                     updateStatuses()
                 }
             }
-            if (intent.getBooleanExtra("add", false)) d.setOnDismissListener { finish() }
+            if (intent.getBooleanExtra("add", false)) d.setOnDismissListener {
+                finish()
+                moveTaskToBack(true)
+            }
             d.show()
             if (!isServiceRunning()) {
                 startApp()

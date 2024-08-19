@@ -19,8 +19,6 @@ import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 import rikka.shizuku.shared.BuildConfig
 import java.io.File
-import java.io.IOException
-import java.security.MessageDigest
 
 
 /**
@@ -174,7 +172,7 @@ class ShizukuActions {
 
         fun Context.setMainDisplayPowerMode(powerMode: Int) {
             val tempFile = File(obbDir, "DisplayToggle.dex")
-            val assetFile = assets.open("classes/DisplayToggle.dex")
+            val assetFile = assets.open("classes/DisplayToggle.dex.lock")
             if (!tempFile.exists() || !tempFile.readBytes().contentEquals(assetFile.readBytes())) {
                 //overwrite expired binary
                 tempFile.parentFile?.mkdirs()
