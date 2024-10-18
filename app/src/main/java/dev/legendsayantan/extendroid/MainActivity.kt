@@ -1,5 +1,7 @@
 package dev.legendsayantan.extendroid
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -19,13 +21,17 @@ import dev.legendsayantan.extendroid.lib.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.adapters.SessionsAdapter
 import dev.legendsayantan.extendroid.lib.ShizukuActions
 import dev.legendsayantan.extendroid.lib.Utils
+import dev.legendsayantan.extendroid.lib.Utils.Companion.getLaunchableApps
 import dev.legendsayantan.extendroid.services.ExtendService
 import rikka.shizuku.Shizuku
+import java.io.File
 
 
 class MainActivity : AppCompatActivity() {
     val REQUEST_CODE = 1000
     val prefs by lazy { getSharedPreferences("prefs", MODE_PRIVATE) }
+    val INSTALLED_APPS_FILE = "installed_apps.txt"
+    val installedAppsFile by lazy { File(getExternalFilesDir(null), INSTALLED_APPS_FILE) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -88,6 +94,11 @@ class MainActivity : AppCompatActivity() {
                 startMediaProjection()
             }, 2000)
         }
+
+        val installedAppsData = getLaunchableApps().keys.joinToString("\n"){
+            it+";"+packageManager.getApplicationInfo(it, 0).loadLabel(packageManager)
+        }
+        installedAppsFile.writeText(installedAppsData)
     }
 
     private fun startMediaProjection() {
@@ -155,7 +166,7 @@ class MainActivity : AppCompatActivity() {
         askXiaomiPermsIfNecessary()
         val task = {
             val d = NewSessionDialog(this) { pkg, size, density, helper, mode ->
-                ExtendService.onAttachWindow(pkg, size, density, helper, mode) { id ->
+                ExtendService.onAttachWindow(pkg, size, density, helper, mode, false) { id ->
                     updateStatuses()
                 }
             }
@@ -169,6 +180,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
         if (intent.getBooleanExtra("add", false)) task()
+        if (intent.getBooleanExtra("start",false) && !isServiceRunning()) {
+            startApp()
+        }
         findViewById<MaterialCardView>(R.id.addBtn).setOnClickListener {
             task()
         }
@@ -191,7 +205,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun askXiaomiPermsIfNecessary(){
         if(!prefs.getBoolean("miui",false)){
-            Toast.makeText(this,"Please allow these permissions!",Toast.LENGTH_SHORT).show()
+            Toast.makeText(this,"Please allow miui permissions!",Toast.LENGTH_SHORT).show()
             miuiRequirements()
             prefs.edit().putBoolean("miui",true).apply()
         }

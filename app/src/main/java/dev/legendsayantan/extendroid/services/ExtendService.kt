@@ -15,6 +15,7 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
 import android.view.Display
 import android.view.KeyEvent
@@ -133,11 +134,10 @@ class ExtendService : Service() {
 
     private fun createVirtualDisplay(mediaProjection: MediaProjection) {
         val metrics = resources.displayMetrics
-        val screenDensity = metrics.densityDpi
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
 
-        onAttachWindow = { pkg, resolution, density, helper, windowMode, callback ->
+        onAttachWindow = { pkg, resolution, density, helper, windowMode, startMinimized, callback ->
             val newId = ++lastId
             val startAndSaveSession: (Display, Int) -> Unit = { d, port ->
                 idToDisplayIdMap[newId] = d.displayId
@@ -200,12 +200,16 @@ class ExtendService : Service() {
                     onDetachWindow(idToDisplayIdMap[newId] ?: -1, true)
                     MainActivity.refreshStatus()
                 })
+                Handler(applicationContext.mainLooper).post {
+                    if(startMinimized){
+                        overlayWorker.minimize(newId)
+                    }
+                }
             } else {
                 val imageReaderNew = ImageReader.newInstance(
                     resolution.first, resolution.second,
                     PixelFormat.RGBA_8888, 2
                 )
-
                 val vDisplay = mediaProjection.createVirtualDisplay(
                     pkg,
                     resolution.first,
@@ -216,7 +220,6 @@ class ExtendService : Service() {
                     null,
                     null
                 )
-
                 val presentationDisplay = vDisplay.display
                 if (presentationDisplay != null) {
                     startAndSaveSession(
@@ -313,8 +316,8 @@ class ExtendService : Service() {
         private const val SERVICE_CHANNEL = "Service"
 
         //listeners
-        var onAttachWindow: (String, Pair<Int, Int>, Int, Boolean, WindowMode, (Int) -> Unit) -> Unit =
-            { packageName, resolution, density, helper, mode, callback -> }
+        var onAttachWindow: (String, Pair<Int, Int>, Int, Boolean, WindowMode, Boolean, (Int) -> Unit ) -> Unit =
+            { packageName, resolution, density, helper, mode, startMinimized, callback -> }
         var onDetachWindow: (Int, Boolean) -> Unit =
             { displayId, terminate -> }
         var queryWindows: () -> List<ActiveSession> = { listOf() }

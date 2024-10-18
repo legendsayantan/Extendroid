@@ -32,6 +32,21 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Extendroid"
         tools:targetApi="31">
+
+        <receiver
+            android:name=".services.ControlReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.legendsayantan.extendroid.GET_STATUS" />
+                <action android:name="dev.legendsayantan.extendroid.GET_APPS" />
+                <action android:name="dev.legendsayantan.extendroid.CREATE" />
+                <action android:name="dev.legendsayantan.extendroid.DELETE" />
+                <action android:name="dev.legendsayantan.extendroid.STOP" />
+                <action android:name="dev.legendsayantan.extendroid.LOCK" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".services.AddSessionTileService"
             android:enabled="true"
@@ -57,8 +72,8 @@
 
         <activity
             android:name=".StarterActivity"
-            android:exported="true"
             android:excludeFromRecents="true"
+            android:exported="true"
             android:resizeableActivity="true" />
 
         <service
@@ -69,8 +84,8 @@
 
         <activity
             android:name=".MainActivity"
-            android:launchMode="singleTop"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

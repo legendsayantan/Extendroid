@@ -1,5 +1,6 @@
 package dev.legendsayantan.extendroid.lib
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -63,11 +64,13 @@ class Utils {
 
         fun Context.miuiRequirements(){
             if ("xiaomi" == Build.MANUFACTURER.lowercase(Locale.ROOT)) {
-                val intent = Intent("miui.intent.action.APP_PERM_EDITOR")
-                intent.setClassName("com.miui.securitycenter",
-                    "com.miui.permcenter.permissions.PermissionsEditorActivity")
-                intent.putExtra("extra_pkgname", packageName)
-                startActivity(intent)
+                try{
+                    val intent = Intent("miui.intent.action.APP_PERM_EDITOR")
+                    intent.setClassName("com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    intent.putExtra("extra_pkgname", packageName)
+                    startActivity(intent)
+                }catch (_:ActivityNotFoundException){}
             }
         }
         private var bitmapBuffer: Bitmap? = null

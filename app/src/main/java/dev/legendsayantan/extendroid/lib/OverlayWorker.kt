@@ -290,6 +290,10 @@ class OverlayWorker(val context: Context) {
         }
     }
 
+    fun minimize(id: Int) {
+        minimize(windows[id]!!)
+    }
+
     private fun minimize(view: View) {
         val params = view.layoutParams
         windowSizes[view] = Pair(params.width, params.height)
