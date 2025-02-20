@@ -27,3 +27,10 @@ It is required for the "Disable Display" feature, so there are custom security m
 As for other security, the screen recording or screencast icon you may notice are required for functionality.
 Unless you are using wifi stream feature, no screen recording is sent anywhere.
 You may also just disable internet access for the app. 
+
+## License
+This project is licensed under GNU General Public License v3.0.
+
+**Note** - You must not distribute this software, whether original or modified, to any platform without its source code or the reference to its original source code. Also, publishing to any app stores without permission is forbidden.
+
+
