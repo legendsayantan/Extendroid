@@ -47,15 +47,15 @@ class ExtendService : Service() {
     var lastId = 0
     lateinit var motionDispatcher: Thread
     lateinit var keyDispatcher: Thread
-    var motionEvents: ArrayList<Pair<Int, MotionEvent>> = arrayListOf()
-    var motionData: ArrayList<Pair<Int, ByteArray>> = arrayListOf()
+    var motionEvents: ArrayList<Pair<Int, MotionEvent>>? = arrayListOf()
+    var motionData: ArrayList<Pair<Int, ByteArray>>? = arrayListOf()
     var keyEvents: ArrayList<Pair<Int, Int>> = arrayListOf()
     val gson by lazy { GsonBuilder().setLenient().create() }
     val udpServer by lazy {
         UdpServer { id, type, data ->
             when (type) {
                 UdpServer.Type.MOTIONEVENT -> {
-                    motionData.add(Pair(idToDisplayIdMap[id]!!, data))
+                    motionData?.add(Pair(idToDisplayIdMap[id]!!, data))
                 }
 
                 else -> {}
@@ -99,12 +99,12 @@ class ExtendService : Service() {
         }
         motionDispatcher = Thread {
             while (true) {
-                if (motionEvents.isNotEmpty()) {
-                    val event = motionEvents.removeAt(0)
+                if (!motionEvents.isNullOrEmpty()) {
+                    val event = motionEvents!!.removeAt(0)
                     dispatchMotionEventOnDisplayAdb(event.first, event.second)
                 }
-                if (motionData.isNotEmpty()) {
-                    val event = motionData.removeAt(0)
+                if (!motionData.isNullOrEmpty()) {
+                    val event = motionData!!.removeAt(0)
                     var json = String(event.second)
                     json = json.filter { it != '\u0000' && it!='?' }
                     println(json)
@@ -193,7 +193,7 @@ class ExtendService : Service() {
                     }
 
                 }, { motionEvent ->
-                    motionEvents.add(Pair(idToDisplayIdMap[newId] ?: -1, motionEvent))
+                    motionEvents?.add(Pair(idToDisplayIdMap[newId] ?: -1, motionEvent))
                 }, { keyCode ->
                     keyEvents.add(Pair(idToDisplayIdMap[newId] ?: -1, keyCode))
                 }, {
