@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:strokeWidth="3dp"
+    app:cardCornerRadius="25dp"
+    app:strokeColor="?attr/colorOnSecondary"
+    app:cardBackgroundColor="?attr/colorOnBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:minHeight="200dp"
+    android:minWidth="200dp">
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_marginHorizontal="3dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:background="?attr/colorPrimary"
+            android:gravity="bottom"
+            android:layout_width="match_parent"
+            android:layout_height="50dp">
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayout"
+                style="@style/Widget.MaterialComponents.TabLayout"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                app:tabIndicatorHeight="0dp"
+                app:tabMaxWidth="170dp"
+                app:tabGravity="fill"
+                app:tabPaddingStart="5dp"
+                app:tabPaddingEnd="5dp"
+                android:background="?attr/colorPrimary"/>
+            <Space
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"/>
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_gravity="center_vertical"
+                android:id="@+id/moreBtn"
+                android:src="@drawable/outline_more_vert_24"
+                android:layout_marginEnd="10dp"
+                android:layout_width="50dp"
+                android:layout_height="35dp"
+                app:tint="?attr/colorOnSecondary" />
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/closeBtn"
+                android:src="@drawable/rounded_close_24"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="15dp"
+                android:layout_width="50dp"
+                android:layout_height="35dp"
+                app:tint="?attr/colorOnSecondary" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:translationZ="100dp"
+            android:clipChildren="true"
+            android:clipToPadding="false"
+            android:layout_marginTop="5dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+        </androidx.recyclerview.widget.RecyclerView>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

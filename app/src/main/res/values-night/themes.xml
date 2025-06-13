@@ -1,0 +1,14 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.Extendroid" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorOnBackground">@color/theme5</item>
+        <item name="android:statusBarColor">@color/theme5</item>
+        <item name="colorPrimary">@color/theme4</item>
+        <item name="colorOnPrimary">@color/theme2</item>
+        <item name="colorSecondary">@color/theme3</item>
+        <item name="colorOnSecondary">@color/theme1</item>
+
+        <item name="android:textColor">@color/theme1</item>
+        <item name="android:popupBackground">@color/theme4</item>
+    </style>
+</resources>

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Extendroid</string>
+    <string name="url_shizuku">https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api</string>
+    <string name="package_shizuku">moe.shizuku.privileged.api</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>

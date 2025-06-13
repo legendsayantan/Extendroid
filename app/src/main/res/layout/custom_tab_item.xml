@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="65dp"
+    android:layout_height="55dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/selectedBackground"
+        android:alpha="0"
+        android:layout_marginTop="10dp"
+        android:clipChildren="true"
+        android:layout_width="60dp"
+        android:layout_height="50dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="60dp"
+            android:layout_height="65dp"
+            android:elevation="0dp"
+            app:cardBackgroundColor="?attr/colorOnBackground"
+            app:strokeColor="@color/theme3"
+            app:cardCornerRadius="15dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeWidth="2dp" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <ImageView
+        android:layout_marginTop="8dp"
+        android:layout_marginHorizontal="5dp"
+        android:layout_gravity="center"
+        android:id="@+id/tabIcon"
+        android:translationY="-7dp"
+        android:layout_width="40dp"
+        android:layout_height="50dp"/>
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:layout_marginTop="8dp"
+        android:layout_marginHorizontal="5dp"
+        android:layout_gravity="center"
+        android:id="@+id/tabIconTinted"
+        android:translationY="-7dp"
+        android:scaleX="0.95"
+        android:scaleY="0.95"
+        android:layout_width="40dp"
+        android:layout_height="50dp"
+        app:tint="?attr/colorOnSecondary" />
+</FrameLayout>

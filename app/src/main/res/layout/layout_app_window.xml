@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/transparent"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent" >
+        <LinearLayout
+            android:orientation="horizontal"
+            android:id="@+id/leftResizer"
+            android:layout_width="100dp"
+            android:layout_height="100dp"/>
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+        <LinearLayout
+            android:orientation="horizontal"
+            android:id="@+id/rightResizer"
+            android:layout_width="100dp"
+            android:layout_height="100dp"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/surfaceParent"
+        android:background="?attr/colorSecondary"
+        android:layout_margin="6dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <SurfaceView
+            android:id="@+id/surfaceView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="1dp"
+            app:layout_constraintBottom_toBottomOf="parent" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/handle"
+        android:focusable="true"
+        android:layout_width="match_parent"
+        android:layout_height="12dp"
+        android:layout_marginHorizontal="50dp"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteX="50dp">
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.5" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/handleCard"
+            android:layout_width="0dp"
+            android:layout_height="10dp"
+            android:layout_weight="1"
+            app:strokeWidth="0dp"
+            android:minWidth="75dp"
+            app:cardCornerRadius="5dp"
+            app:cardBackgroundColor="?attr/colorSecondary" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.5" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/controls"
+        android:layout_marginHorizontal="10dp"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="20dp"
+        app:flow_wrapMode="chain"
+        app:layout_constraintTop_toBottomOf="@id/handle" >
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/hideBtn"
+                app:cardCornerRadius="25dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="?attr/colorOnSecondary"
+                app:cardBackgroundColor="?attr/colorOnBackground"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_margin="5dp"
+                    android:src="@drawable/outline_hide_24"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/fullBtn"
+                app:cardCornerRadius="25dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="?attr/colorOnSecondary"
+                android:layout_marginStart="10dp"
+                app:cardBackgroundColor="?attr/colorOnBackground"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_margin="5dp"
+                    android:src="@drawable/outline_open_in_full_24"
+                    android:rotation="180"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_marginTop="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/backBtn"
+                app:cardCornerRadius="25dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="?attr/colorOnSecondary"
+                app:cardBackgroundColor="?attr/colorOnBackground"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_margin="5dp"
+                    android:src="@drawable/baseline_arrow_back_24"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/closeBtn"
+                app:cardCornerRadius="25dp"
+                app:strokeWidth="3dp"
+                app:strokeColor="?attr/colorOnSecondary"
+                android:layout_marginStart="10dp"
+                app:cardBackgroundColor="?attr/colorOnBackground"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_margin="5dp"
+                    android:src="@drawable/rounded_close_24"
+                    android:rotation="180"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    app:tint="?attr/colorOnSecondary" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

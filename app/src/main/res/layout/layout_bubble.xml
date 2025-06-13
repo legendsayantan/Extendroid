@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    app:cardCornerRadius="25dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="?attr/colorOnBackground"
+    android:layout_width="50dp"
+    android:layout_height="50dp">
+    <ImageView
+        android:src="@drawable/logo"
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+</com.google.android.material.card.MaterialCardView>

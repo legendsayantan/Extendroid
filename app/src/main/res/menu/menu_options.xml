@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_disable_screen"
+        android:title="Disable Screen" />
+    <item
+        android:id="@+id/action_popup_all"
+        android:title="Popup all" />
+    <item
+        android:id="@+id/action_fullscreen_all"
+        android:title="Fullscreen all" />
+    <item
+        android:id="@+id/action_close_all"
+        android:title="Close all" />
+    <item
+        android:id="@+id/action_start_app"
+        android:title="Configure"/>
+</menu>
