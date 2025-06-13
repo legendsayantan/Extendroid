@@ -78,7 +78,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
                 <TextView
-                    android:text="Setup Shizuku"
+                    android:text="@string/setup_shizuku"
                     android:textSize="20sp"
                     android:layout_width="0dp"
                     android:layout_weight="1"
@@ -102,7 +102,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Allow Shizuku"
+                    android:text="@string/permissions"
                     android:textSize="20sp" />
 
                 <ImageView
@@ -171,7 +171,7 @@
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/floatingBall"
-                android:text="Floating Ball"
+                android:text="@string/floating_ball"
                 android:textSize="20sp"
                 android:textColor="?attr/colorOnSecondary"
                 android:layout_width="match_parent"
@@ -190,7 +190,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="40dp">
                 <TextView
-                    android:text="Collapse menu after"
+                    android:text="@string/collapse_menu_after"
                     android:textSize="20sp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
@@ -222,7 +222,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
                 <TextView
-                    android:text="Zoom"
+                    android:text="@string/zoom"
                     android:textSize="20sp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
@@ -240,7 +240,7 @@
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/densityAuto"
-                android:text="Adapt Content"
+                android:text="@string/adapt_content"
                 android:textSize="20sp"
                 android:layout_marginTop="12dp"
                 android:textColor="?attr/colorOnSecondary"
@@ -253,7 +253,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
                 <TextView
-                    android:text="Backdrop Dim"
+                    android:text="@string/backdrop_dim"
                     android:textSize="20sp"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>

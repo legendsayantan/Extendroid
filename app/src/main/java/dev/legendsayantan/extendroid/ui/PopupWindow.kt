@@ -85,7 +85,8 @@ class PopupWindow(
 
     var controlTimer = Timer()
 
-    var root: View
+    val themedCtx by lazy { ContextThemeWrapper(ctx, R.style.Base_Theme_Extendroid) }
+    val root by lazy { LayoutInflater.from(themedCtx).inflate(R.layout.layout_app_window, this, true) }
     val surfaceParent by lazy { root.findViewById<LinearLayout>(R.id.surfaceParent) }
     val dragHandle by lazy { root.findViewById<LinearLayout>(R.id.handle) }
     val handleCard by lazy { root.findViewById<MaterialCardView>(R.id.handleCard) }
@@ -100,8 +101,6 @@ class PopupWindow(
     val closeBtn by lazy { root.findViewById<MaterialCardView>(R.id.closeBtn) }
 
     init {
-        val themedCtx = ContextThemeWrapper(ctx, R.style.Base_Theme_Extendroid)
-        root = LayoutInflater.from(themedCtx).inflate(R.layout.layout_app_window, this, true)
         surfaceParent.background = color.toDrawable()
         handleCard.setCardBackgroundColor(ColorStateList.valueOf(color))
         val colors = arrayOf(

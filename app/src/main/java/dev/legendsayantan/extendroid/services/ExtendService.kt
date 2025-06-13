@@ -192,11 +192,11 @@ class ExtendService : Service() {
             menu.startPreviewFor(pkg,ratio)
         }
         popupManager.onKeyEvent = { pkg,keyCode,action->
-            val r = svc?.dispatchKey(keyCode, action, MediaCore.mInstance?.virtualDisplays[pkg]?.display?.displayId?:-1)
+            val r = svc?.dispatchKey(keyCode, action, MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId?:-1)
             println(r)
         }
         popupManager.onMotionEvent = { pkg,event->
-            val r = svc?.dispatch(event,MediaCore.mInstance?.virtualDisplays[pkg]?.display?.displayId?:-1)
+            val r = svc?.dispatch(event,MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId?:-1)
             println(r)
         }
 

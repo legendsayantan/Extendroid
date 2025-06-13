@@ -11,6 +11,7 @@
 
     <ImageView
         android:id="@+id/logo"
+        android:contentDescription="@string/app_logo"
         android:layout_width="50dp"
         android:layout_height="50dp" />
 

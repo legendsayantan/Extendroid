@@ -13,6 +13,10 @@ android {
         aidl = true
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
     defaultConfig {
         applicationId = "dev.legendsayantan.extendroid"
         minSdk = 29
