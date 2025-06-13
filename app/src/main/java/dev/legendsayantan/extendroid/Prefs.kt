@@ -17,6 +17,13 @@ class Prefs(val context: Context) {
         if(!changeListeners.contains(listener)) changeListeners.add(listener)
     }
 
+    var allowedMiuiPerms : Boolean
+        get() = prefs.getBoolean("allowedMiuiPerms", false)
+        set(value) {
+            prefs.edit { putBoolean("allowedMiuiPerms", value) }
+            changed()
+        }
+
     var floatingBall: Boolean
         get() = prefs.getBoolean("floatingBall",false)
         set(value){

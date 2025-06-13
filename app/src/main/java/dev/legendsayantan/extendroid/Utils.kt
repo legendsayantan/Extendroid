@@ -1,13 +1,18 @@
 package dev.legendsayantan.extendroid
 
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.util.TypedValue
+import android.widget.Toast
 import androidx.core.graphics.createBitmap
 import androidx.palette.graphics.Palette
+import java.util.Locale
 
 /**
  * @author legendsayantan
@@ -40,6 +45,19 @@ class Utils {
         fun Context.dpToPx(dp: Float): Float {
             return TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics)
+        }
+
+        fun Context.miuiRequirements(){
+            if ("xiaomi" == Build.MANUFACTURER.lowercase(Locale.ROOT)) {
+                Toast.makeText(this,"Please allow the required miui permissions!",Toast.LENGTH_SHORT).show()
+                try{
+                    val intent = Intent("miui.intent.action.APP_PERM_EDITOR")
+                    intent.setClassName("com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    intent.putExtra("extra_pkgname", packageName)
+                    startActivity(intent)
+                }catch (_:ActivityNotFoundException){}
+            }
         }
     }
 }

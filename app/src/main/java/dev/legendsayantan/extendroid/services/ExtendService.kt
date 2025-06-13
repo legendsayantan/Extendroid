@@ -18,8 +18,10 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
 import android.view.KeyEvent
+import android.widget.Toast
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu

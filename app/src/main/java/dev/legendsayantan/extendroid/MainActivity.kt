@@ -19,6 +19,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
+import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
 import dev.legendsayantan.extendroid.services.ExtendService
@@ -139,6 +140,10 @@ class MainActivity : AppCompatActivity() {
     private fun startForegroundService() {
         if (!isShizukuSetup() || !isShizukuAllowed()) return
         if (ExtendService.svc != null) return
+        if(!prefs.allowedMiuiPerms){
+            miuiRequirements()
+            prefs.allowedMiuiPerms = true
+        }
         val svcIntent = Intent(applicationContext, ExtendService::class.java)
         startForegroundService(svcIntent)
         this@MainActivity.requestMediaProjection()
