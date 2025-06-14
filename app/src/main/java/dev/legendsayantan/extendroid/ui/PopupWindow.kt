@@ -50,7 +50,7 @@ class PopupWindow(
 
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    val positionParams = WindowManager.LayoutParams().apply {
+    var positionParams = WindowManager.LayoutParams().apply {
         val originalRatio = widthPixels.toFloat()/heightPixels
         val optimised = optimiseSizes(ctx, widthPixels, heightPixels)
         val newRatio = optimised.first.toFloat()/optimised.second
@@ -280,6 +280,14 @@ class PopupWindow(
         closeBtn.setOnClickListener { onDeleteRequest(PopupManager.PopupDeleteReason.TERMINATE) }
     }
 
+    fun addDim(dimValue: Float){
+        positionParams = positionParams.apply {
+            flags += WindowManager.LayoutParams.FLAG_DIM_BEHIND
+            dimAmount = dimValue
+        }
+        wm.updateViewLayout(this,positionParams)
+    }
+
     fun showControls() {
         controls.translationY = ctx.dpToPx(-100f)
         controls.visibility = VISIBLE
@@ -307,14 +315,19 @@ class PopupWindow(
     fun show(): PopupWindow {
         if (parent == null) {
             wm.addView(this, positionParams)
+            alpha = 0f
+            animate().alpha(1f).scaleY(1f).setDuration(250).start()
         }
         return this
     }
 
     fun remove() {
         if (parent != null) {
+            animate().alpha(0f).scaleY(0f).setDuration(250).start()
             controlTimer.cancel()
-            wm.removeView(this)
+            handler.postDelayed({
+                wm.removeView(this)
+            },250)
         }
     }
 

@@ -2,10 +2,8 @@ package dev.legendsayantan.extendroid.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.graphics.drawable.ColorDrawable
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -28,7 +26,6 @@ import dev.legendsayantan.extendroid.model.AppItem
 import dev.legendsayantan.extendroid.model.WindowData
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
-import androidx.core.graphics.drawable.toDrawable
 
 
 /**
@@ -189,7 +186,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                         pkg,
                         w,
                         h,
-                        Utils.getDominantColorFromDrawable(installedApps.find { it.packageName == pkg }!!.image)
+                        Utils.getColorOf(installedApps.find { it.packageName == pkg }!!.image)
                     )
                     activeWindowsData.removeIf { it.packageName == pkg }
                     hide()
@@ -238,13 +235,15 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
                     R.id.action_popup_all -> {
                         val w = staggeredGridAdapter.columnWidth;
-                        activeWindowsData.forEach { data->
-                            openInPopup(
-                                data.packageName,
-                                w,
-                                (w * data.ratio).toInt(),
-                                Utils.getDominantColorFromDrawable(installedApps.find { it.packageName == data.packageName }!!.image)
-                            )
+                        activeWindowsData.forEachIndexed { index,data->
+                            handler.postDelayed({
+                                openInPopup(
+                                    data.packageName,
+                                    w,
+                                    (w * data.ratio).toInt(),
+                                    Utils.getColorOf(installedApps.find { it.packageName == data.packageName }!!.image)
+                                )
+                            }, (250*index).toLong())
                         }
                         activeWindowsData.clear()
                         hide()
@@ -276,19 +275,21 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun startPreviewFor(packageName: String, ratio: Float = 1.5f, newLaunch: Boolean = false) {
-        if (newLaunch && containsPopup(packageName)) {
-            minimisePopup(packageName)
-            return
-        }
-        activeWindowsData.add(
-            WindowData(
-                installedApps.firstOrNull { it.packageName == packageName }?.appName ?: "",
-                packageName,
-                ratio
+        Utils.whenSafeForUI(ctx) {
+            if (newLaunch && containsPopup(packageName)) {
+                minimisePopup(packageName)
+                return@whenSafeForUI
+            }
+            activeWindowsData.add(
+                WindowData(
+                    installedApps.firstOrNull { it.packageName == packageName }?.appName ?: "",
+                    packageName,
+                    ratio
+                )
             )
-        )
-        tabLayout.getTabAt(0)?.select()
-        setAutoHide()
+            tabLayout.getTabAt(0)?.select()
+            setAutoHide()
+        }
     }
 
     fun setClosedListener(block: () -> Unit) {
@@ -303,21 +304,23 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun show() {
-        if (parent == null) {
-            try {
-                scaleY = 0f
-                wm.addView(this, layoutParams)
-                isShowing = true
-                animate().scaleY(1f).setDuration(250).start()
+        Utils.whenSafeForUI(ctx) {
+            if (parent == null) {
+                try {
+                    scaleY = 0f
+                    wm.addView(this, layoutParams)
+                    isShowing = true
+                    animate().scaleY(1f).setDuration(250).start()
+                    setAutoHide()
+                    tabLayout.getTabAt(tabLayout.selectedTabPosition)?.let { reloadTabContents(it) }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
                 setAutoHide()
-                tabLayout.getTabAt(tabLayout.selectedTabPosition)?.let { reloadTabContents(it) }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
-        } else {
-            setAutoHide()
+            setTouchListenerForAutoHide()
         }
-        setTouchListenerForAutoHide()
     }
 
     fun hide() {

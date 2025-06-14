@@ -17,6 +17,10 @@ class Prefs(val context: Context) {
         if(!changeListeners.contains(listener)) changeListeners.add(listener)
     }
 
+    fun unregisterChangeListener(listener:(callingContext:Context)->Unit){
+        changeListeners.remove(listener)
+    }
+
     var allowedMiuiPerms : Boolean
         get() = prefs.getBoolean("allowedMiuiPerms", false)
         set(value) {

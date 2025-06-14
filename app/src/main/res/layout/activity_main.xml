@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    android:animateLayoutChanges="true"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
-    android:background="?attr/colorOnBackground"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:animateLayoutChanges="true"
+    android:background="?attr/colorOnBackground"
     tools:context=".MainActivity">
 
     <LinearLayout
@@ -45,50 +44,66 @@
         tools:layout_editor_absoluteX="25dp">
 
         <ImageView
+            android:id="@+id/logBtn"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:src="@drawable/rounded_short_text_24"
             app:layout_constraintBottom_toTopOf="@+id/cardSetup"
             app:layout_constraintTop_toTopOf="@+id/linearLayout"
             app:tint="?attr/colorOnSecondary" />
+
+        <ImageView
+            android:id="@+id/stopBtn"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginStart="25dp"
+            android:src="@drawable/rounded_stop_circle_24"
+            app:layout_constraintBottom_toTopOf="@+id/cardSetup"
+            app:layout_constraintTop_toTopOf="@+id/linearLayout"
+            app:tint="?attr/colorOnSecondary" />
+
+
     </LinearLayout>
 
     <com.google.android.material.card.MaterialCardView
-        android:animateLayoutChanges="true"
         android:id="@+id/cardSetup"
-        app:strokeWidth="3dp"
-        app:cardCornerRadius="25dp"
-        app:strokeColor="?attr/colorOnSecondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="?attr/colorOnBackground"
         android:layout_marginHorizontal="25dp"
         android:layout_marginVertical="40dp"
-        app:layout_constraintBottom_toTopOf="@id/cardConfigure">
+        android:animateLayoutChanges="true"
+        app:cardBackgroundColor="?attr/colorOnBackground"
+        app:cardCornerRadius="25dp"
+        app:layout_constraintBottom_toTopOf="@id/cardConfigure"
+        app:strokeColor="?attr/colorOnSecondary"
+        app:strokeWidth="3dp">
 
         <LinearLayout
-            android:orientation="vertical"
             android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:paddingHorizontal="25dp"
-            android:paddingVertical="20dp"
-            android:layout_height="wrap_content" >
+            android:paddingVertical="20dp">
+
             <LinearLayout
-                android:orientation="horizontal"
-                android:gravity="center"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal">
+
                 <TextView
-                    android:text="@string/setup_shizuku"
-                    android:textSize="20sp"
                     android:layout_width="0dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_height="wrap_content"/>
+                    android:text="@string/setup_shizuku"
+                    android:textSize="20sp" />
+
                 <ImageView
                     android:id="@+id/setupShizukuImage"
-                    android:src="@drawable/rounded_arrow_circle_right_24"
-                    app:tint="?attr/colorOnSecondary"
                     android:layout_width="50dp"
-                    android:layout_height="50dp"/>
+                    android:layout_height="50dp"
+                    android:src="@drawable/rounded_arrow_circle_right_24"
+                    app:tint="?attr/colorOnSecondary" />
             </LinearLayout>
 
             <LinearLayout
@@ -122,160 +137,160 @@
         android:background="?attr/colorOnBackground"
         app:layout_constraintBottom_toTopOf="@+id/cardSetup"
         app:layout_constraintStart_toStartOf="@+id/cardSetup"
-        app:layout_constraintTop_toTopOf="@+id/cardSetup"/>
+        app:layout_constraintTop_toTopOf="@+id/cardSetup" />
 
     <com.google.android.material.card.MaterialCardView
-        android:animateLayoutChanges="true"
         android:id="@+id/headerSetup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:elevation="0dp"
-        app:strokeWidth="3dp"
-        app:cardCornerRadius="25dp"
-        app:strokeColor="?attr/colorOnSecondary"
-        app:cardBackgroundColor="?attr/colorPrimary"
         android:layout_marginStart="25dp"
+        android:animateLayoutChanges="true"
+        android:elevation="0dp"
+        app:cardBackgroundColor="?attr/colorPrimary"
+        app:cardCornerRadius="25dp"
         app:layout_constraintBottom_toTopOf="@+id/cardSetup"
         app:layout_constraintStart_toStartOf="@+id/cardSetup"
-        app:layout_constraintTop_toTopOf="@+id/cardSetup">
+        app:layout_constraintTop_toTopOf="@+id/cardSetup"
+        app:strokeColor="?attr/colorOnSecondary"
+        app:strokeWidth="3dp">
 
         <TextView
-            android:paddingHorizontal="20dp"
-            android:paddingVertical="8dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="20sp"
-            android:text="Setup" />
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="8dp"
+            android:text="Setup"
+            android:textSize="20sp" />
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
-        android:animateLayoutChanges="true"
         android:id="@+id/cardConfigure"
-        app:strokeWidth="3dp"
-        app:cardCornerRadius="25dp"
-        app:strokeColor="?attr/colorOnSecondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginHorizontal="25dp"
         android:layout_marginVertical="40dp"
-        android:layout_width="match_parent"
+        android:animateLayoutChanges="true"
         app:cardBackgroundColor="?attr/colorOnBackground"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:cardCornerRadius="25dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:strokeColor="?attr/colorOnSecondary"
+        app:strokeWidth="3dp">
 
         <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:animateLayoutChanges="true"
             android:orientation="vertical"
             android:paddingHorizontal="25dp"
-            android:paddingVertical="20dp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" >
+            android:paddingVertical="20dp">
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/floatingBall"
-                android:text="@string/floating_ball"
-                android:textSize="20sp"
-                android:textColor="?attr/colorOnSecondary"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
-
-
-
-
-
+                android:layout_height="wrap_content"
+                android:text="@string/floating_ball"
+                android:textColor="?attr/colorOnSecondary"
+                android:textSize="20sp" />
 
 
             <LinearLayout
                 android:id="@+id/collapseSettings"
-                android:gravity="start"
-                android:layout_marginTop="12dp"
                 android:layout_width="match_parent"
-                android:layout_height="40dp">
+                android:layout_height="40dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start">
+
                 <TextView
-                    android:text="@string/collapse_menu_after"
-                    android:textSize="20sp"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="@string/collapse_menu_after"
+                    android:textSize="20sp" />
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/collapseSeconds"
-                    android:text="30"
-                    android:textSize="18sp"
-                    android:ems="3"
-                    android:layout_weight="1"
-                    android:inputType="numberDecimal"
-                    android:textColor="?attr/colorOnSecondary"
-                    android:backgroundTint="?attr/colorOnSecondary"
-                    android:layout_marginHorizontal="5dp"
-                    android:gravity="end"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"/>
+                    android:layout_height="40dp"
+                    android:layout_marginHorizontal="5dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="?attr/colorOnSecondary"
+                    android:ems="3"
+                    android:gravity="end"
+                    android:inputType="numberDecimal"
+                    android:text="30"
+                    android:textColor="?attr/colorOnSecondary"
+                    android:textSize="18sp" />
+
                 <TextView
-                    android:text="s"
-                    android:textSize="20sp"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="s"
+                    android:textSize="20sp" />
             </LinearLayout>
 
 
             <LinearLayout
-                android:gravity="center|start"
-                android:layout_marginTop="12dp"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center|start">
+
                 <TextView
-                    android:text="@string/zoom"
-                    android:textSize="20sp"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="@string/zoom"
+                    android:textSize="20sp" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/densityScale"
-                    android:stepSize="0.1"
-                    android:valueFrom="0.3"
-                    android:valueTo="2.5"
-                    android:value="1"
-                    android:layout_weight="1"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"/>
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:stepSize="0.1"
+                    android:value="1"
+                    android:valueFrom="0.3"
+                    android:valueTo="2.5" />
             </LinearLayout>
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/densityAuto"
-                android:text="@string/adapt_content"
-                android:textSize="20sp"
-                android:layout_marginTop="12dp"
-                android:textColor="?attr/colorOnSecondary"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/adapt_content"
+                android:textColor="?attr/colorOnSecondary"
+                android:textSize="20sp" />
 
             <LinearLayout
-                android:gravity="center|start"
-                android:layout_marginTop="12dp"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center|start">
+
                 <TextView
-                    android:text="@string/backdrop_dim"
-                    android:textSize="20sp"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="@string/backdrop_dim"
+                    android:textSize="20sp" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/dimAmount"
-                    android:stepSize="0.1"
-                    android:valueFrom="0"
-                    android:valueTo="1"
-                    android:value="0"
-                    android:layout_weight="1"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"/>
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:stepSize="0.1"
+                    android:value="0"
+                    android:valueFrom="0"
+                    android:valueTo="1" />
             </LinearLayout>
 
         </LinearLayout>
+
         <LinearLayout
             android:id="@+id/configBlocker"
-            android:focusable="true"
-            android:clickable="true"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="true"
             android:orientation="horizontal" />
     </com.google.android.material.card.MaterialCardView>
 
@@ -286,30 +301,30 @@
         android:background="?attr/colorOnBackground"
         app:layout_constraintBottom_toTopOf="@+id/cardConfigure"
         app:layout_constraintStart_toStartOf="@+id/cardConfigure"
-        app:layout_constraintTop_toTopOf="@+id/cardConfigure"/>
+        app:layout_constraintTop_toTopOf="@+id/cardConfigure" />
 
     <com.google.android.material.card.MaterialCardView
-        android:animateLayoutChanges="true"
         android:id="@+id/headerConfigure"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:elevation="0dp"
-        app:strokeWidth="3dp"
-        app:cardCornerRadius="25dp"
-        app:strokeColor="?attr/colorOnSecondary"
-        app:cardBackgroundColor="?attr/colorPrimary"
         android:layout_marginStart="25dp"
+        android:animateLayoutChanges="true"
+        android:elevation="0dp"
+        app:cardBackgroundColor="?attr/colorPrimary"
+        app:cardCornerRadius="25dp"
         app:layout_constraintBottom_toTopOf="@+id/cardConfigure"
         app:layout_constraintStart_toStartOf="@+id/cardConfigure"
-        app:layout_constraintTop_toTopOf="@+id/cardConfigure">
+        app:layout_constraintTop_toTopOf="@+id/cardConfigure"
+        app:strokeColor="?attr/colorOnSecondary"
+        app:strokeWidth="3dp">
 
         <TextView
-            android:paddingHorizontal="20dp"
-            android:paddingVertical="8dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="20sp"
-            android:text="Configure" />
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="8dp"
+            android:text="Configure"
+            android:textSize="20sp" />
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

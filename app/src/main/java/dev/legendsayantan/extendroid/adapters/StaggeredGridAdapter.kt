@@ -16,7 +16,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
-import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.model.AppItem
 import dev.legendsayantan.extendroid.model.WindowData
 
@@ -60,7 +59,7 @@ class StaggeredGridAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = windowData[position]
         val color = allApps.firstOrNull { it.packageName == item.packageName }?.image?.let {
-            Utils.getDominantColorFromDrawable(it)
+            Utils.getColorOf(it)
         }
         holder.bind(
             item,
@@ -103,10 +102,9 @@ class StaggeredGridAdapter(
             itemView.layoutParams = layoutParams
             gradientArea.background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.TRANSPARENT, color)
+                intArrayOf(Color.TRANSPARENT, Utils.mixColors(c2=color,ratio = 0.85f), color)
             ).apply {
                 setGradientType(android.graphics.drawable.GradientDrawable.LINEAR_GRADIENT)
-                setGradientCenter(0.15f, 0f)
             }
 
             textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener{

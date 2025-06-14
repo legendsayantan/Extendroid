@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.Utils
 import kotlin.math.abs
 
 /**
@@ -125,9 +126,11 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun show() {
-        if (parent == null) {
-            wm.addView(this, layoutParams)
-            handler.postDelayed(fadeRunnable, fadeDelay)
+        Utils.whenSafeForUI(ctx) {
+            if (parent == null) {
+                wm.addView(this, layoutParams)
+                handler.postDelayed(fadeRunnable, fadeDelay)
+            }
         }
     }
 

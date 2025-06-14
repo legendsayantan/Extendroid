@@ -11,7 +11,7 @@ import dev.legendsayantan.extendroid.lib.MediaCore
 class PopupManager(val context: Context) {
 
     private val prefs by lazy { Prefs(context) }
-    private val popupWindows = hashMapOf<String, PopupWindow>()
+    private val popupWindows = linkedMapOf<String, PopupWindow>()
 
     var onPopupMinimize: (String, Float) -> Unit = { pkg, ratio -> }
     var onKeyEvent: (String, Int, Int) -> Unit = { pkg, kCode, action -> }
@@ -62,7 +62,9 @@ class PopupManager(val context: Context) {
                 PopupDeleteReason.TERMINATE -> MediaCore.mInstance?.stopVirtualDisplay(packageName)
             }
         }
+        val pos = popupWindows.keys.indexOf(packageName)
         popupWindows.remove(packageName)
+        if(pos==0) popupWindows.entries.firstOrNull()?.value?.addDim(prefs.backgroundDim)
     }
 
     enum class PopupDeleteReason {

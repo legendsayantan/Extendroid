@@ -17,11 +17,8 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
-import android.view.KeyEvent
-import android.widget.Toast
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
-import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
@@ -34,11 +31,14 @@ class ExtendService : Service() {
     val ball by lazy { FloatingBall(this) }
     val menu by lazy { OverlayMenu(this) }
     val popupManager by lazy { PopupManager(this) }
+    val prefsChangedListener = { ctx: Context->
+        setupUI()
+    }
 
     init {
         MediaCore.mInstance = object : MediaCore() {
             override fun mediaProjectionReady() {
-                prefs.registerChangeListener { setupUI() }
+                prefs.registerChangeListener(prefsChangedListener)
             }
 
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
@@ -204,7 +204,10 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
+        prefs.unregisterChangeListener(prefsChangedListener)
         svc = null
+        ball.hide()
+        menu.hide()
         super.onDestroy()
     }
 
