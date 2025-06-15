@@ -66,7 +66,7 @@ class PackageManagerHelper {
                     if (arrayOf(Manifest.permission.SYSTEM_ALERT_WINDOW).contains(perm)) {
                         log.append(grantViaAppOps(packageManager, pkgName, perm))
                     } else if (arrayOf("PROJECT_MEDIA").contains(perm)) {
-                        grantViaAdb(pkgName, perm)
+                        log.append(grantViaAdb(pkgName, perm))
                     } else {
                         try {
                             val params = grant.parameterTypes
@@ -145,12 +145,15 @@ class PackageManagerHelper {
             return log.toString()
         }
 
-        fun grantViaAdb(pkgName: String, perm: String) {
-            try {
-                Runtime.getRuntime().exec("pm grant $pkgName $perm")
-                Runtime.getRuntime().exec("appops set $pkgName $perm allow")
+        fun grantViaAdb(pkgName: String, perm: String): String {
+            return try {
+                val p1 = Runtime.getRuntime().exec("pm grant $pkgName $perm")
+                val p2 = Runtime.getRuntime().exec("appops set $pkgName $perm allow")
+                val output1 = "PM GRANT $perm: ${p1.inputStream.bufferedReader().readText() + p1.errorStream.bufferedReader().readText()}\n\n"
+                val output2 = "APPOPS SET $perm: ${p2.inputStream.bufferedReader().readText() + p2.errorStream.bufferedReader().readText()}\n\n"
+                output1 + output2
             } catch (e: Exception) {
-                e.printStackTrace()
+                e.stackTraceToString()
             }
         }
 
@@ -190,14 +193,14 @@ class PackageManagerHelper {
 
             // hidden removeTask lives on IActivityTaskManager, but we just need recentTasks
             val recentTasks = am.getRecentTasks(
-                20,
+                100,
                 ActivityManager.RECENT_WITH_EXCLUDED or ActivityManager.RECENT_IGNORE_UNAVAILABLE
             )
 
             val recentPkgs = recentTasks
                 .mapNotNull { it.baseIntent.component?.packageName }
                 .distinct()
-                .take(10)
+                .take(20)
 
             // --- 2) Get 5 most frequently used package names ---
             val now = System.currentTimeMillis()
@@ -217,7 +220,7 @@ class PackageManagerHelper {
                 .map { it.packageName }
                 .distinct()
                 .filterNot { recentPkgs.contains(it) }  // don't repeat
-                .take(10)
+                .take(20)
 
             // --- 3) Build AppItem list ---
             val topPkgs = recentPkgs + frequentPkgs

@@ -9,6 +9,16 @@
     android:layout_height="match_parent">
 
     <LinearLayout
+        android:id="@+id/surfaceParent"
+        android:background="?attr/colorSecondary"
+        android:layout_margin="6dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent" >
@@ -28,19 +38,12 @@
             android:layout_height="100dp"/>
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/surfaceParent"
-        android:background="?attr/colorSecondary"
-        android:layout_margin="6dp"
+    <SurfaceView
+        android:id="@+id/surfaceView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-        <SurfaceView
-            android:id="@+id/surfaceView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_margin="1dp"
-            app:layout_constraintBottom_toBottomOf="parent" />
-    </LinearLayout>
+        android:layout_height="match_parent"
+        android:layout_margin="7dp"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
     <LinearLayout
         android:id="@+id/handle"

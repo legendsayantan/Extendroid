@@ -188,6 +188,9 @@ class MainActivity : AppCompatActivity() {
         svcIntent = Intent(applicationContext, ExtendService::class.java)
         startForegroundService(svcIntent)
         this@MainActivity.requestMediaProjection()
+        mediaProjection = {
+            requestMediaProjection()
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -197,7 +200,7 @@ class MainActivity : AppCompatActivity() {
 
 
     companion object {
-
+        var mediaProjection = {}
     }
 
 }

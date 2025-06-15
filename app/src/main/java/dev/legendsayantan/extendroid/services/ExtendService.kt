@@ -14,6 +14,7 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
@@ -38,7 +39,7 @@ class ExtendService : Service() {
     init {
         MediaCore.mInstance = object : MediaCore() {
             override fun mediaProjectionReady() {
-                prefs.registerChangeListener(prefsChangedListener)
+                //prefs.registerChangeListener(prefsChangedListener)
             }
 
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
@@ -63,8 +64,10 @@ class ExtendService : Service() {
             println("SVC CONNECT")
             svc = IRootService.Stub.asInterface(binder)
             grantOwnPerms()
-            setupUI()
-            MediaCore.proceedWithRequest = true
+            Handler(mainLooper).postDelayed({
+                startFGS()
+                MediaCore.proceedWithRequest = true
+            }, 500)
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -91,6 +94,23 @@ class ExtendService : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        registerReceiver(configReceiver, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                menuOpenReceiver,
+                IntentFilter(ACTION_MENU_OPEN),
+                RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(menuOpenReceiver, IntentFilter(ACTION_MENU_OPEN))
+        }
+
+        bindPrivilegedService()
+    }
+
+    fun startFGS(){
         val pendingIntent = PendingIntent.getBroadcast(
             this,
             0,
@@ -113,20 +133,7 @@ class ExtendService : Service() {
             .build()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
 
-        registerReceiver(configReceiver, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(
-                menuOpenReceiver,
-                IntentFilter(ACTION_MENU_OPEN),
-                RECEIVER_NOT_EXPORTED
-            )
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(menuOpenReceiver, IntentFilter(ACTION_MENU_OPEN))
-        }
-
-        bindPrivilegedService()
+        setupUI()
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -147,8 +154,8 @@ class ExtendService : Service() {
     private fun grantOwnPerms() {
         val r = svc?.grantPermissions(
             arrayOf(
-                if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else "",
-                "PROJECT_MEDIA"
+                "PROJECT_MEDIA",
+                if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
             ).filter { it.isNotBlank() }
         )
         println(r)

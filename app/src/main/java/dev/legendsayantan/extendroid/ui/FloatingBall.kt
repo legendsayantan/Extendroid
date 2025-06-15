@@ -14,6 +14,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
+import dev.legendsayantan.extendroid.Utils.Companion.dpToPx
 import kotlin.math.abs
 
 /**
@@ -25,7 +26,12 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val handler = Handler(ctx.mainLooper)
     private val fadeDelay = 5000L // 5 seconds
-    private val fadeRunnable = Runnable { this.animate().alpha(0.5f) }
+    private val fadeRunnable = Runnable {
+        val xOffset = ctx.dpToPx(15f)
+        this.animate().alpha(0.5f).translationX(
+            if(layoutParams.x>(ctx.resources.displayMetrics.widthPixels/2)) xOffset else -xOffset
+        )
+    }
 
     private val displayMetrics
         get() = ctx.resources.displayMetrics
@@ -36,7 +42,7 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
 
     private var clickCallback: (() -> Unit)? = null
 
-    private val layoutParams = WindowManager.LayoutParams().apply {
+    private var layoutParams = WindowManager.LayoutParams().apply {
             width = WindowManager.LayoutParams.WRAP_CONTENT
             height = WindowManager.LayoutParams.WRAP_CONTENT
             type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -65,7 +71,7 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
                     handler.removeCallbacks(fadeRunnable)
-                    animate().alpha(1f)
+                    animate().alpha(1f).translationX(0f)
                     downX = ev.rawX
                     downY = ev.rawY
                     lastX = ev.rawX
