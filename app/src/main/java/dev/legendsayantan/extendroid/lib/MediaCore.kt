@@ -8,6 +8,7 @@ import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.view.MotionEvent
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
@@ -84,6 +85,10 @@ open class MediaCore {
         virtualDisplays[packageName]?.let {
             it.surface = surface
         } ?: throw RuntimeException("Virtual display for $packageName not found")
+    }
+
+    fun sendEvent(pkg: String, event: MotionEvent){
+
     }
 
     open fun virtualDisplayReady(packageName: String, displayID: Int) {}

@@ -2,15 +2,20 @@ package dev.legendsayantan.extendroid.adapters
 
 // StaggeredGridAdapter.kt
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.SurfaceTexture
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
@@ -24,11 +29,13 @@ import dev.legendsayantan.extendroid.model.WindowData
  * @author legendsayantan
  */
 class StaggeredGridAdapter(
+    private val ctx: Context,
     private val windowData: List<WindowData>,
     private val allApps: List<AppItem>,
     private val onClickClose: (String) -> Unit,
-    private val onClick: (String,Int,Int) -> Unit,
+    private val onClick: (String, Int, Int) -> Unit,
     private val onLongClick: (String) -> Unit,
+    private val onTouchEvent: (String, MotionEvent) -> Unit,
     private val onSurfaceAvailable: (String, TextureView, Int, Int) -> Unit
 ) :
     RecyclerView.Adapter<StaggeredGridAdapter.ViewHolder>() {
@@ -53,7 +60,14 @@ class StaggeredGridAdapter(
         val totalSpace = parent.measuredWidth - parent.paddingStart - parent.paddingEnd
         columnWidth = totalSpace / spanCount
 
-        return ViewHolder(view)
+        return ViewHolder(
+            view, ctx,
+            onClickClose,
+            onClick,
+            onLongClick,
+            onTouchEvent,
+            onSurfaceAvailable
+        )
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -65,33 +79,35 @@ class StaggeredGridAdapter(
             item,
             columnWidth,
             color ?: Color.TRANSPARENT,
-            onClickClose,
-            onClick,
-            onLongClick,
-            onSurfaceAvailable
         )
     }
 
     override fun getItemCount(): Int = windowData.size
 
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class ViewHolder(
+        itemView: View,
+        val ctx: Context,
+        val onClickClose: (String) -> Unit,
+        val onClick: (String, Int, Int) -> Unit,
+        val onLongClick: (String) -> Unit,
+        val onTouchEvent: (String, MotionEvent) -> Unit,
+        val onItemAttached: (String, TextureView, Int, Int) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
         var packageName = ""
         var height = 0
+        var touchControlsApp = false
         private val parentCard = itemView.findViewById<MaterialCardView>(R.id.parentCard)
         val textureView: TextureView = itemView.findViewById<TextureView>(R.id.surfaceContainer)
         private val textView: TextView = itemView.findViewById(R.id.text)
         private val gradientArea: LinearLayout =
             itemView.findViewById<LinearLayout>(R.id.gradientArea)
-        private val closeBtn: ImageView = itemView.findViewById(R.id.closeBtn)
+        private val actionBtn: ImageView = itemView.findViewById(R.id.actionBtn)
 
+        @SuppressLint("ClickableViewAccessibility")
         fun bind(
             windowData: WindowData,
             columnWidth: Int,
-            color: Int,
-            onClickClose: (String) -> Unit,
-            onClick: (String,Int,Int) -> Unit,
-            onLongClick: (String) -> Unit,
-            onItemAttached: (String, TextureView, Int, Int) -> Unit
+            color: Int
         ) {
             packageName = windowData.packageName
             height = (columnWidth * windowData.ratio).toInt()
@@ -102,12 +118,12 @@ class StaggeredGridAdapter(
             itemView.layoutParams = layoutParams
             gradientArea.background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.TRANSPARENT, Utils.mixColors(c2=color,ratio = 0.85f), color)
+                intArrayOf(Color.TRANSPARENT, Utils.mixColors(c2 = color, ratio = 0.85f), color)
             ).apply {
                 setGradientType(android.graphics.drawable.GradientDrawable.LINEAR_GRADIENT)
             }
 
-            textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener{
+            textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(
                     surface: SurfaceTexture,
                     width: Int,
@@ -116,15 +132,44 @@ class StaggeredGridAdapter(
                     onItemAttached(packageName, textureView, columnWidth, height)
                 }
 
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { return true }
+                override fun onSurfaceTextureSizeChanged(
+                    surface: SurfaceTexture,
+                    width: Int,
+                    height: Int
+                ) {
+                }
+
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                    return true
+                }
+
                 override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
 
             }
 
-            closeBtn.setOnClickListener { onClickClose(windowData.packageName) }
-            parentCard.setOnClickListener { onClick(windowData.packageName,columnWidth,height) }
-            parentCard.setOnLongClickListener { onLongClick(windowData.packageName); true }
+            actionBtn.setOnClickListener {
+                gradientArea.visibility = View.GONE
+                touchControlsApp = true
+                parentCard.requestDisallowInterceptTouchEvent(true)
+                parentCard.parent.requestDisallowInterceptTouchEvent(true)
+                textureView.setOnTouchListener { v, event ->
+                    onTouchEvent(windowData.packageName, event)
+                    true
+                }
+            }
+            actionBtn.setOnLongClickListener {
+                onClickClose(windowData.packageName)
+                true
+            }
+            parentCard.setOnClickListener {
+                if (!touchControlsApp)
+                    onClick(windowData.packageName, columnWidth, height)
+            }
+            parentCard.setOnLongClickListener {
+                if (!touchControlsApp)
+                    onLongClick(windowData.packageName);
+                true
+            }
         }
     }
 }

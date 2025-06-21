@@ -46,7 +46,7 @@
                 android:layout_height="35dp"
                 app:tint="?attr/colorOnSecondary" />
             <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/closeBtn"
+                android:id="@+id/actionBtn"
                 android:src="@drawable/rounded_close_24"
                 android:layout_gravity="center_vertical"
                 android:layout_marginEnd="15dp"
@@ -55,7 +55,7 @@
                 app:tint="?attr/colorOnSecondary" />
         </LinearLayout>
 
-        <androidx.recyclerview.widget.RecyclerView
+        <dev.legendsayantan.extendroid.ui.FreezableRecyclerView
             android:id="@+id/recyclerView"
             android:translationZ="100dp"
             android:clipChildren="true"
@@ -64,7 +64,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-        </androidx.recyclerview.widget.RecyclerView>
+        </dev.legendsayantan.extendroid.ui.FreezableRecyclerView>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -7,6 +7,7 @@ import android.graphics.PixelFormat
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.WindowManager
@@ -37,7 +38,8 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     var minimisePopup: (String) -> Unit = {}
     var getTopApps: () -> List<String> = { listOf() }
     var requestDisableScreen: () -> Unit = {}
-    var requestStartSelf: ()-> Unit = {}
+    var requestStartSelf: () -> Unit = {}
+    var dispatchEvent:(String, MotionEvent)-> Unit = {pkg,e->}
 
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -66,9 +68,9 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         layoutInflater.inflate(R.layout.layout_menu, this, true)
     }
     val tabLayout by lazy { root!!.findViewById<TabLayout>(R.id.tabLayout) }
-    val recyclerView by lazy { root!!.findViewById<RecyclerView>(R.id.recyclerView) }
+    val recyclerView by lazy { root!!.findViewById<FreezableRecyclerView>(R.id.recyclerView) }
     val moreBtn by lazy { root!!.findViewById<ImageView>(R.id.moreBtn) }
-    val closeBtn by lazy { root!!.findViewById<ImageView>(R.id.closeBtn) }
+    val closeBtn by lazy { root!!.findViewById<ImageView>(R.id.actionBtn) }
 
     private var closeCallback: () -> Unit = {}
     var collapseSeconds = 30L
@@ -106,8 +108,8 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     lateinit var staggeredGridAdapter: StaggeredGridAdapter
 
     init {
+        recyclerView.isNestedScrollingEnabled = true
         startLoadingInBackground()
-
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 tab?.customView?.let {
@@ -177,34 +179,45 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
             recyclerView.layoutManager =
                 StaggeredGridLayoutManager(gridColumnCount, StaggeredGridLayoutManager.VERTICAL)
             staggeredGridAdapter =
-                StaggeredGridAdapter(activeWindowsData, installedApps, onClickClose = { pkg ->
-                    activeWindowsData.removeIf { it.packageName == pkg }
-                    MediaCore.mInstance?.stopVirtualDisplay(pkg)
-                    reloadTabContents(tab)
-                }, onClick = { pkg, w, h ->
-                    openInPopup(
-                        pkg,
-                        w,
-                        h,
-                        Utils.getColorOf(installedApps.find { it.packageName == pkg }!!.image)
-                    )
-                    activeWindowsData.removeIf { it.packageName == pkg }
-                    hide()
-                }, onLongClick = { pkg ->
-                    MediaCore.mInstance?.let {
-                        it.fullScreen(pkg)
+                StaggeredGridAdapter(
+                    context,
+                    activeWindowsData,
+                    installedApps,
+                    onClickClose = { pkg ->
+                        activeWindowsData.removeIf { it.packageName == pkg }
+                        MediaCore.mInstance?.stopVirtualDisplay(pkg)
+                        reloadTabContents(tab)
+                    },
+                    onClick = { pkg, w, h ->
+                        openInPopup(
+                            pkg,
+                            w,
+                            h,
+                            Utils.getColorOf(installedApps.find { it.packageName == pkg }!!.image)
+                        )
                         activeWindowsData.removeIf { it.packageName == pkg }
                         hide()
-                    }
-                }, onSurfaceAvailable = { pkg, textureView, width, height ->
-                    MediaCore.mInstance?.setupVirtualDisplay(
-                        ctx,
-                        pkg,
-                        Surface(textureView.surfaceTexture),
-                        width,
-                        height
-                    )
-                })
+                    },
+                    onLongClick = { pkg ->
+                        MediaCore.mInstance?.let {
+                            it.fullScreen(pkg)
+                            activeWindowsData.removeIf { it.packageName == pkg }
+                            hide()
+                        }
+                    },
+                    onTouchEvent = { pkg,event->
+                        setAutoHide()
+                        dispatchEvent(pkg,event)
+                    },
+                    onSurfaceAvailable = { pkg, textureView, width, height ->
+                        MediaCore.mInstance?.setupVirtualDisplay(
+                            ctx,
+                            pkg,
+                            Surface(textureView.surfaceTexture),
+                            width,
+                            height
+                        )
+                    })
             recyclerView.adapter = staggeredGridAdapter
 
         } else {
@@ -235,7 +248,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
                     R.id.action_popup_all -> {
                         val w = staggeredGridAdapter.columnWidth;
-                        activeWindowsData.forEachIndexed { index,data->
+                        activeWindowsData.forEachIndexed { index, data ->
                             handler.postDelayed({
                                 openInPopup(
                                     data.packageName,
@@ -243,26 +256,28 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                                     (w * data.ratio).toInt(),
                                     Utils.getColorOf(installedApps.find { it.packageName == data.packageName }!!.image)
                                 )
-                            }, (250*index).toLong())
+                            }, (250 * index).toLong())
                         }
                         activeWindowsData.clear()
                         hide()
                     }
 
                     R.id.action_fullscreen_all -> {
-                        activeWindowsData.forEach { data->
+                        activeWindowsData.forEach { data ->
                             MediaCore.mInstance?.fullScreen(data.packageName)
                         }
                         activeWindowsData.clear()
                         hide()
                     }
+
                     R.id.action_close_all -> {
-                        activeWindowsData.forEach { data->
+                        activeWindowsData.forEach { data ->
                             MediaCore.mInstance?.stopVirtualDisplay(data.packageName)
                         }
                         activeWindowsData.clear()
                         hide()
                     }
+
                     R.id.action_start_app -> {
                         requestStartSelf()
                         hide()

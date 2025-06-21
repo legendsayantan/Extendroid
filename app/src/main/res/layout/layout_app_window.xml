@@ -142,7 +142,7 @@
                     app:tint="?attr/colorOnSecondary" />
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/closeBtn"
+                android:id="@+id/actionBtn"
                 app:cardCornerRadius="25dp"
                 app:strokeWidth="3dp"
                 app:strokeColor="?attr/colorOnSecondary"

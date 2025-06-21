@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
-import android.os.Build
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.KeyEvent
@@ -13,7 +12,6 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -98,7 +96,7 @@ class PopupWindow(
     val hideBtn by lazy { root.findViewById<MaterialCardView>(R.id.hideBtn) }
     val fullBtn by lazy { root.findViewById<MaterialCardView>(R.id.fullBtn) }
     val backBtn by lazy { root.findViewById<MaterialCardView>(R.id.backBtn) }
-    val closeBtn by lazy { root.findViewById<MaterialCardView>(R.id.closeBtn) }
+    val closeBtn by lazy { root.findViewById<MaterialCardView>(R.id.actionBtn) }
 
     init {
         surfaceParent.background = color.toDrawable()

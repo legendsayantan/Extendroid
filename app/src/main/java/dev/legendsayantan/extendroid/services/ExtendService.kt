@@ -18,6 +18,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
+import android.view.MotionEvent
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.lib.MediaCore
@@ -32,18 +33,18 @@ class ExtendService : Service() {
     val ball by lazy { FloatingBall(this) }
     val menu by lazy { OverlayMenu(this) }
     val popupManager by lazy { PopupManager(this) }
-    val prefsChangedListener = { ctx: Context->
-        setupUI()
+    val prefsChangedListener = { ctx: Context ->
+        setupPrefsRelated()
     }
 
     init {
         MediaCore.mInstance = object : MediaCore() {
             override fun mediaProjectionReady() {
-                //prefs.registerChangeListener(prefsChangedListener)
+                prefs.registerChangeListener(prefsChangedListener)
             }
 
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
-                svc?.launchAppOnDisplay(packageName,displayID)
+                svc?.launchAppOnDisplay(packageName, displayID)
             }
 
             override fun appTaskToClear(packageName: String) {
@@ -55,7 +56,7 @@ class ExtendService : Service() {
 
     val svcArgs by lazy {
         Shizuku.UserServiceArgs(ComponentName(packageName, RootService::class.java.name))
-            .processNameSuffix("$packageName.services:rootsvc")
+            .processNameSuffix("rootsvc")
             .debuggable(true)
             .daemon(true)
     }
@@ -110,7 +111,7 @@ class ExtendService : Service() {
         bindPrivilegedService()
     }
 
-    fun startFGS(){
+    fun startFGS() {
         val pendingIntent = PendingIntent.getBroadcast(
             this,
             0,
@@ -161,7 +162,7 @@ class ExtendService : Service() {
         println(r)
     }
 
-    private fun setupUI() {
+    private fun setupPrefsRelated(){
         menu.collapseSeconds = prefs.collapseSeconds
         if (prefs.floatingBall) {
             ball.show()
@@ -177,11 +178,15 @@ class ExtendService : Service() {
                 ball.show()
             }
         }
+    }
+
+    private fun setupUI() {
+        setupPrefsRelated()
         menu.getTopApps = {
             svc?.getTopTenApps() ?: listOf()
         }
         menu.openInPopup = { s, w, h, c ->
-            popupManager.createNew(s, w, h, c )
+            popupManager.createNew(s, w, h, c)
         }
         menu.containsPopup = {
             popupManager.hasPopup(it)
@@ -193,20 +198,35 @@ class ExtendService : Service() {
             svc?.setBuiltInDisplayPowerMode(0)
         }
         menu.requestStartSelf = {
-            svc?.launchAppOnDisplay(packageName,Display.DEFAULT_DISPLAY)
+            svc?.launchAppOnDisplay(packageName, Display.DEFAULT_DISPLAY)
         }
-        popupManager.onPopupMinimize = { pkg,ratio->
-            menu.startPreviewFor(pkg,ratio)
+        menu.dispatchEvent = { pkg, event ->
+            print("${event.x} ${event.y} ${MotionEvent.actionToString(event.action)} ${event.rawX} ${event.rawY}")
+            println(sendEvent(pkg, event))
         }
-        popupManager.onKeyEvent = { pkg,keyCode,action->
-            val r = svc?.dispatchKey(keyCode, action, MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId?:-1)
+        popupManager.onPopupMinimize = { pkg, ratio ->
+            menu.startPreviewFor(pkg, ratio)
+        }
+        popupManager.onKeyEvent = { pkg, keyCode, action ->
+            val r = svc?.dispatchKey(
+                keyCode,
+                action,
+                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1
+            )
             println(r)
         }
-        popupManager.onMotionEvent = { pkg,event->
-            val r = svc?.dispatch(event,MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId?:-1)
-            println(r)
+        popupManager.onMotionEvent = { pkg, event ->
+            print("${event.x} ${event.y} ${event.action} ${event.rawX} ${event.rawY}")
+            println(sendEvent(pkg, event))
         }
 
+    }
+
+    fun sendEvent(pkg: String, event: MotionEvent): String {
+        return svc?.dispatch(
+            event,
+            MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1
+        ).toString()
     }
 
     override fun onDestroy() {
@@ -222,6 +242,7 @@ class ExtendService : Service() {
         var svc: IRootService? = null
         private const val SERVICE_CHANNEL = "Service"
         private const val ACTION_MENU_OPEN = "dev.legendsayantan.extendroid.action.MENU_OPEN"
-        const val ACTION_GET_MEDIA_PROJECTION = "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
+        const val ACTION_GET_MEDIA_PROJECTION =
+            "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
     }
 }
