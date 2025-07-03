@@ -3,6 +3,7 @@ import org.gradle.internal.declarativedsl.parsing.main
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.gms.googleservices)
 }
 
 android {
@@ -61,6 +62,13 @@ dependencies {
     implementation(libs.shizukuProvider)
     implementation(libs.hiddenApi)
     implementation(libs.palette) // Added Palette library
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.appcheck.playintegrity)
+    //implementation(libs.retrofit)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

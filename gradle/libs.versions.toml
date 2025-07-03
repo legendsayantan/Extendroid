@@ -12,6 +12,9 @@ constraintlayout = "2.2.1"
 shizukuVersion = "13.1.5"
 hiddenApi= "6.1"
 palette = "1.0.0"
+firebaseBom = "33.15.0"
+retrofit = "3.0.0"
+okhttp = "4.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -26,8 +29,16 @@ shizuku = {group = "dev.rikka.shizuku", name="api", version.ref="shizukuVersion"
 shizukuProvider = {group = "dev.rikka.shizuku", name="provider", version.ref="shizukuVersion"}
 hiddenApi = {group= "org.lsposed.hiddenapibypass", name="hiddenapibypass", version.ref="hiddenApi"}
 palette = { group = "androidx.palette", name = "palette", version.ref = "palette" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+gms-googleservices = { id = "com.google.gms.google-services", version = "4.4.2" }

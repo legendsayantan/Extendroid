@@ -32,6 +32,10 @@ class Utils {
             return Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         }
 
+        fun isSafeForUI(ctx: Context): Boolean {
+            return isShizukuSetup() && isShizukuAllowed() && Settings.canDrawOverlays(ctx)
+        }
+
         fun whenSafeForUI(ctx: Context, then:()-> Unit){
             if(isShizukuSetup() && isShizukuAllowed()){
                 if(!Settings.canDrawOverlays(ctx)){
@@ -86,5 +90,30 @@ class Utils {
                 }catch (_:ActivityNotFoundException){}
             }
         }
+
+        fun String.toJsonSanitized(): String {
+            // Matches control chars (U+0000–U+001F), double-quote, or backslash
+            val jsonEscapeRegex = Regex("""[\u0000-\u001F"\\]""")
+            return jsonEscapeRegex.replace(this) { matchResult ->
+                when (val ch = matchResult.value[0]) {
+                    '\b'        -> "\\b"
+                    '\u000C'    -> "\\f"   // form feed
+                    '\n'        -> "\\n"
+                    '\r'        -> "\\r"
+                    '\t'        -> "\\t"
+                    '"'         -> "\\\""  // double-quote
+                    '\\'        -> "\\\\"  // backslash
+                    else        -> String.format("\\u%04X", ch.code)  // other control chars
+                }
+            }
+        }
+
+        fun minuteToMilliseconds(minutes: Int): Long {
+            return minutes * 60 * 1000L
+        }
+
+        /** Linear interpolate between a and b */
+        fun lerp(a: Int, b: Int, t: Float) = (a + (b - a) * t).toInt()
+
     }
 }

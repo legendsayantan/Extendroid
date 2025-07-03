@@ -40,7 +40,7 @@ class ExtendService : Service() {
     init {
         MediaCore.mInstance = object : MediaCore() {
             override fun mediaProjectionReady() {
-                prefs.registerChangeListener(prefsChangedListener)
+                prefs.registerConfigChangeListener(prefsChangedListener)
             }
 
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
@@ -156,6 +156,7 @@ class ExtendService : Service() {
         val r = svc?.grantPermissions(
             arrayOf(
                 "PROJECT_MEDIA",
+                if (Build.VERSION.SDK_INT>= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
                 if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
             ).filter { it.isNotBlank() }
         )
@@ -231,7 +232,7 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
-        prefs.unregisterChangeListener(prefsChangedListener)
+        prefs.unregisterConfigChangeListener(prefsChangedListener)
         svc = null
         ball.hide()
         menu.hide()

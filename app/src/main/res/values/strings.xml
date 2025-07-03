@@ -13,4 +13,7 @@
     <string name="backdrop_dim">Backdrop Dim</string>
     <string name="app_logo">App logo</string>
     <string name="tab_logo">Tab logo</string>
+    <string name="you_can_login_one_account_to_only_one_device_at_the_same_time">You can login one account to only one device at the same time.</string>
+    <string name="signed_in_as">Currently signed in as %1$s</string>
+    <string name="extendroid_echo">Extendroid Echo</string>
 </resources>

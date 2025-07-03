@@ -23,6 +23,7 @@
         android:roundIcon="@drawable/logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.Extendroid"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <service
             android:name=".services.ExtendService"
@@ -44,8 +45,17 @@
         </activity>
 
         <service
+            android:name=".echo.CloudMessageService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Privileged Stuff -->
+        <service
             android:name=".services.RootService"
-            android:exported="true"></service> <!-- ShizukuProvider must be exported so the Shizuku manager can bind -->
+            android:exported="true"></service>
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

@@ -6,9 +6,11 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -19,9 +21,17 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
+import com.google.firebase.Firebase
+import com.google.firebase.appcheck.appCheck
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.initialize
+import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuAllowed
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuSetup
 import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
+import dev.legendsayantan.extendroid.echo.EchoControlDialog
+import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
 import dev.legendsayantan.extendroid.services.ExtendService
@@ -39,12 +49,19 @@ class MainActivity : AppCompatActivity() {
         HiddenApiBypass.addHiddenApiExemptions("");
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        Firebase.initialize(context = this)
+        Firebase.appCheck.installAppCheckProviderFactory(
+            PlayIntegrityAppCheckProviderFactory.getInstance(),
+        )
+        FirebaseMessaging.getInstance().isAutoInitEnabled = false
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        prefs.registerChangeListener {
+        prefs.registerConfigChangeListener {
             handleSections()
         }
     }
@@ -59,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         initialiseSetupMenu()
         handleSections()
         initialiseConfigure()
+        initialiseBottomBar()
         startForegroundService()
     }
 
@@ -106,8 +124,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleSections() {
-        val logBtn = findViewById<ImageView>(R.id.logBtn)
-        val stopBtn = findViewById<ImageView>(R.id.stopBtn)
 
         val setupCard = findViewById<MaterialCardView>(R.id.cardSetup)
         val configCard = findViewById<MaterialCardView>(R.id.cardConfigure)
@@ -115,26 +131,6 @@ class MainActivity : AppCompatActivity() {
         val configHeader = findViewById<MaterialCardView>(R.id.headerConfigure)
         val configBlocker = findViewById<LinearLayout>(R.id.configBlocker)
         val ready = isShizukuSetup() && isShizukuAllowed()
-
-        if (ExtendService.svc == null) {
-            stopBtn.visibility = View.GONE
-        } else {
-            stopBtn.visibility = View.VISIBLE
-            stopBtn.setOnClickListener {
-                stopService(svcIntent)
-                onPauseTask = {
-                    exitProcess(0)
-                }
-                Toast.makeText(
-                    applicationContext,
-                    "Terminating background jobs, press back to restart the app.",
-                    Toast.LENGTH_LONG
-                ).show()
-                initialiseSetupMenu()
-                handleSections()
-                initialiseConfigure()
-            }
-        }
 
         setupCard.isEnabled = !ready
         configCard.isEnabled = ready
@@ -176,6 +172,56 @@ class MainActivity : AppCompatActivity() {
         dimAmount.addOnChangeListener { slider, value, fromUser ->
             prefs.backgroundDim = value
         }
+    }
+
+    fun initialiseBottomBar() {
+        val echoBtn = findViewById<MaterialCardView>(R.id.echoBtn)
+        val echoTxt = findViewById<TextView>(R.id.echoTxt)
+        val logBtn = findViewById<MaterialCardView>(R.id.logBtn)
+        val stopBtn = findViewById<ImageView>(R.id.stopBtn)
+
+        echoBtn.setOnClickListener {
+            val echoDialog = EchoControlDialog(this)
+            echoDialog.setOnCancelListener {
+                initialiseBottomBar()
+            }
+            echoDialog.show()
+
+        }
+        echoBtn.isEnabled = Utils.isSafeForUI(this)
+        echoBtn.alpha = if (Utils.isSafeForUI(this)) 1f else 0.6f
+        if (ExtendService.svc == null) {
+            stopBtn.visibility = View.GONE
+        } else {
+            stopBtn.visibility = View.VISIBLE
+            stopBtn.setOnClickListener {
+                stopService(svcIntent)
+                onPauseTask = {
+                    exitProcess(0)
+                }
+                Toast.makeText(
+                    applicationContext,
+                    "Terminating background jobs, press back to restart the app.",
+                    Toast.LENGTH_LONG
+                ).show()
+                initialiseSetupMenu()
+                handleSections()
+                initialiseConfigure()
+                initialiseBottomBar()
+            }
+        }
+        echoTxt.isSelected = true
+        echoTxt.text = if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent) {
+            "Echo : ${
+                EchoControlDialog.calculateHourMinuteForCredits(
+                    prefs.balance,
+                    prefs.lowQuality
+                )
+            } @ ${if (prefs.lowQuality) "Low" else "High"}"
+        } else {
+            getString(R.string.extendroid_echo)
+        }
+        EchoNetworkUtils.trySyncBalanceWithServer(applicationContext)
     }
 
     private fun startForegroundService() {
