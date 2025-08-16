@@ -1,14 +1,17 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
+import android.os.Build
 import android.os.Handler
+import android.provider.Settings
 import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import dev.legendsayantan.extendroid.Prefs
-import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
+import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.THIRTY_MINUTES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -19,6 +22,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.IOException
+import java.util.Locale
 
 /**
  * @author legendsayantan
@@ -65,35 +69,75 @@ class CloudMessageService : FirebaseMessagingService(){
                         return@addOnCompleteListener
                     }
 
-                    val email = user.email?.toJsonSanitized()
+                    val uid = user.uid.toJsonSanitized()
                     val idToken = user.getIdToken(false).result?.token
                     val fcmToken = task.result
-
-                    val jsonBody = "{\"email\": \"$email\",\"idToken\": \"$idToken\",\"fcmToken\": \"$fcmToken\"}"
+                    val prefs = Prefs(ctx)
+                    var desiredDeviceName = prefs.deviceName.ifBlank { Build.MANUFACTURER.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                    }+" "+ Build.MODEL }
                     val client = OkHttpClient()
-                    val req = Request.Builder()
-                        .url(ctx.getString(R.string.url_backend) + "/token")
-                        .post(
-                            jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
-                        )
+                    val checkIfDesiredNameIsRegistered = Request.Builder()
+                        .url(EchoNetworkUtils.getBackendUrl(ctx) + "/device?uid=$uid&token=$idToken&devicename=$desiredDeviceName")
+                        .get()
                         .addHeader("Content-Type", "application/json")
+                        .addHeader("X-UID", uid)
                         .addHeader("Authorization", "Bearer $idToken")
                         .build()
-                    client.newCall(req).enqueue(object : okhttp3.Callback {
+                    client.newCall(checkIfDesiredNameIsRegistered).enqueue(object : okhttp3.Callback {
                         override fun onFailure(call: Call, e: IOException) {
                             onFailure("Error: ${e.message ?: "Unknown error"}")
                         }
 
                         override fun onResponse(call: Call, response: Response) {
-                            response.use {
-                                if (it.isSuccessful) {
-                                    onSuccess("Success: ${it.body?.string()}")
-                                } else {
-                                    onFailure("Error ${it.code}: ${it.body?.string()}")
+                            response.use { response ->
+                                if (response.isSuccessful) {
+                                    // A device with our desired name is already registered, but we need to check if it's the same device
+                                    if(prefs.deviceName != desiredDeviceName){
+                                        //A different device has the name we want, so we need to change the name of current device
+                                        desiredDeviceName = "$desiredDeviceName (${Settings.Global.DEVICE_NAME})"
+                                    }
                                 }
+                                // Now we can register the device with the backend
+                                val deviceRegisterJson = "{\"uid\": \"$uid\",\"token\": \"$idToken\", \"devicename\":\"${desiredDeviceName.trim()}\", \"fcmtoken\": \"$fcmToken\"}"
+
+                                val req = Request.Builder()
+                                    .url(EchoNetworkUtils.getBackendUrl(ctx)+ "/device?uid=$uid&token=$idToken")
+                                    .post(
+                                        deviceRegisterJson.toRequestBody("application/json; charset=utf-8".toMediaType())
+                                    )
+                                    .addHeader("Content-Type", "application/json")
+                                    .addHeader("X-UID", uid)
+                                    .addHeader("Authorization", "Bearer $idToken")
+                                    .build()
+                                client.newCall(req).enqueue(object : okhttp3.Callback {
+                                    override fun onFailure(call: Call, e: IOException) {
+                                        onFailure("Error: ${e.message ?: "Unknown error"}")
+                                    }
+
+                                    override fun onResponse(call: Call, response: Response) {
+                                        response.use { res ->
+                                            if (res.isSuccessful) {
+                                                prefs.deviceName = desiredDeviceName
+                                                prefs.balance = res.body?.string()?.substringAfter("\"balance\":")?.substringBefore("}")?.toFloatOrNull() ?: 0.0f
+                                                prefs.nextSyncTime =
+                                                    System.currentTimeMillis() + EchoControlDialog.hourMinuteForBoosters(
+                                                        prefs.balance
+                                                    ).second.let {
+                                                        if (it < 30) Utils.minuteToMilliseconds(
+                                                            it.coerceAtLeast(1)
+                                                        ) else THIRTY_MINUTES
+                                                    }
+                                                onSuccess("Success: ${res.body?.string()}")
+                                            } else {
+                                                onFailure("Error ${res.code}: ${res.body?.string()}")
+                                            }
+                                        }
+                                    }
+                                })
                             }
                         }
-                    })
+                    });
                 }
 
         }

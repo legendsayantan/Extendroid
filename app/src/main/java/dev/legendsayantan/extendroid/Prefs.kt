@@ -2,6 +2,7 @@ package dev.legendsayantan.extendroid
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.core.content.edit
 
 /**
@@ -85,10 +86,10 @@ class Prefs(val context: Context) {
         }
 
     var balance: Float
-        get() = echo.getFloat("balance",3f)
+        get() = echo.getFloat("balance",5f)
         set(value) {
             echo.edit { putFloat("balance", value) }
-            configChanged()
+            echoChanged()
         }
 
     var nextSyncTime : Long
@@ -98,17 +99,10 @@ class Prefs(val context: Context) {
             echoChanged()
         }
 
-    var lowQuality: Boolean
-        get() = echo.getBoolean("lowQuality",false)
+    var deviceName : String
+        get() = prefs.getString("deviceName", "") ?: ""
         set(value) {
-            echo.edit { putBoolean("lowQuality",value) }
-            echoChanged()
-        }
-
-    var autoPurchase: Boolean
-        get() = echo.getBoolean("autoPurchase",false)
-        set(value) {
-            echo.edit { putBoolean("autoPurchase",value) }
+            prefs.edit { putString("deviceName", value) }
             echoChanged()
         }
 

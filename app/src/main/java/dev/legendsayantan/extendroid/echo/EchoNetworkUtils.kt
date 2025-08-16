@@ -1,7 +1,9 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
+import android.os.Build
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
@@ -20,21 +22,31 @@ class EchoNetworkUtils {
     companion object {
         const val ONE_MINUTE = 60 * 1000L // 1 minute in milliseconds
         const val THIRTY_MINUTES = 30 * ONE_MINUTE // 30 minutes in milliseconds
+        const val USE_PRODUCTION = true // Set to true for production
+        fun getBackendUrl(ctx: Context): String {
+            return if (USE_PRODUCTION) {
+                ctx.getString(R.string.url_backend_prod)
+            } else {
+                ctx.getString(R.string.url_backend_dev)
+            }
+        }
         val user
             get() = FirebaseAuth.getInstance().currentUser
 
-        fun trySyncBalanceWithServer(ctx: Context) {
+        fun trySyncBoostersWithServer(ctx: Context) {
             if (user == null) return
             val prefs = Prefs(ctx)
             if (System.currentTimeMillis() < prefs.nextSyncTime) return
-            val email = user!!.email?.toJsonSanitized()
+            val uID = user!!.uid.toJsonSanitized()
+
             user!!.getIdToken(false).addOnSuccessListener { it ->
                 GlobalScope.launch(Dispatchers.IO) {
                     val client = OkHttpClient()
                     val req = Request.Builder()
-                        .url(ctx.getString(R.string.url_backend) + "/balance?email=$email&idToken=${it.token}")
+                        .url(getBackendUrl(ctx) + "/user?uid=$uID&token=${it.token}")
                         .get()
                         .addHeader("Content-Type", "application/json")
+                        .addHeader("X-UID", uID)
                         .addHeader("Authorization", "Bearer ${it.token}")
                         .build()
                     client.newCall(req)
@@ -57,9 +69,8 @@ class EchoNetworkUtils {
                                                 .substringBefore("}").substringBefore(",")
                                                 .toFloatOrNull() ?: 0.0f
                                         prefs.nextSyncTime =
-                                            System.currentTimeMillis() + EchoControlDialog.hourMinuteForCredits(
-                                                prefs.balance,
-                                                prefs.lowQuality
+                                            System.currentTimeMillis() + EchoControlDialog.hourMinuteForBoosters(
+                                                prefs.balance
                                             ).second.let {
                                                 if (it < 30) Utils.minuteToMilliseconds(
                                                     it.coerceAtLeast(1)

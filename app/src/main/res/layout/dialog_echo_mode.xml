@@ -71,7 +71,7 @@
                         android:gravity="start"
                         android:textColor="?attr/colorOnSecondary"
                         android:text="Account"
-                        android:textSize="24sp"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
                 </LinearLayout>
                 <TextView
@@ -82,7 +82,7 @@
                     android:scrollHorizontally="true"
                     android:singleLine="true"
                     android:gravity="center"
-                    android:text="@string/you_can_login_one_account_to_only_one_device_at_the_same_time"
+                    android:text="@string/sign_in_or_sign_up_to_use_extendroid_echo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="5dp"/>
@@ -197,7 +197,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
                     <ImageView
-                        android:src="@drawable/rounded_hourglass_top_24"
+                        android:src="@drawable/round_bolt_24"
                         android:layout_width="40dp"
                         android:translationX="-5dp"
                         android:layout_height="match_parent"
@@ -208,9 +208,39 @@
                         android:layout_height="wrap_content"
                         android:gravity="start"
                         android:textColor="?attr/colorOnSecondary"
-                        android:text="Usage Quota"
-                        android:textSize="24sp"
+                        android:text="Boosters"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/boosterAmount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="start"
+                        android:textColor="?attr/colorOnSecondary"
+                        android:text="0"
+                        android:textSize="25sp" />
+                    <ImageView
+                        android:src="@drawable/rounded_info_24"
+                        android:layout_width="40dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_height="match_parent"
+                        app:tint="?attr/colorOnSecondary" />
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_marginTop="15dp"
+                    android:gravity="center"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+                    <ImageView
+                        android:src="@drawable/rounded_hourglass_top_24"
+                        android:layout_width="40dp"
+                        android:layout_height="match_parent"
+                        app:tint="?attr/colorOnSecondary"/>
+                    <TextView
+                        android:text="Estimated Usage: "
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="22sp"/>
                     <TextView
                         android:id="@+id/quotaTime"
                         android:layout_width="wrap_content"
@@ -218,104 +248,43 @@
                         android:gravity="start"
                         android:textColor="?attr/colorOnSecondary"
                         android:text="0 h 0 m"
-                        android:textSize="24sp" />
+                        android:textSize="22sp" />
                 </LinearLayout>
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/lowQualitySwitch"
-                    android:text="Low Quality"
-                    android:textSize="20sp"
-                    android:layout_marginTop="10dp"
+                <TextView
+                    android:text="@string/booster_info"
+                    android:layout_margin="10dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"/>
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/autoPurchaseSwitch"
-                    android:text="Auto-Renew Purchases"
-                    android:textSize="20sp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-                <LinearLayout
-                    android:orientation="vertical"
-                    android:layout_marginVertical="10dp"
+                <com.google.android.material.card.MaterialCardView
+                    app:strokeColor="?attr/colorPrimary"
+                    app:strokeWidth="4dp"
+                    app:cardCornerRadius="25dp"
+                    app:cardBackgroundColor="?attr/colorOnBackground"
+                    android:layout_margin="10dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-                    <com.google.android.material.card.MaterialCardView
-                        app:cardBackgroundColor="?attr/colorPrimary"
-                        app:strokeWidth="0dp"
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp">
-                        <LinearLayout
-                            android:padding="10dp"
-                            android:gravity="center"
-                            android:orientation="horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent">
-                            <TextView
-                                android:text="Casual"
-                                android:textStyle="bold"
-                                android:textSize="20sp"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"/>
-                            <TextView
-                                android:text="3 hours @ High"
-                                android:textSize="22sp"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"/>
-                        </LinearLayout>
-
-                    </com.google.android.material.card.MaterialCardView>
-                    <com.google.android.material.card.MaterialCardView
-                    app:cardBackgroundColor="?attr/colorPrimary"
-                    android:layout_marginVertical="10dp"
-                    app:strokeWidth="0dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp">
                     <LinearLayout
-                        android:padding="10dp"
+                        android:animateLayoutChanges="true"
                         android:gravity="center"
-                        android:orientation="horizontal"
+                        android:layout_marginVertical="10dp"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent">
                         <TextView
-                            android:text="Basic"
-                            android:textStyle="bold"
+                            android:text="Get More Boosters"
                             android:textSize="20sp"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"/>
-                        <TextView
-                            android:text="20 hours @ High"
-                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSecondary"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"/>
+                        <ImageView
+                            android:src="@drawable/rounded_keyboard_double_arrow_right_24"
+                            android:layout_width="40dp"
+                            android:scaleX="1.5"
+                            android:scaleY="1.5"
+                            android:layout_height="wrap_content"
+                            app:tint="?attr/colorOnSecondary" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
-                    <com.google.android.material.card.MaterialCardView
-                    app:cardBackgroundColor="?attr/colorPrimary"
-                    app:strokeWidth="0dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp">
-                    <LinearLayout
-                        android:padding="10dp"
-                        android:gravity="center"
-                        android:orientation="horizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-                        <TextView
-                            android:text="Regular"
-                            android:textStyle="bold"
-                            android:textSize="20sp"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="wrap_content"/>
-                        <TextView
-                            android:text="50 hours @ High"
-                            android:textSize="22sp"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"/>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

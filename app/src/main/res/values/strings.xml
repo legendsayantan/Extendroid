@@ -16,4 +16,6 @@
     <string name="you_can_login_one_account_to_only_one_device_at_the_same_time">You can login one account to only one device at the same time.</string>
     <string name="signed_in_as">Currently signed in as %1$s</string>
     <string name="extendroid_echo">Extendroid Echo</string>
+    <string name="sign_in_or_sign_up_to_use_extendroid_echo">Log in or Sign up to use Extendroid Echo.</string>
+    <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A minimum of 0.1 Boosters are charged everytime a new session is connected. Transferring large files may consume more Boosters.</string>
 </resources>

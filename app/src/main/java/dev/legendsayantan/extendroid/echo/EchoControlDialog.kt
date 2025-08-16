@@ -1,34 +1,22 @@
 package dev.legendsayantan.extendroid.echo
 
-import android.animation.ValueAnimator
 import android.content.Context
-import android.content.res.ColorStateList
-import android.graphics.Rect
-import android.graphics.RectF
 import android.os.Handler
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.animation.doOnEnd
 import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.shape.CornerFamily
-import com.google.android.material.shape.MaterialShapeDrawable
-import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
-import dev.legendsayantan.extendroid.Utils.Companion.lerp
 import kotlin.math.floor
 
 /**
@@ -50,8 +38,8 @@ class EchoControlDialog(
     val accountTextView by lazy { findViewById<TextView>(R.id.accountTextView) }
 
     val usageCard by lazy { findViewById<MaterialCardView>(R.id.usageCard) }
+    val boosterAmountText by lazy { findViewById<TextView>(R.id.boosterAmount) }
     val quotaTimeText by lazy { findViewById<TextView>(R.id.quotaTime) }
-    val lowQualitySwitch by lazy { findViewById<MaterialSwitch>(R.id.lowQualitySwitch) }
 
     val authStateListener = object : FirebaseAuth.AuthStateListener {
         override fun onAuthStateChanged(p0: FirebaseAuth) {
@@ -63,7 +51,7 @@ class EchoControlDialog(
     }
     val echoChanged: (Context) -> Unit = { ctx ->
         Handler(ctx.mainLooper).postDelayed({
-            updateQuotaTime()
+            updateBoosterQuantity()
         }, 1000)
     }
 
@@ -186,16 +174,13 @@ class EchoControlDialog(
     fun updateBalance() {
         usageCard?.isVisible = user != null
         if (usageCard!!.isVisible) {
-            lowQualitySwitch?.isChecked = prefs.lowQuality
-            lowQualitySwitch?.setOnCheckedChangeListener { btn, value ->
-                prefs.lowQuality = value
-            }
-            updateQuotaTime()
+            updateBoosterQuantity()
         }
     }
 
-    fun updateQuotaTime() {
-        quotaTimeText?.text = calculateHourMinuteForCredits(prefs.balance, prefs.lowQuality)
+    fun updateBoosterQuantity() {
+        boosterAmountText?.text = prefs.balance.toString()
+        quotaTimeText?.text = estimateHourMinuteForBoosters(prefs.balance)
     }
 
     override fun dismiss() {
@@ -215,19 +200,18 @@ class EchoControlDialog(
     companion object {
         var preventShowing = false
         var dimValue = 0.75f
-        var HIGH_QUALITY_HOURS_PER_CREDIT = 1f
-        var LOW_QUALITY_HOURS_PER_CREDIT = 1.5f
+        var HOURS_PER_CREDIT = 0.6f
 
-        fun hourMinuteForCredits(balance: Float, lowQuality: Boolean): Pair<Int, Int> {
+        fun hourMinuteForBoosters(balance: Float): Pair<Int, Int> {
             val hours =
-                balance * if (lowQuality) LOW_QUALITY_HOURS_PER_CREDIT else HIGH_QUALITY_HOURS_PER_CREDIT
+                balance * HOURS_PER_CREDIT
             val hourNumber = floor(hours)
             var minuteNumber = floor((hours - hourNumber) * 60).coerceAtLeast(0f)
             return hourNumber.toInt() to minuteNumber.toInt()
         }
 
-        fun calculateHourMinuteForCredits(balance: Float, lowQuality: Boolean): String {
-            return hourMinuteForCredits(balance, lowQuality).let { it ->
+        fun estimateHourMinuteForBoosters(balance: Float): String {
+            return hourMinuteForBoosters(balance).let { it ->
                 "${it.first} h" + if (it.second > 0) " ${it.second} m" else ""
             }
         }

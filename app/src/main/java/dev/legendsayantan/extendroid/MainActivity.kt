@@ -10,7 +10,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -212,16 +211,11 @@ class MainActivity : AppCompatActivity() {
         }
         echoTxt.isSelected = true
         echoTxt.text = if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent) {
-            "Echo : ${
-                EchoControlDialog.calculateHourMinuteForCredits(
-                    prefs.balance,
-                    prefs.lowQuality
-                )
-            } @ ${if (prefs.lowQuality) "Low" else "High"}"
+            "Echo Boosters left : ${prefs.balance}"
         } else {
             getString(R.string.extendroid_echo)
         }
-        EchoNetworkUtils.trySyncBalanceWithServer(applicationContext)
+        EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
     }
 
     private fun startForegroundService() {
