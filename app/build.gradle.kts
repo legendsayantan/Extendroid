@@ -69,6 +69,8 @@ dependencies {
     implementation(libs.firebase.appcheck.playintegrity)
     //implementation(libs.retrofit)
     implementation(libs.okhttp)
+    implementation(libs.stream.webrtc.android)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

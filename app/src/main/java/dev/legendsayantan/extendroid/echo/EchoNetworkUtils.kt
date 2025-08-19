@@ -93,5 +93,68 @@ class EchoNetworkUtils {
                 prefs.nextSyncTime = System.currentTimeMillis() + ONE_MINUTE
             }
         }
+        
+        /**
+         * GET /signal with uid, token, client="device" and return JSON response via callback
+         */
+        fun getSignalWithCallback(
+            ctx: Context,
+            uid: String,
+            token: String,
+            callback: (String?, Exception?) -> Unit
+        ) {
+            val client = OkHttpClient()
+            val url = getBackendUrl(ctx) + "/signal?uid=$uid&token=$token&client=device"
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Content-Type", "application/json")
+                .addHeader("X-UID", uid)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            client.newCall(request).enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) {
+                    callback(null, e)
+                }
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    if (response.isSuccessful) {
+                        val body = response.body?.string()
+                        callback(body, null)
+                    } else {
+                        val errorBody = response.body?.string()
+                        callback(errorBody, IOException("Unexpected code $response"))
+                    }
+                }
+            })
+        }
+
+        /**
+         * POST /signal with uid, token, devicesdp, deviceice
+         */
+        fun postSignal(ctx: Context, uid: String, token: String, devicesdp: String, deviceice: String) {
+            val client = OkHttpClient()
+            val body = okhttp3.FormBody.Builder()
+                .add("uid", uid)
+                .add("token", token)
+                .add("devicesdp", devicesdp)
+                .add("deviceice", deviceice)
+                .build()
+
+            val request = Request.Builder()
+                .url(getBackendUrl(ctx) + "/signal")
+                .post(body)
+                .addHeader("Content-Type", "application/x-www-form-urlencoded")
+                .addHeader("X-UID", uid)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+
+            client.newCall(request).enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) { e.printStackTrace() }
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    response.body?.close()
+                }
+            })
+        }
+
     }
 }

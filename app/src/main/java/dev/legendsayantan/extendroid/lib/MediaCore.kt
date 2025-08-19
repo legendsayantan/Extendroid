@@ -22,6 +22,7 @@ open class MediaCore {
 
     var projection: MediaProjection? = null
     var virtualDisplays: HashMap<String, VirtualDisplay> = hashMapOf()
+    var echoDisplays : HashMap<String,VirtualDisplay> = hashMapOf()
     private fun init(mediaProjection: MediaProjection) {
         projection = mediaProjection
         mediaProjectionReady()
@@ -57,7 +58,7 @@ open class MediaCore {
             width,
             height,
             density.toInt(),
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC + DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             surface,
             null,
             null
@@ -87,9 +88,42 @@ open class MediaCore {
         } ?: throw RuntimeException("Virtual display for $packageName not found")
     }
 
-    fun sendEvent(pkg: String, event: MotionEvent){
+    fun setupEchoDisplay(
+        name:String,
+        width: Int,
+        height: Int,
+        surface: Surface,
+        density: Int
+    ) {
+        if (echoDisplays.containsKey(name)) {
+            echoDisplays[name]?.let {
+                it.resize(
+                    width,
+                    height,
+                    density
+                )
+                it.surface = surface
+            }
+
+            return
+        }else{
+            projection?.createVirtualDisplay(
+                name,
+                width,
+                height,
+                density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                surface,
+                null,
+                null
+            )?.let {
+                echoDisplays[name] = it
+            }
+        }
 
     }
+
+
 
     open fun virtualDisplayReady(packageName: String, displayID: Int) {}
     open fun appTaskToClear(packageName: String) {}

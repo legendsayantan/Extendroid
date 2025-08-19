@@ -45,8 +45,17 @@ class CloudMessageService : FirebaseMessagingService(){
     override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         val a = remoteMessage.data.toString()
-        Handler(applicationContext.mainLooper).post {
-            Toast.makeText(applicationContext,a, Toast.LENGTH_LONG).show()
+        if (a.isNotBlank()) {
+            // Handle the message data here
+            // For example, you can show a notification or update the UI
+            Handler(applicationContext.mainLooper).post {
+                Toast.makeText(applicationContext, "Message received: $a", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            // Handle the case where there is no data in the message
+            Handler(applicationContext.mainLooper).post {
+                Toast.makeText(applicationContext, "No data in message", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

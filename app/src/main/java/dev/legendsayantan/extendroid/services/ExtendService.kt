@@ -19,12 +19,17 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
 import android.view.MotionEvent
+import android.widget.Toast
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
+import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
+import dev.legendsayantan.extendroid.echo.WebRTC
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
+import org.json.JSONObject
 import rikka.shizuku.Shizuku
 
 
@@ -50,6 +55,51 @@ class ExtendService : Service() {
             override fun appTaskToClear(packageName: String) {
                 val r = svc?.exitTasks(packageName);
                 println(r)
+            }
+        }
+
+        //ECHO
+        setupEchoCommand = { data, uid, token ->
+            val json = JSONObject(data.toJsonSanitized())
+            val startEcho = { sdpData: String, uid: String, token: String ->
+                //STEP 2. create surface and videoTrack, using res (res is formatted like WIDTHxHEIGHT/SCALE)
+                val resolution = json["res"].toString()
+                    .split("x", "/")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                val width = resolution[0].toIntOrNull() ?: 1280
+                val height = resolution[1].toIntOrNull() ?: 720
+                val density = (applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull() ?: 1)) /
+                        (applicationContext.resources.displayMetrics.let{ it.widthPixels * it.heightPixels } )
+                val objects = WebRTC.createVideoTrackForVirtualDisplay(applicationContext,width,height)
+                Thread{
+                    WebRTC.start(applicationContext, uid, token, sdpData,objects.second.first,{ state->
+
+                    },{
+
+                    })
+                }.start()
+                MediaCore.mInstance?.setupEchoDisplay(objects.first,width,height,objects.second.second,density)
+            }
+            //STEP 1. ensure sdp, ice
+            if (json["fetchsdp"] == true || json["fetchsdp"] == "true") {
+                //if so, fetch the sdp from the backend
+                EchoNetworkUtils.getSignalWithCallback(applicationContext, uid, token) { str, ex ->
+                    if (str != null && ex == null) {
+                        startEcho(str.toJsonSanitized(), uid, token)
+                    } else {
+                        //error
+                        Handler(applicationContext.mainLooper).post {
+                            Toast.makeText(
+                                applicationContext,
+                                "Error fetching SDP: ${ex?.message ?: "Unknown error"}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            } else {
+                startEcho(data, uid, token)
             }
         }
     }
@@ -156,14 +206,14 @@ class ExtendService : Service() {
         val r = svc?.grantPermissions(
             arrayOf(
                 "PROJECT_MEDIA",
-                if (Build.VERSION.SDK_INT>= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
                 if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
             ).filter { it.isNotBlank() }
         )
         println(r)
     }
 
-    private fun setupPrefsRelated(){
+    private fun setupPrefsRelated() {
         menu.collapseSeconds = prefs.collapseSeconds
         if (prefs.floatingBall) {
             ball.show()
@@ -245,5 +295,9 @@ class ExtendService : Service() {
         private const val ACTION_MENU_OPEN = "dev.legendsayantan.extendroid.action.MENU_OPEN"
         const val ACTION_GET_MEDIA_PROJECTION =
             "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
+
+        public var setupEchoCommand: (data: String, uid: String, token: String) -> Unit = { data, uid, token ->
+            // Default implementation does nothing
+        }
     }
 }
