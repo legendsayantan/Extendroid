@@ -1,12 +1,12 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
+import android.os.Handler
 import android.view.Surface
+import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
 import org.webrtc.*
 
 class WebRTC {
@@ -15,11 +15,122 @@ class WebRTC {
         private val peerConnections = hashMapOf<Long, PeerConnection>()
         private lateinit var peerConnectionFactory: PeerConnectionFactory
 
+        fun checkAndStart(
+            ctx: Context,
+            uid: String,
+            token: String,
+            data: Map<String, String>,
+            localVideoTrack: VideoTrack,
+            onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
+            onDataMessage: (String) -> Unit
+        ){
+            if (data["fetchsdp"] == "true") {
+                //if so, fetch the sdp from the backend
+                EchoNetworkUtils.getSignalWithCallback(ctx, uid, token) { str, ex ->
+                    if (str != null && ex == null) {
+                        try {
+                            val obj = org.json.JSONObject(str)
+
+                            // --- TURN / STUN servers ---
+                            val turnJson = obj.getString("turncreds")
+                            val turnObj = org.json.JSONObject(turnJson)
+                            val serversArr = turnObj.getJSONArray("iceServers")
+                            val iceServers = mutableListOf<PeerConnection.IceServer>()
+                            for (i in 0 until serversArr.length()) {
+                                val s = serversArr.getJSONObject(i)
+                                val urls = s.getJSONArray("urls")
+                                val urlList = mutableListOf<String>()
+                                for (j in 0 until urls.length()) urlList.add(urls.getString(j))
+                                val username = s.optString("username", null)
+                                val credential = s.optString("credential", null)
+                                val iceServer = if (username != null && credential != null) {
+                                    PeerConnection.IceServer.builder(urlList).setUsername(username).setPassword(credential).createIceServer()
+                                } else {
+                                    PeerConnection.IceServer.builder(urlList).createIceServer()
+                                }
+                                iceServers.add(iceServer)
+                            }
+
+                            // --- Remote ICE candidates ---
+                            val remoteIceJson = obj.getString("webice")
+                            val remoteIceArray = org.json.JSONArray(remoteIceJson)
+                            val remoteIce = Array(remoteIceArray.length()) { idx ->
+                                val cand = remoteIceArray.getJSONObject(idx)
+                                IceCandidate(
+                                    cand.getString("sdpMid"),
+                                    cand.getInt("sdpMLineIndex"),
+                                    cand.getString("candidate")
+                                )
+                            }
+
+                            // --- Remote SDP ---
+                            val remoteSdp = obj.getString("websdp")
+
+                            start(ctx, uid, token, iceServers, remoteIce, remoteSdp, localVideoTrack, onStateChanged, onDataMessage)
+                        } catch (e: Exception) {
+                            Handler(ctx.mainLooper).post {
+                                Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } else {
+                        Handler(ctx.mainLooper).post {
+                            Toast.makeText(
+                                ctx,
+                                "Error fetching SDP: ${ex?.message ?: "Unknown error"}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            } else {
+                try {
+                    // --- TURN / STUN servers ---
+                    val turnJson = data["turncreds"]!!
+                    val turnObj = org.json.JSONObject(turnJson)
+                    val serversArr = turnObj.getJSONArray("iceServers")
+                    val iceServers = mutableListOf<PeerConnection.IceServer>()
+                    for (i in 0 until serversArr.length()) {
+                        val s = serversArr.getJSONObject(i)
+                        val urls = s.getJSONArray("urls")
+                        val urlList = mutableListOf<String>()
+                        for (j in 0 until urls.length()) urlList.add(urls.getString(j))
+                        val username = s.optString("username", null)
+                        val credential = s.optString("credential", null)
+                        val iceServer = if (username != null && credential != null) {
+                            PeerConnection.IceServer.builder(urlList).setUsername(username).setPassword(credential).createIceServer()
+                        } else {
+                            PeerConnection.IceServer.builder(urlList).createIceServer()
+                        }
+                        iceServers.add(iceServer)
+                    }
+
+                    // --- Remote ICE candidates ---
+                    val remoteIceJson = data["webice"]!!
+                    val remoteIceArray = org.json.JSONArray(remoteIceJson)
+                    val remoteIce = Array(remoteIceArray.length()) { idx ->
+                        val cand = remoteIceArray.getJSONObject(idx)
+                        IceCandidate(
+                            cand.getString("sdpMid"),
+                            cand.getInt("sdpMLineIndex"),
+                            cand.getString("candidate")
+                        )
+                    }
+
+                    // --- Remote SDP ---
+                    val remoteSdp = data["websdp"]!!
+
+                    start(ctx, uid, token, iceServers, remoteIce, remoteSdp, localVideoTrack, onStateChanged, onDataMessage)
+                } catch (e: Exception) {
+                    Handler(ctx.mainLooper).post {
+                        Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+
+
         /**
          * Builds and starts a peer connection using the provided json which must contain:
-         *   - turncreds : JSON string with "iceServers"
-         *   - websdp    : remote offer SDP
-         *   - webice    : array of ICE candidates from the remote peer
          *
          * It adds the localVideoTrack, creates an Answer, collects our ICE candidates
          * and then sends a POST /signal via EchoNetworkUtils.postSignal().
@@ -28,7 +139,7 @@ class WebRTC {
             ctx: Context,
             uid: String,
             token: String,
-            json: String,
+            iceServers:MutableList<PeerConnection.IceServer>, remoteIce: Array<IceCandidate>, remoteSdp : String,
             localVideoTrack: VideoTrack,
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
             onDataMessage: (String) -> Unit
@@ -41,22 +152,6 @@ class WebRTC {
                     PeerConnectionFactory.builder().createPeerConnectionFactory()
             }
 
-            val obj = JSONObject(json)
-            val turnCredsJson = JSONObject(obj.getString("turncreds"))
-            val remoteSdp = obj.getString("websdp")
-            val remoteIceArray = JSONArray(obj.getString("webice"))
-
-            val iceServers = mutableListOf<PeerConnection.IceServer>()
-            val servers = turnCredsJson.getJSONArray("iceServers")
-            for (i in 0 until servers.length()) {
-                val s = servers.getJSONObject(i)
-                val urlsJson = s.getJSONArray("urls")
-                val urls = List(urlsJson.length()) { idx -> urlsJson.getString(idx) }
-                val builder = PeerConnection.IceServer.builder(urls)
-                if (s.has("username")) builder.setUsername(s.getString("username"))
-                if (s.has("credential")) builder.setPassword(s.getString("credential"))
-                iceServers.add(builder.createIceServer())
-            }
 
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
@@ -105,7 +200,12 @@ class WebRTC {
                             onDataMessage(String(bytes))
                         }
 
-                        override fun onStateChange() {}
+                        override fun onStateChange() {
+                            //just when it opens, send a hi
+                            if (dataChannel.state() == DataChannel.State.OPEN) {
+                                dataChannel.send(DataChannel.Buffer(java.nio.ByteBuffer.wrap("Hello from device".toByteArray()), false))
+                            }
+                        }
                         override fun onBufferedAmountChange(p0: Long) {}
                     })
                 }
@@ -119,24 +219,18 @@ class WebRTC {
             })!!
 
             // Add the outbound local track
-            peerConnection.addTrack(localVideoTrack)
+            peerConnection.addTrack(localVideoTrack,listOf("ARDAMS"))
+            localVideoTrack.setEnabled(true)
 
             // OPTIONAL: create a data channel actively if you want one immediately
-            peerConnection.createDataChannel("echo-data", DataChannel.Init())
+            peerConnection.createDataChannel("data", DataChannel.Init())
 
             // Set remote description
             val offer = SessionDescription(SessionDescription.Type.OFFER, remoteSdp)
             peerConnection.setRemoteDescription(object : SdpObserver {
                 override fun onSetSuccess() {
-                    for (i in 0 until remoteIceArray.length()) {
-                        val c = remoteIceArray.getJSONObject(i)
-                        peerConnection.addIceCandidate(
-                            IceCandidate(
-                                c.getString("sdpMid"),
-                                c.getInt("sdpMLineIndex"),
-                                c.getString("candidate")
-                            )
-                        )
+                    remoteIce.forEach {
+                        peerConnection.addIceCandidate(it)
                     }
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
@@ -212,9 +306,12 @@ class WebRTC {
             val surface = Surface(surfaceTexture)
 
             // Attach frames to the WebRTC capturerObserver
-            surfaceTextureHelper.startListening { frame ->
+            surfaceTextureHelper.startListening { textureFrame ->
+                val frame = VideoFrame(textureFrame.buffer, 0, textureFrame.timestampNs)
                 videoSource.capturerObserver.onFrameCaptured(frame)
+                frame.release()
             }
+
 
             val videoTrack =
                 peerConnectionFactory.createVideoTrack(displayName, videoSource)

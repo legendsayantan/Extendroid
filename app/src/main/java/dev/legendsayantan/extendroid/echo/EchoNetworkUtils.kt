@@ -11,8 +11,10 @@ import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.IOException
 
 /**
@@ -30,6 +32,7 @@ class EchoNetworkUtils {
                 ctx.getString(R.string.url_backend_dev)
             }
         }
+
         val user
             get() = FirebaseAuth.getInstance().currentUser
 
@@ -93,7 +96,7 @@ class EchoNetworkUtils {
                 prefs.nextSyncTime = System.currentTimeMillis() + ONE_MINUTE
             }
         }
-        
+
         /**
          * GET /signal with uid, token, client="device" and return JSON response via callback
          */
@@ -116,6 +119,7 @@ class EchoNetworkUtils {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
                     callback(null, e)
                 }
+
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                     if (response.isSuccessful) {
                         val body = response.body?.string()
@@ -131,30 +135,45 @@ class EchoNetworkUtils {
         /**
          * POST /signal with uid, token, devicesdp, deviceice
          */
-        fun postSignal(ctx: Context, uid: String, token: String, devicesdp: String, deviceice: String) {
+        fun postSignal(
+            ctx: Context,
+            uid: String,
+            token: String,
+            devicesdp: String,
+            deviceice: String
+        ) {
             val client = OkHttpClient()
-            val body = okhttp3.FormBody.Builder()
-                .add("uid", uid)
-                .add("token", token)
-                .add("devicesdp", devicesdp)
-                .add("deviceice", deviceice)
-                .build()
+
+            val json = """
+        {
+            "uid": "$uid",
+            "token": "$token",
+            "devicesdp": ${org.json.JSONObject.quote(devicesdp)},
+            "deviceice": ${org.json.JSONObject.quote(deviceice)}
+        }
+    """.trimIndent()
+
+            val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
 
             val request = Request.Builder()
                 .url(getBackendUrl(ctx) + "/signal")
                 .post(body)
-                .addHeader("Content-Type", "application/x-www-form-urlencoded")
+                .addHeader("Content-Type", "application/json")
                 .addHeader("X-UID", uid)
                 .addHeader("Authorization", "Bearer $token")
                 .build()
 
             client.newCall(request).enqueue(object : okhttp3.Callback {
-                override fun onFailure(call: okhttp3.Call, e: IOException) { e.printStackTrace() }
+                override fun onFailure(call: okhttp3.Call, e: IOException) {
+                    e.printStackTrace()
+                }
+
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                    response.body?.close()
+                    response.use { resp ->
+                        println("${resp.code}  ${resp.body?.string()}")
+                    }
                 }
             })
         }
-
     }
 }

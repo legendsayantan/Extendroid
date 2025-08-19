@@ -70,9 +70,11 @@ dependencies {
     //implementation(libs.retrofit)
     implementation(libs.okhttp)
     implementation(libs.stream.webrtc.android)
+    // Gson for JSON parsing
+    implementation(libs.gson)
 
 
-    testImplementation(libs.junit)
+        testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

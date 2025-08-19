@@ -22,14 +22,11 @@ import android.view.MotionEvent
 import android.widget.Toast
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
-import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
-import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
 import dev.legendsayantan.extendroid.echo.WebRTC
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
-import org.json.JSONObject
 import rikka.shizuku.Shizuku
 
 
@@ -60,47 +57,20 @@ class ExtendService : Service() {
 
         //ECHO
         setupEchoCommand = { data, uid, token ->
-            val json = JSONObject(data.toJsonSanitized())
-            val startEcho = { sdpData: String, uid: String, token: String ->
-                //STEP 2. create surface and videoTrack, using res (res is formatted like WIDTHxHEIGHT/SCALE)
-                val resolution = json["res"].toString()
-                    .split("x", "/")
-                    .map { it.trim() }
-                    .filter { it.isNotBlank() }
-                val width = resolution[0].toIntOrNull() ?: 1280
-                val height = resolution[1].toIntOrNull() ?: 720
-                val density = (applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull() ?: 1)) /
-                        (applicationContext.resources.displayMetrics.let{ it.widthPixels * it.heightPixels } )
-                val objects = WebRTC.createVideoTrackForVirtualDisplay(applicationContext,width,height)
-                Thread{
-                    WebRTC.start(applicationContext, uid, token, sdpData,objects.second.first,{ state->
-
-                    },{
-
-                    })
-                }.start()
+            val resolution = data["res"].toString()
+            .split("x", "/")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            val width = resolution[0].toIntOrNull() ?: 1280
+            val height = resolution[1].toIntOrNull() ?: 720
+            val density = (applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull() ?: 1)) /
+                    (applicationContext.resources.displayMetrics.let{ it.widthPixels * it.heightPixels } )
+            val objects = WebRTC.createVideoTrackForVirtualDisplay(applicationContext,width,height)
+            WebRTC.checkAndStart(applicationContext, uid, token, data,objects.second.first,{ state->
                 MediaCore.mInstance?.setupEchoDisplay(objects.first,width,height,objects.second.second,density)
-            }
-            //STEP 1. ensure sdp, ice
-            if (json["fetchsdp"] == true || json["fetchsdp"] == "true") {
-                //if so, fetch the sdp from the backend
-                EchoNetworkUtils.getSignalWithCallback(applicationContext, uid, token) { str, ex ->
-                    if (str != null && ex == null) {
-                        startEcho(str.toJsonSanitized(), uid, token)
-                    } else {
-                        //error
-                        Handler(applicationContext.mainLooper).post {
-                            Toast.makeText(
-                                applicationContext,
-                                "Error fetching SDP: ${ex?.message ?: "Unknown error"}",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                    }
-                }
-            } else {
-                startEcho(data, uid, token)
-            }
+            },{
+                Toast.makeText(applicationContext, it, Toast.LENGTH_LONG).show()
+            })
         }
     }
 
@@ -282,6 +252,7 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
+        unregisterReceiver(configReceiver)
         prefs.unregisterConfigChangeListener(prefsChangedListener)
         svc = null
         ball.hide()
@@ -296,7 +267,7 @@ class ExtendService : Service() {
         const val ACTION_GET_MEDIA_PROJECTION =
             "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
 
-        public var setupEchoCommand: (data: String, uid: String, token: String) -> Unit = { data, uid, token ->
+        var setupEchoCommand: (data: Map<String, String>, uid: String, token: String) -> Unit = { data, uid, token ->
             // Default implementation does nothing
         }
     }

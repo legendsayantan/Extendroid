@@ -1,6 +1,7 @@
 [versions]
 agp = "8.10.1"
 googleWebrtc = "1.0.32006"
+gson = "2.13.1"
 kotlin = "2.0.21"
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -21,6 +22,7 @@ streamWebrtcAndroid = "1.3.8"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 google-webrtc = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtc" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

@@ -12,6 +12,9 @@ import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.THIRTY_MINUTES
+import dev.legendsayantan.extendroid.lib.MediaCore
+import dev.legendsayantan.extendroid.services.ExtendService
+import dev.legendsayantan.extendroid.services.ExtendService.Companion.svc
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -44,17 +47,24 @@ class CloudMessageService : FirebaseMessagingService(){
 
     override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        val a = remoteMessage.data.toString()
-        if (a.isNotBlank()) {
-            // Handle the message data here
-            // For example, you can show a notification or update the UI
-            Handler(applicationContext.mainLooper).post {
-                Toast.makeText(applicationContext, "Message received: $a", Toast.LENGTH_LONG).show()
+        val a = remoteMessage.data
+        if (a.toString().isNotBlank() && svc!=null && MediaCore.mInstance?.projection!=null) {
+            //we can start!
+            val uid = FirebaseAuth.getInstance().currentUser?.uid?: return
+            FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.addOnCompleteListener {
+                if (!it.isSuccessful) {
+                    Handler(applicationContext.mainLooper).post {
+                        Toast.makeText(applicationContext, "Failed to get ID Token: ${it.exception?.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    return@addOnCompleteListener
+                }
+                val idToken = it.result!!.token!!
+                ExtendService.setupEchoCommand(a,uid,idToken)
             }
         } else {
             // Handle the case where there is no data in the message
             Handler(applicationContext.mainLooper).post {
-                Toast.makeText(applicationContext, "No data in message", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, "Unable to start Echo", Toast.LENGTH_SHORT).show()
             }
         }
     }
