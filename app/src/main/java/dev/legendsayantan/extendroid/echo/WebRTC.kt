@@ -1,6 +1,8 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjection
 import android.os.Handler
 import android.view.Surface
 import android.widget.Toast
@@ -8,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.webrtc.*
+import java.sql.Time
+import java.util.Timer
+import kotlin.concurrent.timerTask
 
 class WebRTC {
     companion object {
@@ -29,6 +34,7 @@ class WebRTC {
                 EchoNetworkUtils.getSignalWithCallback(ctx, uid, token) { str, ex ->
                     if (str != null && ex == null) {
                         try {
+                            println(str)
                             val obj = org.json.JSONObject(str)
 
                             // --- TURN / STUN servers ---
@@ -68,6 +74,7 @@ class WebRTC {
 
                             start(ctx, uid, token, iceServers, remoteIce, remoteSdp, localVideoTrack, onStateChanged, onDataMessage)
                         } catch (e: Exception) {
+                            System.err.println("Error parsing WebRTC data1: ${e.message}")
                             Handler(ctx.mainLooper).post {
                                 Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
                             }
@@ -84,6 +91,7 @@ class WebRTC {
                 }
             } else {
                 try {
+                    println(data)
                     // --- TURN / STUN servers ---
                     val turnJson = data["turncreds"]!!
                     val turnObj = org.json.JSONObject(turnJson)
@@ -121,6 +129,7 @@ class WebRTC {
 
                     start(ctx, uid, token, iceServers, remoteIce, remoteSdp, localVideoTrack, onStateChanged, onDataMessage)
                 } catch (e: Exception) {
+                    System.err.println("Error parsing WebRTC data: ${e.message}")
                     Handler(ctx.mainLooper).post {
                         Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
                     }
@@ -155,6 +164,7 @@ class WebRTC {
 
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
+
             }
 
             val thisConnectionIceCandidates = mutableListOf<IceCandidate>()
@@ -163,6 +173,7 @@ class WebRTC {
             peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
                 override fun onIceCandidate(candidate: IceCandidate) {
                     thisConnectionIceCandidates.add(candidate)
+                    println("found candidate : ${thisConnectionIceCandidates.size}")
                 }
 
                 override fun onIceCandidatesRemoved(p0: Array<out IceCandidate?>?) {
@@ -170,11 +181,42 @@ class WebRTC {
                 }
 
                 override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
+                    println("ICE Gathering State Changed: $state")
+//                    if (state == PeerConnection.IceGatheringState.GATHERING) {
+//                        Timer().schedule(timerTask {
+//                            peerConnection.localDescription?.let { localSdp ->
+//                                val iceCandidatesJson = org.json.JSONArray()
+//                                thisConnectionIceCandidates.forEach { candidate ->
+//                                    val candidateJson = org.json.JSONObject()
+//                                    candidateJson.put("sdpMid", candidate.sdpMid)
+//                                    candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
+//                                    candidateJson.put("candidate", candidate.sdp)
+//                                    iceCandidatesJson.put(candidateJson)
+//                                }
+//                                val ourIce = iceCandidatesJson.toString()
+//                                GlobalScope.launch(Dispatchers.IO) {
+//                                    EchoNetworkUtils.postSignal(
+//                                        ctx,
+//                                        uid,
+//                                        token,
+//                                        devicesdp = localSdp.description,
+//                                        deviceice = ourIce
+//                                    )
+//                                }
+//                            }
+//                        },3000)
+//                    }
                     if (state == PeerConnection.IceGatheringState.COMPLETE) {
                         peerConnection.localDescription?.let { localSdp ->
-                            val ourIce = thisConnectionIceCandidates.joinToString(";") {
-                                "${it.sdpMid}:${it.sdpMLineIndex}:${it.sdp}"
+                            val iceCandidatesJson = org.json.JSONArray()
+                            thisConnectionIceCandidates.forEach { candidate ->
+                                val candidateJson = org.json.JSONObject()
+                                candidateJson.put("sdpMid", candidate.sdpMid)
+                                candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
+                                candidateJson.put("candidate", candidate.sdp)
+                                iceCandidatesJson.put(candidateJson)
                             }
+                            val ourIce = iceCandidatesJson.toString()
                             GlobalScope.launch(Dispatchers.IO) {
                                 EchoNetworkUtils.postSignal(
                                     ctx,
@@ -201,9 +243,12 @@ class WebRTC {
                         }
 
                         override fun onStateChange() {
-                            //just when it opens, send a hi
+                            println("Data channel state changed: ${dataChannel.state()}")
                             if (dataChannel.state() == DataChannel.State.OPEN) {
-                                dataChannel.send(DataChannel.Buffer(java.nio.ByteBuffer.wrap("Hello from device".toByteArray()), false))
+                                Timer().schedule(timerTask {
+                                    println("Sending message on data channel")
+                                    dataChannel.send(DataChannel.Buffer(java.nio.ByteBuffer.wrap("Hello from device".toByteArray()), false))
+                                },3000,3000)
                             }
                         }
                         override fun onBufferedAmountChange(p0: Long) {}
@@ -218,13 +263,6 @@ class WebRTC {
                 override fun onRenegotiationNeeded() {}
             })!!
 
-            // Add the outbound local track
-            peerConnection.addTrack(localVideoTrack,listOf("ARDAMS"))
-            localVideoTrack.setEnabled(true)
-
-            // OPTIONAL: create a data channel actively if you want one immediately
-            peerConnection.createDataChannel("data", DataChannel.Init())
-
             // Set remote description
             val offer = SessionDescription(SessionDescription.Type.OFFER, remoteSdp)
             peerConnection.setRemoteDescription(object : SdpObserver {
@@ -232,8 +270,12 @@ class WebRTC {
                     remoteIce.forEach {
                         peerConnection.addIceCandidate(it)
                     }
+                    // Add the outbound local track
+                    localVideoTrack.setEnabled(true);
+                    peerConnection.addTrack(localVideoTrack, listOf("ARDAMS"))
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
+                            println("Created Answer SDP: ${answer.description}")
                             peerConnection.setLocalDescription(object : SdpObserver {
                                 override fun onSetSuccess() {}
                                 override fun onSetFailure(p0: String?) {}
@@ -298,7 +340,7 @@ class WebRTC {
                 SurfaceTextureHelper.create("EchoCaptureThread-${displayName}", eglBase.eglBaseContext)
 
             // Create WebRTC VideoSource
-            val videoSource = peerConnectionFactory.createVideoSource(false)
+            val videoSource = peerConnectionFactory.createVideoSource(true)
 
             // Create a Surface that will receive frames
             val surfaceTexture = surfaceTextureHelper.surfaceTexture
@@ -307,6 +349,7 @@ class WebRTC {
 
             // Attach frames to the WebRTC capturerObserver
             surfaceTextureHelper.startListening { textureFrame ->
+                println("Frame captured")
                 val frame = VideoFrame(textureFrame.buffer, 0, textureFrame.timestampNs)
                 videoSource.capturerObserver.onFrameCaptured(frame)
                 frame.release()
@@ -317,6 +360,56 @@ class WebRTC {
                 peerConnectionFactory.createVideoTrack(displayName, videoSource)
 
             return Pair(displayName, Pair(videoTrack, surface))
+        }
+
+        /**
+         * Creates a VideoTrack that captures the screen using a MediaProjection.
+         *
+         * @param ctx The application context.
+         * @param mediaProjection The MediaProjection instance obtained from the system.
+         * @param width The desired capture width.
+         * @param height The desired capture height.
+         * @return A VideoTrack that can be added to a PeerConnection.
+         */
+        fun createTestVideoTrack(
+            ctx: Context,
+            intent: Intent,
+            width: Int,
+            height: Int
+        ): VideoTrack {
+            // Initialize PeerConnectionFactory if it hasn't been already
+            if (!::peerConnectionFactory.isInitialized) {
+                PeerConnectionFactory.initialize(
+                    PeerConnectionFactory.InitializationOptions.builder(ctx).createInitializationOptions()
+                )
+                peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory()
+            }
+
+            // Create a video capturer that captures the screen
+            val screenCapturer = ScreenCapturerAndroid(intent, object : MediaProjection.Callback() {
+                override fun onStop() {
+                    // Handle projection stop if needed
+                    println("MediaProjection stopped")
+                }
+            })
+
+            // Create a VideoSource from the factory
+            // The 'true' argument indicates this is a screen cast
+            val videoSource = peerConnectionFactory.createVideoSource(screenCapturer.isScreencast)
+
+            // Initialize the capturer
+            val surfaceTextureHelper = SurfaceTextureHelper.create("ScreenCaptureThread", EglBase.create().eglBaseContext)
+            screenCapturer.initialize(surfaceTextureHelper, ctx, videoSource.capturerObserver)
+
+            // Start capturing frames
+            // Note: 5000 is a common value for max frame rate in kbps, 30 is fps
+            screenCapturer.startCapture(width, height, 30)
+
+            // Create a VideoTrack from the VideoSource
+            val videoTrack = peerConnectionFactory.createVideoTrack("ScreenCaptureTrack", videoSource)
+            videoTrack.setEnabled(true)
+
+            return videoTrack
         }
 
     }

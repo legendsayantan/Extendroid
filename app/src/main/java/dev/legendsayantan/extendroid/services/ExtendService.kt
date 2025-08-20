@@ -65,9 +65,18 @@ class ExtendService : Service() {
             val height = resolution[1].toIntOrNull() ?: 720
             val density = (applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull() ?: 1)) /
                     (applicationContext.resources.displayMetrics.let{ it.widthPixels * it.heightPixels } )
+//            val track = WebRTC.createTestVideoTrack(
+//                applicationContext, MediaCore.intent!! ,width, height
+//            )
+//            WebRTC.checkAndStart(applicationContext, uid, token, data,track,{ state->
+//                println("PeerConnection state: $state")
+//            },{
+//                Toast.makeText(applicationContext, it, Toast.LENGTH_LONG).show()
+//            })
             val objects = WebRTC.createVideoTrackForVirtualDisplay(applicationContext,width,height)
+            MediaCore.mInstance?.setupEchoDisplay(objects.first,width,height,objects.second.second,density)
             WebRTC.checkAndStart(applicationContext, uid, token, data,objects.second.first,{ state->
-                MediaCore.mInstance?.setupEchoDisplay(objects.first,width,height,objects.second.second,density)
+                println("PeerConnection state: $state")
             },{
                 Toast.makeText(applicationContext, it, Toast.LENGTH_LONG).show()
             })

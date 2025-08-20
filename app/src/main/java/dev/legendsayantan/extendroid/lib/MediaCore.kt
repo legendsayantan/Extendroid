@@ -131,11 +131,12 @@ open class MediaCore {
     companion object {
         const val REQUEST_CODE = 23
         var proceedWithRequest = false
-
+        var intent: Intent? = null
         var mInstance: MediaCore? = null
         var projectionManager: MediaProjectionManager? = null
         fun onMediaProjectionResult(requestCode: Int, resultCode: Int, data: Intent?) {
             if (requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
+                intent = data
                 projectionManager?.getMediaProjection(
                     resultCode, data
                 )?.let {

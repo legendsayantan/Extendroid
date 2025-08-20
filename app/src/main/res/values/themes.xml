@@ -10,7 +10,6 @@
         <item name="colorOnSecondary">@color/theme4</item>
         <item name="colorOnSecondaryContainer">@color/theme5</item>
 
-
         <item name="android:textColor">@color/theme4</item>
         <item name="android:popupBackground">@color/theme2</item>
     </style>

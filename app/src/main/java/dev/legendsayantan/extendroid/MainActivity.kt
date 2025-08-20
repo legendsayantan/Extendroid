@@ -210,12 +210,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         echoTxt.isSelected = true
-        echoTxt.text = if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent) {
+        echoTxt.text = if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent && ExtendService.svc!= null) {
+            EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
             "Echo Boosters left : ${prefs.balance}"
         } else {
             getString(R.string.extendroid_echo)
         }
-        EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
     }
 
     private fun startForegroundService() {

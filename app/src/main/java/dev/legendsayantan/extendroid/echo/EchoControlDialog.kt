@@ -100,7 +100,7 @@ class EchoControlDialog(
         accountTextView?.text = if (signInlayout?.isVisible == false) {
             ctx.getString(R.string.signed_in_as, user!!.email)
         } else {
-            ctx.getString(R.string.you_can_login_one_account_to_only_one_device_at_the_same_time)
+            ctx.getString(R.string.sign_in_or_sign_up_to_use_extendroid_echo)
         }
 
         signupBtn!!.setOnClickListener {

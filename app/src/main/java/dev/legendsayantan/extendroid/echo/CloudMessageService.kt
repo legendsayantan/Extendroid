@@ -114,7 +114,7 @@ class CloudMessageService : FirebaseMessagingService(){
                                     // A device with our desired name is already registered, but we need to check if it's the same device
                                     if(prefs.deviceName != desiredDeviceName){
                                         //A different device has the name we want, so we need to change the name of current device
-                                        desiredDeviceName = "$desiredDeviceName (${Settings.Global.DEVICE_NAME})"
+                                        desiredDeviceName = "$desiredDeviceName (${Settings.Global.getString(ctx.contentResolver,Settings.Global.DEVICE_NAME)})"
                                     }
                                 }
                                 // Now we can register the device with the backend
@@ -136,9 +136,11 @@ class CloudMessageService : FirebaseMessagingService(){
 
                                     override fun onResponse(call: Call, response: Response) {
                                         response.use { res ->
+                                            val body = res.body?.string() ?: ""
                                             if (res.isSuccessful) {
                                                 prefs.deviceName = desiredDeviceName
-                                                prefs.balance = res.body?.string()?.substringAfter("\"balance\":")?.substringBefore("}")?.toFloatOrNull() ?: 0.0f
+                                                prefs.balance = body.substringAfter("\"balance\":").substringBefore("}")
+                                                    .toFloatOrNull() ?: 0.0f
                                                 prefs.nextSyncTime =
                                                     System.currentTimeMillis() + EchoControlDialog.hourMinuteForBoosters(
                                                         prefs.balance
@@ -147,9 +149,9 @@ class CloudMessageService : FirebaseMessagingService(){
                                                             it.coerceAtLeast(1)
                                                         ) else THIRTY_MINUTES
                                                     }
-                                                onSuccess("Success: ${res.body?.string()}")
+                                                onSuccess("Success: $body")
                                             } else {
-                                                onFailure("Error ${res.code}: ${res.body?.string()}")
+                                                onFailure("Error ${res.code}: $body")
                                             }
                                         }
                                     }
