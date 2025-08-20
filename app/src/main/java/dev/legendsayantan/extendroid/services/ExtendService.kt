@@ -19,15 +19,18 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
 import android.view.MotionEvent
-import android.widget.Toast
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.echo.WebRTC
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
+import org.webrtc.PeerConnection
 import rikka.shizuku.Shizuku
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 
 class ExtendService : Service() {
@@ -58,28 +61,40 @@ class ExtendService : Service() {
         //ECHO
         setupEchoCommand = { data, uid, token ->
             val resolution = data["res"].toString()
-            .split("x", "/")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
+                .split("x", "/")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
             val width = resolution[0].toIntOrNull() ?: 1280
             val height = resolution[1].toIntOrNull() ?: 720
-            val density = (applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull() ?: 1)) /
-                    (applicationContext.resources.displayMetrics.let{ it.widthPixels * it.heightPixels } )
-//            val track = WebRTC.createTestVideoTrack(
-//                applicationContext, MediaCore.intent!! ,width, height
-//            )
-//            WebRTC.checkAndStart(applicationContext, uid, token, data,track,{ state->
-//                println("PeerConnection state: $state")
-//            },{
-//                Toast.makeText(applicationContext, it, Toast.LENGTH_LONG).show()
-//            })
-            val objects = WebRTC.createVideoTrackForVirtualDisplay(applicationContext,width,height)
-            MediaCore.mInstance?.setupEchoDisplay(objects.first,width,height,objects.second.second,density)
-            WebRTC.checkAndStart(applicationContext, uid, token, data,objects.second.first,{ state->
-                println("PeerConnection state: $state")
-            },{
-                Toast.makeText(applicationContext, it, Toast.LENGTH_LONG).show()
-            })
+            val density : Int =
+                ((applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull()
+                    ?: 1) * 0.5) /
+                        (applicationContext.resources.displayMetrics.let { it.widthPixels * it.heightPixels })).roundToInt()
+            val connectionId = System.currentTimeMillis()
+            val videoCapturer =
+                MediaCore.mInstance!!.createAppCapturer(connectionId.toString(), density, {
+                    println("Capturer stopped")
+                })
+            println("DENSITY = $density")
+            WebRTC.checkAndStart(
+                applicationContext,
+                connectionId,
+                uid,
+                token,
+                data,
+                videoCapturer,
+                width,
+                height,
+                30,
+                { state ->
+                    println("PeerConnection state: $state")
+                    if (listOf(PeerConnection.IceConnectionState.DISCONNECTED,PeerConnection.IceConnectionState.CLOSED).contains(state)){
+                        RemoteSessionHandler.shutDownRemoteSession(connectionId.toString(), MediaCore.mInstance!!, svc!!)
+                    }
+                },
+                {
+                    RemoteSessionHandler.processDataMessage(connectionId.toString(),it, MediaCore.mInstance!!, svc!!)
+                })
         }
     }
 
@@ -276,8 +291,9 @@ class ExtendService : Service() {
         const val ACTION_GET_MEDIA_PROJECTION =
             "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
 
-        var setupEchoCommand: (data: Map<String, String>, uid: String, token: String) -> Unit = { data, uid, token ->
-            // Default implementation does nothing
-        }
+        var setupEchoCommand: (data: Map<String, String>, uid: String, token: String) -> Unit =
+            { data, uid, token ->
+                // Default implementation does nothing
+            }
     }
 }

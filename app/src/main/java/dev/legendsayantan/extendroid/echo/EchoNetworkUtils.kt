@@ -1,13 +1,16 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
-import android.os.Build
+import android.os.Message
+import android.webkit.ValueCallback
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
+import dev.legendsayantan.extendroid.lib.MediaCore
+import dev.legendsayantan.extendroid.services.IRootService
+import dev.legendsayantan.extendroid.services.RootService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -16,6 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.IOException
+import org.webrtc.DataChannel
 
 /**
  * @author legendsayantan
@@ -25,6 +29,7 @@ class EchoNetworkUtils {
         const val ONE_MINUTE = 60 * 1000L // 1 minute in milliseconds
         const val THIRTY_MINUTES = 30 * ONE_MINUTE // 30 minutes in milliseconds
         const val USE_PRODUCTION = true // Set to true for production
+        lateinit var mappings : Map<String, String>
         fun getBackendUrl(ctx: Context): String {
             return if (USE_PRODUCTION) {
                 ctx.getString(R.string.url_backend_prod)
@@ -175,5 +180,40 @@ class EchoNetworkUtils {
                 }
             })
         }
+
+        fun updateMappings(ctx: Context,valueCallback: (Map<String, String>)-> Unit){
+            val prefs = Prefs(ctx)
+            if(System.currentTimeMillis()-prefs.lastMappingsLoaded < 24 * 60 * 60 * 1000 && USE_PRODUCTION) {
+                valueCallback(prefs.echoMappings)
+                return
+            }
+            val url = ctx.getString(R.string.mappingJsonUrl);
+            val client = OkHttpClient()
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("User-Agent", "Extendroid")
+                .build()
+            try {
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        response.body?.string()?.let {
+                            if(it.isNotBlank()) prefs.setEchoMappings(it)
+                        }
+                    }
+                    valueCallback(prefs.echoMappings)
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                valueCallback(prefs.echoMappings)
+            }
+        }
+
+        fun prepareMappings(ctx: Context){
+            updateMappings(ctx){
+                mappings = it
+            }
+        }
+
     }
 }

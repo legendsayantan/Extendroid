@@ -8,10 +8,10 @@ import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
-import android.view.MotionEvent
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
+import dev.legendsayantan.extendroid.echo.RemoteSessionCapturer
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
@@ -23,6 +23,8 @@ open class MediaCore {
     var projection: MediaProjection? = null
     var virtualDisplays: HashMap<String, VirtualDisplay> = hashMapOf()
     var echoDisplays : HashMap<String,VirtualDisplay> = hashMapOf()
+    var echoDisplayIds : HashMap<String, Int> = hashMapOf()
+    var appRemoteAccessHistory : HashMap<String,List<String>> = hashMapOf()
     private fun init(mediaProjection: MediaProjection) {
         projection = mediaProjection
         mediaProjectionReady()
@@ -88,38 +90,41 @@ open class MediaCore {
         } ?: throw RuntimeException("Virtual display for $packageName not found")
     }
 
-    fun setupEchoDisplay(
+    fun createAppCapturer(
         name:String,
-        width: Int,
-        height: Int,
-        surface: Surface,
-        density: Int
-    ) {
-        if (echoDisplays.containsKey(name)) {
-            echoDisplays[name]?.let {
-                it.resize(
-                    width,
-                    height,
-                    density
-                )
-                it.surface = surface
-            }
-
-            return
-        }else{
-            projection?.createVirtualDisplay(
-                name,
-                width,
-                height,
-                density,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-                surface,
-                null,
-                null
-            )?.let {
-                echoDisplays[name] = it
+        density:Int,
+        onCaptureStopped: () -> Unit
+    ): RemoteSessionCapturer {
+        val mediaProjectionCallback = object : MediaProjection.Callback() {
+            override fun onStop() {
+                // This is invoked by the system when the projection is stopped.
+                // We forward this event to our app's logic.
+                onCaptureStopped()
             }
         }
+
+        return RemoteSessionCapturer(
+            mediaProjection = projection!!,
+            mediaProjectionCallback = mediaProjectionCallback,
+            onVirtualDisplayCreated = { virtualDisplay ->
+                println("VirtualDisplay created. The app is now responsible for it.")
+                // Store the VirtualDisplay instance so we can release it later.
+                echoDisplays[name] = virtualDisplay
+                echoDisplayIds[name] = virtualDisplay.display.displayId
+            },
+            onVirtualDisplayReleased = {
+                println("Capturer is done with the VirtualDisplay. Releasing it now.")
+                // The capturer has finished with the display, so we must release it.
+                echoDisplays[name]?.release()
+                echoDisplays.remove(name)
+                echoDisplayIds.remove(name)
+            },
+            displayName = name,
+            displayDpi = density
+        )
+    }
+
+    fun closeAllAppsForRemoteSession(connectionId: String) {
 
     }
 
