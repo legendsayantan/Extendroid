@@ -119,6 +119,7 @@ class RemoteSessionCapturer(
     }
 
     fun updateDimensions(width: Int,height: Int, density:Int){
+        println("New density: $density")
         this.width = width
         this.height = height
         surfaceTextureHelper?.setTextureSize( width, height)

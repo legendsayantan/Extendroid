@@ -118,10 +118,18 @@ class RemoteSessionHandler {
                     //content is json hashmap of width, height, scale
                     val dimensions = jsonToHashMap(content)
                     if (dimensions.isNotEmpty()) {
+                        println(dimensions)
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
                             val width = dimensions["width"]?.toIntOrNull() ?: params[1]
                             val height = dimensions["height"]?.toIntOrNull() ?: params[2]
-                            val density = (dimensions["scale"]?.toIntOrNull() ?: 1) * params[3]
+                            val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
+                            val density = (scale * params[3]).roundToInt()
+                            println(
+                                "Scale : $scale, params3: ${params[3]}, Density: $density"
+                            )
+                            mediaCore.echoDisplayParams[connectionId] = arrayOf(
+                                params[0], width, height, density
+                            )
                             mediaCore.sessionCapturerResizers[connectionId]?.invoke(
                                 width,
                                 height,
