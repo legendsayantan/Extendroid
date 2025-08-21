@@ -132,7 +132,7 @@ class RemoteSessionHandler {
                             keyEventData["eventTime"]?.toLongOrNull() ?: System.currentTimeMillis(),
                             keyEventData["action"]?.toIntOrNull() ?: KeyEvent.ACTION_DOWN,
                             keyEventData["keyCode"]?.toIntOrNull() ?: KeyEvent.KEYCODE_UNKNOWN,
-                            0, keyEventData["metastate"]?.toIntOrNull() ?: 0, 0, 0
+                            0, keyEventData["metaState"]?.toIntOrNull() ?: 0, 0, 0
                         )
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
                             svc.dispatchKey(keyEvent.keyCode, keyEvent.action, params[0])
