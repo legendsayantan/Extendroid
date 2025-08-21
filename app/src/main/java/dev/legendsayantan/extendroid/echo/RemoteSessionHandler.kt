@@ -19,6 +19,7 @@ import kotlin.collections.forEach
 import kotlin.collections.plus
 import kotlin.collections.set
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * @author legendsayantan
@@ -197,9 +198,9 @@ class RemoteSessionHandler {
         }
 
         fun computedDensity(ctx: Context, width: Int, height: Int, scale: Int?): Int {
-            return ((ctx.resources.displayMetrics.densityDpi * width * height * (scale
+            return ((ctx.resources.displayMetrics.densityDpi * sqrt((width * height).toDouble()) * (scale
                 ?: 1)) /
-                    (ctx.resources.displayMetrics.let { it.widthPixels * it.heightPixels }))
+                    (ctx.resources.displayMetrics.let { sqrt((it.widthPixels * it.heightPixels).toDouble()) })).toInt()
         }
 
         /**
