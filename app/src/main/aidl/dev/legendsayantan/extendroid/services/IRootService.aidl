@@ -7,7 +7,7 @@ interface IRootService {
     String grantPermissions(in List<String> perms);
     String exitTasks(String packageName);
     List<String> getTopTenApps();
-    String dispatchKey(int keyCode,int action, int displayID);
+    String dispatchKey(int keyCode,int action, int displayID, int metaState);
     String dispatch(in MotionEvent event, int displayID);
     String setBuiltInDisplayPowerMode(int mode);
 }

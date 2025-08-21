@@ -64,9 +64,9 @@ class RootService() : IRootService.Stub() {
         }
     }
 
-    override fun dispatchKey(keyCode: Int, action: Int, displayID: Int): String {
+    override fun dispatchKey(keyCode: Int, action: Int, displayID: Int, metaState: Int): String {
         return try {
-            DisplayHelper.injectKeyEventToDisplay(displayID, action, keyCode, 0)
+            DisplayHelper.injectKeyEventToDisplay(displayID, action, keyCode, metaState)
             "success"
         } catch (e: Exception) {
             e.stackTraceToString()

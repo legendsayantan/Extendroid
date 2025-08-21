@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.annotations.SerializedName
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.mappings
+import dev.legendsayantan.extendroid.lib.AsciiToKeyEvent
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.IRootService
@@ -59,7 +60,8 @@ class RemoteSessionHandler {
         }
 
         fun createDataChannelPacket(string: String, type: PacketType): DataChannel.Buffer {
-            val combined = (mappings.entries.find { it.value == type.typename }?.key ?: type.typename) + string
+            val combined =
+                (mappings.entries.find { it.value == type.typename }?.key ?: type.typename) + string
             return DataChannel.Buffer(java.nio.ByteBuffer.wrap(combined.toByteArray()), false)
         }
 
@@ -119,7 +121,11 @@ class RemoteSessionHandler {
                             val width = dimensions["width"]?.toIntOrNull() ?: params[1]
                             val height = dimensions["height"]?.toIntOrNull() ?: params[2]
                             val density = (dimensions["scale"]?.toIntOrNull() ?: 1) * params[3]
-                            mediaCore.sessionCapturerResizers[connectionId]?.invoke(width, height, density)
+                            mediaCore.sessionCapturerResizers[connectionId]?.invoke(
+                                width,
+                                height,
+                                density
+                            )
                         }
                     }
                 }
@@ -127,17 +133,24 @@ class RemoteSessionHandler {
                 PacketType.KeyEvent -> {
                     try {
                         val keyEventData = jsonToHashMap(content)
-                        val keyEvent = KeyEvent(
+                        val keyEvent = AsciiToKeyEvent.buildKeyEvent(
                             keyEventData["downTime"]?.toLongOrNull() ?: System.currentTimeMillis(),
                             keyEventData["eventTime"]?.toLongOrNull() ?: System.currentTimeMillis(),
                             keyEventData["action"]?.toIntOrNull() ?: KeyEvent.ACTION_DOWN,
                             keyEventData["keyCode"]?.toIntOrNull() ?: KeyEvent.KEYCODE_UNKNOWN,
-                            0, keyEventData["metaState"]?.toIntOrNull() ?: 0, 0, 0
+                            keyEventData["metaState"]?.toIntOrNull() ?: 0
                         )
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
-                            svc.dispatchKey(keyEvent.keyCode, keyEvent.action, params[0])
+                            keyEvent?.let {
+                                svc.dispatchKey(
+                                    it.keyCode,
+                                    keyEvent.action,
+                                    params[0],
+                                    keyEvent.metaState
+                                )
+                            }
                         }
-                    }catch (e: Exception){
+                    } catch (e: Exception) {
                         e.printStackTrace()
                         print("Error processing key event: ${e.message}")
                     }
@@ -184,8 +197,9 @@ class RemoteSessionHandler {
         }
 
         fun computedDensity(ctx: Context, width: Int, height: Int, scale: Int?): Int {
-            return ((ctx.resources.displayMetrics.densityDpi * width * height * (scale ?: 1) * 0.7) /
-                    (ctx.resources.displayMetrics.let { it.widthPixels * it.heightPixels })).roundToInt()
+            return ((ctx.resources.displayMetrics.densityDpi * width * height * (scale
+                ?: 1)) /
+                    (ctx.resources.displayMetrics.let { it.widthPixels * it.heightPixels }))
         }
 
         /**

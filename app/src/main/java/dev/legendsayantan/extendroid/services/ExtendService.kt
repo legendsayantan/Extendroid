@@ -253,7 +253,7 @@ class ExtendService : Service() {
             val r = svc?.dispatchKey(
                 keyCode,
                 action,
-                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1
+                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1,0
             )
             println(r)
         }
