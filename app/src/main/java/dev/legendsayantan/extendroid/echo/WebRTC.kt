@@ -3,15 +3,10 @@ package dev.legendsayantan.extendroid.echo
 import android.content.Context
 import android.os.Handler
 import android.widget.Toast
-import com.google.gson.Gson
-import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.updateMappings
-import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.webrtc.*
-import java.util.Timer
-import kotlin.concurrent.timerTask
 
 class WebRTC {
     companion object {
@@ -52,7 +47,7 @@ class WebRTC {
             data: Map<String, String>,
             videoCapturer: VideoCapturer, width: Int, height: Int, framerate: Int,
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
-            onDataMessage: (String) -> Unit
+            onDataChannelState: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
             if (data["fetchsdp"] == "true") {
                 //if so, fetch the sdp from the backend
@@ -107,7 +102,7 @@ class WebRTC {
                                 remoteSdp,
                                 videoCapturer, width, height, framerate,
                                 onStateChanged,
-                                onDataMessage
+                                onDataChannelState, onDataMessage
                             )
                         } catch (e: Exception) {
                             System.err.println("Error parsing WebRTC data1: ${e.message}")
@@ -174,7 +169,7 @@ class WebRTC {
                         remoteSdp,
                         videoCapturer, width, height, framerate,
                         onStateChanged,
-                        onDataMessage
+                        onDataChannelState, onDataMessage
                     )
                 } catch (e: Exception) {
                     System.err.println("Error parsing WebRTC data: ${e.message}")
@@ -202,7 +197,7 @@ class WebRTC {
             remoteSdp: String,
             videoCapturer: VideoCapturer, width: Int, height: Int, framerate: Int,
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
-            onDataMessage: (String) -> Unit
+            onDataChannelState: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
             ensurePeerConnectionFactory(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
@@ -290,17 +285,7 @@ class WebRTC {
                             override fun onStateChange() {
                                 println("Data channel state changed: ${dataChannel.state()}")
                                 if (dataChannel.state() == DataChannel.State.OPEN) {
-
-                                    Thread {
-                                        val allAppsMap =
-                                            PackageManagerHelper.getLaunchableApps(ctx.packageManager)
-                                                .associate {
-                                                    it.packageName to it.appName
-                                                }
-                                        val appListJson = Gson().toJson(allAppsMap)
-                                        dataChannel.send(RemoteSessionHandler.createDataChannelPacket(appListJson,
-                                            RemoteSessionHandler.Companion.PacketType.InstalledApps))
-                                    }.start()
+                                    onDataChannelState(dataChannel)
 
                                 }
                             }

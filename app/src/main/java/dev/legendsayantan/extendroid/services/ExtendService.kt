@@ -30,7 +30,6 @@ import dev.legendsayantan.extendroid.ui.PopupManager
 import org.webrtc.PeerConnection
 import rikka.shizuku.Shizuku
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 
 class ExtendService : Service() {
@@ -66,16 +65,12 @@ class ExtendService : Service() {
                 .filter { it.isNotBlank() }
             val width = resolution[0].toIntOrNull() ?: 1280
             val height = resolution[1].toIntOrNull() ?: 720
-            val density : Int =
-                ((applicationContext.resources.displayMetrics.densityDpi * width * height * (resolution[2].toIntOrNull()
-                    ?: 1) * 0.5) /
-                        (applicationContext.resources.displayMetrics.let { it.widthPixels * it.heightPixels })).roundToInt()
+            val scale = resolution[2].toIntOrNull() ?: 1
             val connectionId = System.currentTimeMillis()
             val videoCapturer =
-                MediaCore.mInstance!!.createAppCapturer(connectionId.toString(), density, {
+                MediaCore.mInstance!!.createAppCapturer(applicationContext,connectionId.toString(), width,height, scale, {
                     println("Capturer stopped")
                 })
-            println("DENSITY = $density")
             WebRTC.checkAndStart(
                 applicationContext,
                 connectionId,
@@ -91,9 +86,11 @@ class ExtendService : Service() {
                     if (listOf(PeerConnection.IceConnectionState.DISCONNECTED,PeerConnection.IceConnectionState.CLOSED).contains(state)){
                         RemoteSessionHandler.shutDownRemoteSession(connectionId.toString(), MediaCore.mInstance!!, svc!!)
                     }
+                },{
+                    RemoteSessionHandler.handleDataChannel(applicationContext, MediaCore.mInstance!!, it)
                 },
                 {
-                    RemoteSessionHandler.processDataMessage(connectionId.toString(),it, MediaCore.mInstance!!, svc!!)
+                    RemoteSessionHandler.processDataMessage(applicationContext,connectionId.toString(),it, MediaCore.mInstance!!, svc!!)
                 })
         }
     }

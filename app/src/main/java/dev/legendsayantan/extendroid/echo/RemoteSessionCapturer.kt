@@ -118,6 +118,15 @@ class RemoteSessionCapturer(
         }
     }
 
+    fun updateDimensions(width: Int,height: Int, density:Int){
+        this.width = width
+        this.height = height
+        surfaceTextureHelper?.setTextureSize( width, height)
+        val surface = Surface(surfaceTextureHelper?.surfaceTexture)
+        virtualDisplay?.surface = surface
+        virtualDisplay?.resize(width, height, density)
+    }
+
     override fun dispose() {
         isDisposed = true
     }

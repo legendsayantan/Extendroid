@@ -12,6 +12,7 @@ import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.RemoteSessionCapturer
+import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
@@ -20,11 +21,35 @@ import kotlin.concurrent.timerTask
  */
 open class MediaCore {
 
+    var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
+    var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
+
     var projection: MediaProjection? = null
     var virtualDisplays: HashMap<String, VirtualDisplay> = hashMapOf()
     var echoDisplays : HashMap<String,VirtualDisplay> = hashMapOf()
-    var echoDisplayIds : HashMap<String, Int> = hashMapOf()
-    var appRemoteAccessHistory : HashMap<String,List<String>> = hashMapOf()
+
+    /**
+     * This map is used to store the display parameters for each echo display.
+     * array elements are:
+     * 0: Display ID
+     * 1: Width
+     * 2: Height
+     * 3: density
+     */
+    var echoDisplayParams : HashMap<String, Array<Int>> = hashMapOf()
+    var appRemoteAccessHistory = object : HashMap<String,List<String>>() {
+        override fun put(key: String, value: List<String>): List<String>? {
+            val x = super.put(key, value)
+            onRunningRemoteAppsUpdate(key)
+            return x;
+        }
+
+        override fun remove(key: String): List<String>? {
+            val x = super.remove(key)
+            onRunningRemoteAppsUpdate(key)
+            return x;
+        }
+    }
     private fun init(mediaProjection: MediaProjection) {
         projection = mediaProjection
         mediaProjectionReady()
@@ -91,8 +116,11 @@ open class MediaCore {
     }
 
     fun createAppCapturer(
+        ctx:Context,
         name:String,
-        density:Int,
+        width: Int,
+        height: Int,
+        scale:Int,
         onCaptureStopped: () -> Unit
     ): RemoteSessionCapturer {
         val mediaProjectionCallback = object : MediaProjection.Callback() {
@@ -103,29 +131,30 @@ open class MediaCore {
             }
         }
 
-        return RemoteSessionCapturer(
+        val density = RemoteSessionHandler.computedDensity(ctx, width, height, scale)
+        val capturer = RemoteSessionCapturer(
             mediaProjection = projection!!,
             mediaProjectionCallback = mediaProjectionCallback,
             onVirtualDisplayCreated = { virtualDisplay ->
                 println("VirtualDisplay created. The app is now responsible for it.")
                 // Store the VirtualDisplay instance so we can release it later.
                 echoDisplays[name] = virtualDisplay
-                echoDisplayIds[name] = virtualDisplay.display.displayId
+                echoDisplayParams[name] = arrayOf(virtualDisplay.display.displayId,width,height,density)
             },
             onVirtualDisplayReleased = {
                 println("Capturer is done with the VirtualDisplay. Releasing it now.")
                 // The capturer has finished with the display, so we must release it.
                 echoDisplays[name]?.release()
                 echoDisplays.remove(name)
-                echoDisplayIds.remove(name)
+                echoDisplayParams.remove(name)
             },
             displayName = name,
             displayDpi = density
         )
-    }
-
-    fun closeAllAppsForRemoteSession(connectionId: String) {
-
+        sessionCapturerResizers[name] = { w, h, d ->
+            capturer.updateDimensions(w, h, d)
+        }
+        return capturer
     }
 
 
