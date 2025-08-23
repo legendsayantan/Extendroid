@@ -26,19 +26,19 @@ import org.webrtc.VideoSink
  *
  * @param mediaProjection An active `MediaProjection` instance obtained from the Android framework.
  * @param mediaProjectionCallback A callback to listen for `MediaProjection` events, like stop.
- * @param onVirtualDisplayCreated A callback invoked with the newly created `VirtualDisplay`. The app
+ * @param onSessionCreated A callback invoked with the newly created `VirtualDisplay`. The app
  * should store this and release it when capture is finished.
- * @param onVirtualDisplayReleased A callback invoked right before the capturer stops using the
+ * @param onSessionReleased A callback invoked right before the capturer stops using the
  * `VirtualDisplay`, signaling that it's safe to release.
- * @param displayName The name for the created VirtualDisplay. Defaults to "WebRTC_Managed_ScreenCapture".
+ * @param displayName The name for the created VirtualDisplay.
  * @param displayDpi The screen density for the created VirtualDisplay. Defaults to 400.
  */
-class RemoteSessionCapturer(
+class RemoteSessionRenderer(
     private val mediaProjection: MediaProjection,
     private val mediaProjectionCallback: MediaProjection.Callback,
-    private val onVirtualDisplayCreated: (virtualDisplay: VirtualDisplay) -> Unit,
-    private val onVirtualDisplayReleased: () -> Unit,
-    private val displayName: String = "WebRTC_Managed_ScreenCapture",
+    private val onSessionCreated: (virtualDisplay: VirtualDisplay) -> Unit,
+    private val onSessionReleased: () -> Unit,
+    private val displayName: String = "Echo_Screen",
     private val displayDpi: Int = 400
 ) : VideoCapturer, VideoSink {
 
@@ -94,7 +94,7 @@ class RemoteSessionCapturer(
             mediaProjection.unregisterCallback(mediaProjectionCallback)
 
             if (virtualDisplay != null) {
-                onVirtualDisplayReleased()
+                onSessionReleased()
                 virtualDisplay = null
             }
         }
@@ -111,7 +111,7 @@ class RemoteSessionCapturer(
         }
 
         ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
-            onVirtualDisplayReleased()
+            onSessionReleased()
             virtualDisplay?.release()
 
             createVirtualDisplay()
@@ -144,7 +144,6 @@ class RemoteSessionCapturer(
         surfaceTextureHelper?.setTextureSize(width, height)
         val surface = Surface(surfaceTextureHelper?.surfaceTexture)
 
-        // Use the member properties for name, width, height, and DPI
         virtualDisplay = mediaProjection.createVirtualDisplay(
             displayName,
             width,
@@ -155,7 +154,7 @@ class RemoteSessionCapturer(
             null,
             null
         )?.also {
-            onVirtualDisplayCreated(it)
+            onSessionCreated(it)
         }
     }
 

@@ -18,6 +18,7 @@ import org.webrtc.DataChannel
 import kotlin.collections.forEach
 import kotlin.collections.plus
 import kotlin.collections.set
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -27,7 +28,12 @@ import kotlin.math.sqrt
 class RemoteSessionHandler {
     companion object {
 
-        fun handleDataChannel(ctx: Context, mediaCore: MediaCore, dataChannel: DataChannel) {
+        fun handleDataChannel(
+            ctx: Context,
+            mediaCore: MediaCore,
+            dataChannel: DataChannel,
+            noDisplay: Boolean
+        ) {
             when (dataChannel.state()) {
                 DataChannel.State.CLOSED, DataChannel.State.CLOSING -> {
                     //do nothing
@@ -38,17 +44,19 @@ class RemoteSessionHandler {
                 }
 
                 DataChannel.State.OPEN -> {
-                    Thread {
-                        val allAppsMap =
-                            PackageManagerHelper.getLaunchableApps(ctx.packageManager)
-                                .associate {
-                                    it.packageName to it.appName
-                                }
-                        val appListJson = Gson().toJson(allAppsMap)
-                        dataChannel.send(
-                            createDataChannelPacket(appListJson, PacketType.InstalledApps)
-                        )
-                    }.start()
+                    if(!noDisplay){
+                        Thread {
+                            val allAppsMap =
+                                PackageManagerHelper.getLaunchableApps(ctx.packageManager)
+                                    .associate {
+                                        it.packageName to it.appName
+                                    }
+                            val appListJson = Gson().toJson(allAppsMap)
+                            dataChannel.send(
+                                createDataChannelPacket(appListJson, PacketType.InstalledApps)
+                            )
+                        }.start()
+                    }
                 }
             }
 
@@ -123,7 +131,7 @@ class RemoteSessionHandler {
                             val width = dimensions["width"]?.toIntOrNull() ?: params[1]
                             val height = dimensions["height"]?.toIntOrNull() ?: params[2]
                             val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
-                            val density = (scale * params[3]).roundToInt()
+                            val density = computedDensity(ctx, width, height, scale)
                             println(
                                 "Scale : $scale, params3: ${params[3]}, Density: $density"
                             )
@@ -205,10 +213,9 @@ class RemoteSessionHandler {
             return map
         }
 
-        fun computedDensity(ctx: Context, width: Int, height: Int, scale: Int?): Int {
-            return ((ctx.resources.displayMetrics.densityDpi * sqrt((width * height).toDouble()) * (scale
-                ?: 1)) /
-                    (ctx.resources.displayMetrics.let { sqrt((it.widthPixels * it.heightPixels).toDouble()) })).toInt()
+        fun computedDensity(ctx: Context, width: Int, height: Int, scale: Float?): Int {
+            val factor = (width + height.toDouble())/ctx.resources.displayMetrics.let { it.widthPixels + it.heightPixels }
+            return (ctx.resources.displayMetrics.densityDpi * factor * (scale ?: 1f)).roundToInt()
         }
 
         /**

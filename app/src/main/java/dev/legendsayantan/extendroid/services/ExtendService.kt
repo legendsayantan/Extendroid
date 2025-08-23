@@ -28,8 +28,8 @@ import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
 import org.webrtc.PeerConnection
+import org.webrtc.VideoCapturer
 import rikka.shizuku.Shizuku
-import kotlin.math.roundToInt
 
 
 class ExtendService : Service() {
@@ -59,25 +59,31 @@ class ExtendService : Service() {
 
         //ECHO
         setupEchoCommand = { data, uid, token ->
-            val resolution = data["res"].toString()
-                .split("x", "/")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-            val width = resolution[0].toIntOrNull() ?: 1280
-            val height = resolution[1].toIntOrNull() ?: 720
-            val scale = resolution[2].toIntOrNull() ?: 1
             val connectionId = System.currentTimeMillis()
-            val videoCapturer =
-                MediaCore.mInstance!!.createAppCapturer(applicationContext,connectionId.toString(), width,height, scale, {
-                    println("Capturer stopped")
-                })
+            var width = 0
+            var height = 0
+            var capturer : VideoCapturer? = null
+            if(data["res"] !=null){
+                val resolution = data["res"].toString()
+                    .split("x", "/")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                width = resolution[0].toIntOrNull() ?: 1280
+                height = resolution[1].toIntOrNull() ?: 720
+                val scale = resolution[2].toFloatOrNull() ?: 1f
+                capturer =
+                    MediaCore.mInstance!!.newSessionRenderer(applicationContext,connectionId.toString(), width,height, scale, {
+                        println("Capturer stopped")
+                    })
+            }
+
             WebRTC.checkAndStart(
                 applicationContext,
                 connectionId,
                 uid,
                 token,
                 data,
-                videoCapturer,
+                capturer,
                 width,
                 height,
                 30,
@@ -87,7 +93,12 @@ class ExtendService : Service() {
                         RemoteSessionHandler.shutDownRemoteSession(connectionId.toString(), MediaCore.mInstance!!, svc!!)
                     }
                 },{
-                    RemoteSessionHandler.handleDataChannel(applicationContext, MediaCore.mInstance!!, it)
+                    RemoteSessionHandler.handleDataChannel(
+                        applicationContext,
+                        MediaCore.mInstance!!,
+                        it,
+                        width==0 && height==0
+                    )
                 },
                 {
                     RemoteSessionHandler.processDataMessage(applicationContext,connectionId.toString(),it, MediaCore.mInstance!!, svc!!)

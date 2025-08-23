@@ -15,6 +15,7 @@ Android Multi-Tasking Manager with desktop-like multi window support.
 - [x] Minimise app windows but keep apps running
 - [x] Live preview to all minimised apps
 - [x] Keep apps active with screen off
+- [x] Access apps remotely with Extendroid Echo (beta)
 
 ## Usage:
 1. Download and Install the [APK file](https://github.com/legendsayantan/Extendroid/tree/master/app/release/app-release.apk) on your Android device.

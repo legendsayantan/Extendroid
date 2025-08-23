@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.webrtc.*
+import java.util.Timer
+import kotlin.concurrent.timerTask
 
 class WebRTC {
     companion object {
@@ -45,9 +47,9 @@ class WebRTC {
             uid: String,
             token: String,
             data: Map<String, String>,
-            videoCapturer: VideoCapturer, width: Int, height: Int, framerate: Int,
+            capturer: VideoCapturer?, width: Int, height: Int, framerate: Int,
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
-            onDataChannelState: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
+            dataChannelHandler: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
             if (data["fetchsdp"] == "true") {
                 //if so, fetch the sdp from the backend
@@ -100,9 +102,9 @@ class WebRTC {
                                 iceServers,
                                 remoteIce,
                                 remoteSdp,
-                                videoCapturer, width, height, framerate,
+                                capturer, width, height, framerate,
                                 onStateChanged,
-                                onDataChannelState, onDataMessage
+                                dataChannelHandler, onDataMessage
                             )
                         } catch (e: Exception) {
                             System.err.println("Error parsing WebRTC data1: ${e.message}")
@@ -167,9 +169,9 @@ class WebRTC {
                         iceServers,
                         remoteIce,
                         remoteSdp,
-                        videoCapturer, width, height, framerate,
+                        capturer, width, height, framerate,
                         onStateChanged,
-                        onDataChannelState, onDataMessage
+                        dataChannelHandler, onDataMessage
                     )
                 } catch (e: Exception) {
                     System.err.println("Error parsing WebRTC data: ${e.message}")
@@ -195,9 +197,9 @@ class WebRTC {
             iceServers: MutableList<PeerConnection.IceServer>,
             remoteIce: Array<IceCandidate>,
             remoteSdp: String,
-            videoCapturer: VideoCapturer, width: Int, height: Int, framerate: Int,
+            capturer: VideoCapturer?, width: Int, height: Int, framerate: Int,
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
-            onDataChannelState: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
+            dataChannelhandler: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
             ensurePeerConnectionFactory(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
@@ -222,31 +224,8 @@ class WebRTC {
 
                     override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
                         println("ICE Gathering State Changed: $state")
-//                    if (state == PeerConnection.IceGatheringState.GATHERING) {
-//                        Timer().schedule(timerTask {
-//                            peerConnection.localDescription?.let { localSdp ->
-//                                val iceCandidatesJson = org.json.JSONArray()
-//                                thisConnectionIceCandidates.forEach { candidate ->
-//                                    val candidateJson = org.json.JSONObject()
-//                                    candidateJson.put("sdpMid", candidate.sdpMid)
-//                                    candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
-//                                    candidateJson.put("candidate", candidate.sdp)
-//                                    iceCandidatesJson.put(candidateJson)
-//                                }
-//                                val ourIce = iceCandidatesJson.toString()
-//                                GlobalScope.launch(Dispatchers.IO) {
-//                                    EchoNetworkUtils.postSignal(
-//                                        ctx,
-//                                        uid,
-//                                        token,
-//                                        devicesdp = localSdp.description,
-//                                        deviceice = ourIce
-//                                    )
-//                                }
-//                            }
-//                        },3000)
-//                    }
-                        if (state == PeerConnection.IceGatheringState.COMPLETE) {
+                    if (state == PeerConnection.IceGatheringState.GATHERING) {
+                        Timer().schedule(timerTask {
                             peerConnection.localDescription?.let { localSdp ->
                                 val iceCandidatesJson = org.json.JSONArray()
                                 thisConnectionIceCandidates.forEach { candidate ->
@@ -267,7 +246,30 @@ class WebRTC {
                                     )
                                 }
                             }
-                        }
+                        },3000)
+                    }
+//                        if (state == PeerConnection.IceGatheringState.COMPLETE) {
+//                            peerConnection.localDescription?.let { localSdp ->
+//                                val iceCandidatesJson = org.json.JSONArray()
+//                                thisConnectionIceCandidates.forEach { candidate ->
+//                                    val candidateJson = org.json.JSONObject()
+//                                    candidateJson.put("sdpMid", candidate.sdpMid)
+//                                    candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
+//                                    candidateJson.put("candidate", candidate.sdp)
+//                                    iceCandidatesJson.put(candidateJson)
+//                                }
+//                                val ourIce = iceCandidatesJson.toString()
+//                                GlobalScope.launch(Dispatchers.IO) {
+//                                    EchoNetworkUtils.postSignal(
+//                                        ctx,
+//                                        uid,
+//                                        token,
+//                                        devicesdp = localSdp.description,
+//                                        deviceice = ourIce
+//                                    )
+//                                }
+//                            }
+//                        }
                     }
 
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
@@ -285,7 +287,7 @@ class WebRTC {
                             override fun onStateChange() {
                                 println("Data channel state changed: ${dataChannel.state()}")
                                 if (dataChannel.state() == DataChannel.State.OPEN) {
-                                    onDataChannelState(dataChannel)
+                                    dataChannelhandler(dataChannel)
 
                                 }
                             }
@@ -302,30 +304,33 @@ class WebRTC {
                     override fun onRenegotiationNeeded() {}
                 })!!
 
-            surfaceTextureHelpers[connectionId] =
-                SurfaceTextureHelper.create(connectionId.toString(), eglBase.eglBaseContext)
-            videoCapturers[connectionId] = videoCapturer
-            videoSources[connectionId] =
-                peerConnectionFactory.createVideoSource(videoCapturers[connectionId]!!.isScreencast)
-            videoCapturers[connectionId]?.initialize(
-                surfaceTextureHelpers[connectionId],
-                ctx,
-                videoSources[connectionId]!!.capturerObserver
-            )
-            videoTracks[connectionId] =
-                peerConnectionFactory.createVideoTrack(
-                    "video_track_$connectionId",
-                    videoSources[connectionId]!!
+            if(capturer!=null && width>0 && height>0 && framerate>0) {
+                //create video track
+                surfaceTextureHelpers[connectionId] =
+                    SurfaceTextureHelper.create(connectionId.toString(), eglBase.eglBaseContext)
+                videoCapturers[connectionId] = capturer
+                videoSources[connectionId] =
+                    peerConnectionFactory.createVideoSource(videoCapturers[connectionId]!!.isScreencast)
+                videoCapturers[connectionId]?.initialize(
+                    surfaceTextureHelpers[connectionId],
+                    ctx,
+                    videoSources[connectionId]!!.capturerObserver
                 )
+                videoTracks[connectionId] =
+                    peerConnectionFactory.createVideoTrack(
+                        "video_track_$connectionId",
+                        videoSources[connectionId]!!
+                    )
 
-            peerConnection.addTrack(videoTracks[connectionId])
+                peerConnection.addTrack(videoTracks[connectionId])
 
-            videoCapturers[connectionId]?.startCapture(
-                width, // Width
-                height, // Height
-                framerate // FPS
-            ) ?: run {
-                System.err.println("Video capturer is null for peer connection ID: $connectionId")
+                videoCapturers[connectionId]?.startCapture(
+                    width, // Width
+                    height, // Height
+                    framerate // FPS
+                ) ?: run {
+                    System.err.println("Video capturer is null for peer connection ID: $connectionId")
+                }
             }
 
             // Set remote description

@@ -11,7 +11,7 @@ import android.media.projection.MediaProjectionManager
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
-import dev.legendsayantan.extendroid.echo.RemoteSessionCapturer
+import dev.legendsayantan.extendroid.echo.RemoteSessionRenderer
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import java.util.Timer
 import kotlin.concurrent.timerTask
@@ -115,35 +115,30 @@ open class MediaCore {
         } ?: throw RuntimeException("Virtual display for $packageName not found")
     }
 
-    fun createAppCapturer(
+    fun newSessionRenderer(
         ctx:Context,
         name:String,
         width: Int,
         height: Int,
-        scale:Int,
-        onCaptureStopped: () -> Unit
-    ): RemoteSessionCapturer {
+        scale:Float,
+        onStopped: () -> Unit
+    ): RemoteSessionRenderer {
         val mediaProjectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
                 // This is invoked by the system when the projection is stopped.
                 // We forward this event to our app's logic.
-                onCaptureStopped()
+                onStopped()
             }
         }
 
         val density = RemoteSessionHandler.computedDensity(ctx, width, height, scale)
-        val capturer = RemoteSessionCapturer(
+        val capturer = RemoteSessionRenderer(
             mediaProjection = projection!!,
             mediaProjectionCallback = mediaProjectionCallback,
-            onVirtualDisplayCreated = { virtualDisplay ->
-                println("VirtualDisplay created. The app is now responsible for it.")
-                // Store the VirtualDisplay instance so we can release it later.
+            { virtualDisplay ->
                 echoDisplays[name] = virtualDisplay
                 echoDisplayParams[name] = arrayOf(virtualDisplay.display.displayId,width,height,density)
-            },
-            onVirtualDisplayReleased = {
-                println("Capturer is done with the VirtualDisplay. Releasing it now.")
-                // The capturer has finished with the display, so we must release it.
+            },{
                 echoDisplays[name]?.release()
                 echoDisplays.remove(name)
                 echoDisplayParams.remove(name)
