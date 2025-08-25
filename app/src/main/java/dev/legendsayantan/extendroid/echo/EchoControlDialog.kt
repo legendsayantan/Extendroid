@@ -179,7 +179,7 @@ class EchoControlDialog(
     }
 
     fun updateBoosterQuantity() {
-        boosterAmountText?.text = prefs.balance.toString()
+        boosterAmountText?.text = String.format("%.2f", prefs.balance)
         quotaTimeText?.text = estimateHourMinuteForBoosters(prefs.balance)
     }
 
@@ -200,7 +200,7 @@ class EchoControlDialog(
     companion object {
         var preventShowing = false
         var dimValue = 0.75f
-        var HOURS_PER_CREDIT = 0.6f
+        var HOURS_PER_CREDIT = 0.2f
 
         fun hourMinuteForBoosters(balance: Float): Pair<Int, Int> {
             val hours =

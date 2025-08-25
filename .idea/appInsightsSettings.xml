@@ -6,14 +6,6 @@
         <entry key="Firebase Crashlytics">
           <value>
             <InsightsFilterSettings>
-              <option name="connection">
-                <ConnectionSetting>
-                  <option name="appId" value="dev.legendsayantan.extendroid" />
-                  <option name="mobileSdkAppId" value="1:659445742247:android:bed6dd44875bb257743982" />
-                  <option name="projectId" value="extendroid1" />
-                  <option name="projectNumber" value="659445742247" />
-                </ConnectionSetting>
-              </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
               <option name="timeIntervalDays" value="THIRTY_DAYS" />
               <option name="visibilityType" value="ALL" />

@@ -2,6 +2,7 @@ package dev.legendsayantan.extendroid
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -9,7 +10,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -37,6 +40,10 @@ import dev.legendsayantan.extendroid.services.ExtendService
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import kotlin.system.exitProcess
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.setPadding
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(applicationContext) }
@@ -179,12 +186,59 @@ class MainActivity : AppCompatActivity() {
         val logBtn = findViewById<MaterialCardView>(R.id.logBtn)
         val stopBtn = findViewById<ImageView>(R.id.stopBtn)
 
-        echoBtn.setOnClickListener {
+        val openEcho = {
             val echoDialog = EchoControlDialog(this)
             echoDialog.setOnCancelListener {
                 initialiseBottomBar()
             }
             echoDialog.show()
+        }
+        echoBtn.setOnClickListener {
+            if (prefs.disclaimerTextShown) {
+                openEcho()
+            } else {
+                Toast.makeText(applicationContext, "Please wait...", Toast.LENGTH_SHORT).show()
+                Thread {
+                    try {
+                        EchoNetworkUtils.getDisclaimerText(applicationContext) {
+                            lateinit var dialog : AlertDialog
+                            val builder = MaterialAlertDialogBuilder(this@MainActivity)
+                            val container = MaterialCardView(this@MainActivity)
+                            container.radius = 10f
+                            container.setCardBackgroundColor(resources.getColor(R.color.theme4,null))
+                            container.strokeWidth = 0
+                            val heading = TextView(this@MainActivity)
+                            val contents = TextView(this@MainActivity)
+                            heading.text = "Disclaimer"
+                            heading.textSize = 20f
+                            heading.setTextColor(resources.getColor(R.color.theme0,null))
+                            contents.text = it
+                            contents.setPadding(0,10,0,10)
+                            contents.setTextColor(resources.getColor(R.color.theme1,null))
+                            container.addView(LinearLayout(this@MainActivity).apply {
+                                orientation = LinearLayout.VERTICAL
+                                setPadding(40)
+                                addView(heading)
+                                addView(contents)
+                                addView(MaterialButton(this@MainActivity).apply {
+                                    text = "Got it"
+                                    textSize = 20f
+                                    setBackgroundColor(resources.getColor(R.color.theme3,null))
+                                    setTextColor(resources.getColor(R.color.theme0,null))
+                                    setOnClickListener {
+                                        prefs.disclaimerTextShown = true
+                                        dialog.dismiss()
+                                        openEcho()
+                                    }
+                                })
+                            })
+                            builder.setView(container)
+                            dialog = builder.show()
+                        }
+                    } catch (e: Exception) {
+                    }
+                }.start()
+            }
 
         }
         echoBtn.isEnabled = Utils.isSafeForUI(this)
@@ -210,12 +264,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         echoTxt.isSelected = true
-        echoTxt.text = if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent && ExtendService.svc!= null) {
-            EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
-            "Echo Boosters left : ${prefs.balance}"
-        } else {
-            getString(R.string.extendroid_echo)
-        }
+        echoTxt.text =
+            if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent && ExtendService.svc != null) {
+                EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
+                "Echo Boosters left : ${String.format("%.2f", prefs.balance)}"
+            } else {
+                getString(R.string.extendroid_echo)
+            }
     }
 
     private fun startForegroundService() {

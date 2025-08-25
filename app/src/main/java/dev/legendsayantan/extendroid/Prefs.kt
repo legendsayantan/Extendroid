@@ -138,6 +138,13 @@ class Prefs(val context: Context) {
         }
     }
 
+    var disclaimerTextShown : Boolean
+        get() = echo.getBoolean("disclaimerTextShown", false)
+        set(value) {
+            echo.edit { putBoolean("disclaimerTextShown", value) }
+        }
+
+
 
     companion object {
         val configChangeListeners: ArrayList<(Context) -> Unit> = arrayListOf()

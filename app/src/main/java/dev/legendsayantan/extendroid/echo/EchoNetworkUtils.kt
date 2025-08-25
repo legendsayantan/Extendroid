@@ -215,5 +215,40 @@ class EchoNetworkUtils {
             }
         }
 
+        fun getDisclaimerText(ctx:Context,then: (String) -> Unit) {
+            // Replace with your actual disclaimer URL
+            val disclaimerUrl = ctx.getString(R.string.disclaimerUrl)
+            val client = OkHttpClient()
+            val request = Request.Builder()
+                .url(disclaimerUrl)
+                .get()
+                .build()
+
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            response.body?.string()?.let {
+                                launch(Dispatchers.Main) { // Switch to Main thread for UI updates
+                                    then(it)
+                                }
+                            } ?: launch(Dispatchers.Main) {
+                                then("Error: Empty response body") // Or handle as you see fit
+                            }
+                        } else {
+                            launch(Dispatchers.Main) {
+                                then("Error: ${response.code}") // Or handle as you see fit
+                            }
+                        }
+                    }
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                    launch(Dispatchers.Main) {
+                        throw RuntimeException("Error fetching disclaimer text", e)
+                    }
+                }
+            }
+        }
+
     }
 }

@@ -16,5 +16,5 @@
     <string name="signed_in_as">Currently signed in as %1$s</string>
     <string name="extendroid_echo">Extendroid Echo</string>
     <string name="sign_in_or_sign_up_to_use_extendroid_echo">Log in or Sign up to use Extendroid Echo.</string>
-    <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A minimum of 1 Booster is charged everytime a new session is connected. Transferring large files may consume more Boosters.</string>
+    <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A minimum of 0.01 Booster is charged everytime a new session is connected. Transferring large files may consume more Boosters.</string>
 </resources>
