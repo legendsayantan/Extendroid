@@ -90,4 +90,13 @@ class RootService() : IRootService.Stub() {
             e.stackTraceToString()
         }
     }
+
+    override fun registerMotionEventListener(displayID:Int): String{
+        return try{
+            DisplayHelper.listenForInputEvents(displayID)
+            "success"
+        }catch (e: Exception) {
+            e.stackTraceToString()
+        }
+    }
 }

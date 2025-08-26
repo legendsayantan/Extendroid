@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.util.Log
 import android.view.InputDevice
 import android.view.InputEvent
 import android.view.KeyEvent
@@ -144,6 +145,64 @@ class DisplayHelper {
             // 5) Recycle the event
             event.recycle()
         }
+
+        @SuppressLint("PrivateApi")
+        fun listenForInputEvents(displayId: Int) {
+            try {
+                val smClass = Class.forName("android.os.ServiceManager")
+                val getService = smClass.getDeclaredMethod("getService", String::class.java)
+                val binder = getService.invoke(null, "input") as android.os.IBinder
+
+                val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
+                val asInterface = stubClass.getDeclaredMethod("asInterface", android.os.IBinder::class.java)
+                val iInputManager = asInterface.invoke(null, binder)
+
+                val method = iInputManager.javaClass.methods.firstOrNull { it.name == "monitorGestureInput" }
+                    ?: throw NoSuchMethodException("monitorGestureInput not found")
+
+                val args = when (method.parameterTypes.size) {
+                    2 -> arrayOf("ShizukuInputListener",displayId) // old signature
+                    3 -> arrayOf(android.os.Binder(), "ShizukuInputListener", displayId) // new signature
+                    else -> throw IllegalStateException("Unexpected monitorGestureInput signature: ${method.parameterTypes.toList()}")
+                }
+
+                val inputMonitor = method.invoke(iInputManager, *args)
+
+                val getChannel = inputMonitor.javaClass.getDeclaredMethod("getInputChannel")
+                val inputChannel = getChannel.invoke(inputMonitor)
+
+                val ierClass = Class.forName("android.view.InputEventReceiver")
+                val ctor = ierClass.getDeclaredConstructor(
+                    Class.forName("android.view.InputChannel"),
+                    android.os.Looper::class.java
+                )
+                ctor.isAccessible = true
+                val receiver = ctor.newInstance(inputChannel, android.os.Looper.getMainLooper())
+
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    try {
+                        val dispose = ierClass.getDeclaredMethod("dispose")
+                        dispose.isAccessible = true
+                        dispose.invoke(receiver)
+                        Log.d("ShizukuService", "Receiver disposed after 60s")
+                    } catch (e: Exception) {
+                        Log.e("ShizukuService", "Dispose failed", e)
+                    }
+                }, 60_000)
+
+                Log.d("ShizukuService", "Listening for input events on display $displayId (method params=${method.parameterTypes.size})")
+
+            } catch (e: Exception) {
+                Log.e("ShizukuService", "Failed to listen for input events", e)
+            }
+        }
+
+
+
+
+
+
+
 
 
         fun getBuiltInDisplay(): IBinder? {

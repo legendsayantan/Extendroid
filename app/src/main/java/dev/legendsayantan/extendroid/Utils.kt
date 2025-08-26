@@ -12,9 +12,16 @@ import android.os.Build
 import android.os.Handler
 import android.provider.Settings
 import android.util.TypedValue
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.createBitmap
+import androidx.core.view.setPadding
 import androidx.palette.graphics.Palette
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.shizuku.Shizuku
 import java.util.Locale
 
@@ -36,17 +43,17 @@ class Utils {
             return isShizukuSetup() && isShizukuAllowed() && Settings.canDrawOverlays(ctx)
         }
 
-        fun whenSafeForUI(ctx: Context, then:()-> Unit){
-            if(isShizukuSetup() && isShizukuAllowed()){
-                if(!Settings.canDrawOverlays(ctx)){
-                    Toast.makeText(ctx,"Please wait, starting soon!", Toast.LENGTH_LONG).show()
+        fun whenSafeForUI(ctx: Context, then: () -> Unit) {
+            if (isShizukuSetup() && isShizukuAllowed()) {
+                if (!Settings.canDrawOverlays(ctx)) {
+                    Toast.makeText(ctx, "Please wait, starting soon!", Toast.LENGTH_LONG).show()
                     Handler(ctx.mainLooper).postDelayed({
-                        whenSafeForUI(ctx,then)
-                    },2000)
+                        whenSafeForUI(ctx, then)
+                    }, 2000)
                 }
                 then()
-            }else{
-                Toast.makeText(ctx,"Failure: Insufficient Setup!", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(ctx, "Failure: Insufficient Setup!", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -69,25 +76,34 @@ class Utils {
         }
 
         fun isDarkModeEnabled(context: Context): Boolean {
-            val currentNightMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            val currentNightMode =
+                context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
             return currentNightMode == Configuration.UI_MODE_NIGHT_YES
         }
 
         fun Context.dpToPx(dp: Float): Float {
             return TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics)
+                TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics
+            )
         }
 
-        fun Context.miuiRequirements(){
+        fun Context.miuiRequirements() {
             if ("xiaomi" == Build.MANUFACTURER.lowercase(Locale.ROOT)) {
-                Toast.makeText(this,"Please allow the required miui permissions!",Toast.LENGTH_SHORT).show()
-                try{
+                Toast.makeText(
+                    this,
+                    "Please allow the required miui permissions!",
+                    Toast.LENGTH_SHORT
+                ).show()
+                try {
                     val intent = Intent("miui.intent.action.APP_PERM_EDITOR")
-                    intent.setClassName("com.miui.securitycenter",
-                        "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    intent.setClassName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                    )
                     intent.putExtra("extra_pkgname", packageName)
                     startActivity(intent)
-                }catch (_:ActivityNotFoundException){}
+                } catch (_: ActivityNotFoundException) {
+                }
             }
         }
 
@@ -96,14 +112,14 @@ class Utils {
             val jsonEscapeRegex = Regex("""[\u0000-\u001F"\\]""")
             return jsonEscapeRegex.replace(this) { matchResult ->
                 when (val ch = matchResult.value[0]) {
-                    '\b'        -> "\\b"
-                    '\u000C'    -> "\\f"   // form feed
-                    '\n'        -> "\\n"
-                    '\r'        -> "\\r"
-                    '\t'        -> "\\t"
-                    '"'         -> "\\\""  // double-quote
-                    '\\'        -> "\\\\"  // backslash
-                    else        -> String.format("\\u%04X", ch.code)  // other control chars
+                    '\b' -> "\\b"
+                    '\u000C' -> "\\f"   // form feed
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    '"' -> "\\\""  // double-quote
+                    '\\' -> "\\\\"  // backslash
+                    else -> String.format("\\u%04X", ch.code)  // other control chars
                 }
             }
         }
@@ -114,6 +130,42 @@ class Utils {
 
         /** Linear interpolate between a and b */
         fun lerp(a: Int, b: Int, t: Float) = (a + (b - a) * t).toInt()
+
+        fun showInfoDialog(themedCtx: Context, title: String, content: String, then: () -> Unit) {
+            lateinit var dialog: AlertDialog
+            val builder = MaterialAlertDialogBuilder(themedCtx)
+            val container = MaterialCardView(themedCtx)
+            container.radius = 10f
+            container.setCardBackgroundColor(themedCtx.resources.getColor(R.color.theme4, null))
+            container.strokeWidth = 0
+            val heading = TextView(themedCtx)
+            val contents = TextView(themedCtx)
+            heading.text = title
+            heading.textSize = 20f
+            heading.setTextColor(themedCtx.resources.getColor(R.color.theme0, null))
+            contents.text = content
+            contents.textSize = 16f
+            contents.setPadding(0, 10, 0, 10)
+            contents.setTextColor(themedCtx.resources.getColor(R.color.theme1, null))
+            container.addView(LinearLayout(themedCtx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(40)
+                addView(heading)
+                addView(contents)
+                addView(MaterialButton(themedCtx).apply {
+                    text = "Understood"
+                    textSize = 20f
+                    setBackgroundColor(resources.getColor(R.color.theme3, null))
+                    setTextColor(resources.getColor(R.color.theme0, null))
+                    setOnClickListener {
+                        dialog.dismiss()
+                        then()
+                    }
+                })
+            })
+            builder.setView(container)
+            dialog = builder.show()
+        }
 
     }
 }

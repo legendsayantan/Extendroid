@@ -10,4 +10,5 @@ interface IRootService {
     String dispatchKey(int keyCode,int action, int displayID, int metaState);
     String dispatch(in MotionEvent event, int displayID);
     String setBuiltInDisplayPowerMode(int mode);
+    String registerMotionEventListener(int displayID);
 }

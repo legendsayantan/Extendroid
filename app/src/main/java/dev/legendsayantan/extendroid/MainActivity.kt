@@ -32,7 +32,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuAllowed
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuSetup
 import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
-import dev.legendsayantan.extendroid.echo.EchoControlDialog
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
@@ -187,57 +186,30 @@ class MainActivity : AppCompatActivity() {
         val stopBtn = findViewById<ImageView>(R.id.stopBtn)
 
         val openEcho = {
-            val echoDialog = EchoControlDialog(this)
-            echoDialog.setOnCancelListener {
-                initialiseBottomBar()
-            }
-            echoDialog.show()
+            val intent = Intent(this@MainActivity, EchoActivity::class.java)
+            startActivity(intent)
         }
         echoBtn.setOnClickListener {
             if (prefs.disclaimerTextShown) {
                 openEcho()
             } else {
                 Toast.makeText(applicationContext, "Please wait...", Toast.LENGTH_SHORT).show()
-                Thread {
-                    try {
-                        EchoNetworkUtils.getDisclaimerText(applicationContext) {
-                            lateinit var dialog : AlertDialog
-                            val builder = MaterialAlertDialogBuilder(this@MainActivity)
-                            val container = MaterialCardView(this@MainActivity)
-                            container.radius = 10f
-                            container.setCardBackgroundColor(resources.getColor(R.color.theme4,null))
-                            container.strokeWidth = 0
-                            val heading = TextView(this@MainActivity)
-                            val contents = TextView(this@MainActivity)
-                            heading.text = "Disclaimer"
-                            heading.textSize = 20f
-                            heading.setTextColor(resources.getColor(R.color.theme0,null))
-                            contents.text = it
-                            contents.setPadding(0,10,0,10)
-                            contents.setTextColor(resources.getColor(R.color.theme1,null))
-                            container.addView(LinearLayout(this@MainActivity).apply {
-                                orientation = LinearLayout.VERTICAL
-                                setPadding(40)
-                                addView(heading)
-                                addView(contents)
-                                addView(MaterialButton(this@MainActivity).apply {
-                                    text = "Got it"
-                                    textSize = 20f
-                                    setBackgroundColor(resources.getColor(R.color.theme3,null))
-                                    setTextColor(resources.getColor(R.color.theme0,null))
-                                    setOnClickListener {
-                                        prefs.disclaimerTextShown = true
-                                        dialog.dismiss()
-                                        openEcho()
-                                    }
-                                })
-                            })
-                            builder.setView(container)
-                            dialog = builder.show()
+                try {
+                    EchoNetworkUtils.getDisclaimerText(applicationContext) {
+                        Utils.showInfoDialog(this@MainActivity, "Disclaimer", it) {
+                            prefs.disclaimerTextShown = true
+                            runOnUiThread {
+                                openEcho()
+                            }
                         }
-                    } catch (e: Exception) {
                     }
-                }.start()
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        applicationContext,
+                        "Failed to fetch disclaimer, please check your internet connection and try again.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
 
         }

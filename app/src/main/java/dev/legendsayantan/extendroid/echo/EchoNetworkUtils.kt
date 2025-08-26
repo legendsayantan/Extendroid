@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Message
 import android.webkit.ValueCallback
 import com.google.firebase.auth.FirebaseAuth
+import dev.legendsayantan.extendroid.EchoActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
@@ -77,7 +78,7 @@ class EchoNetworkUtils {
                                                 .substringBefore("}").substringBefore(",")
                                                 .toFloatOrNull() ?: 0.0f
                                         prefs.nextSyncTime =
-                                            System.currentTimeMillis() + EchoControlDialog.hourMinuteForBoosters(
+                                            System.currentTimeMillis() + EchoActivity.hourMinuteForBoosters(
                                                 prefs.balance
                                             ).second.let {
                                                 if (it < 30) Utils.minuteToMilliseconds(

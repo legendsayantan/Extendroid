@@ -121,6 +121,9 @@ class ExtendService : Service() {
                 startFGS()
                 MediaCore.proceedWithRequest = true
             }, 500)
+
+            println("RMEL")
+            println(svc!!.registerMotionEventListener(0))
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {

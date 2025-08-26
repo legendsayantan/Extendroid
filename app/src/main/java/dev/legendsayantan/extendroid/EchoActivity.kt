@@ -1,31 +1,27 @@
-package dev.legendsayantan.extendroid.echo
+package dev.legendsayantan.extendroid
 
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
-import android.view.LayoutInflater
-import android.view.View
-import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
-import dev.legendsayantan.extendroid.Prefs
-import dev.legendsayantan.extendroid.R
 import kotlin.math.floor
+import dev.legendsayantan.extendroid.echo.RemoteUnlocker;
 
-/**
- * @author legendsayantan
- */
-class EchoControlDialog(
-    val ctx: Context
-) : AlertDialog(ctx) {
-    val prefs by lazy { Prefs(ctx) }
+class EchoActivity : AppCompatActivity() {
+    val prefs by lazy { Prefs(this) }
+    val remoteUnlocker by lazy { RemoteUnlocker(this) }
     val user
         get() = FirebaseAuth.getInstance().currentUser
     val emailField by lazy { findViewById<EditText>(R.id.email) }
@@ -41,66 +37,54 @@ class EchoControlDialog(
     val boosterAmountText by lazy { findViewById<TextView>(R.id.boosterAmount) }
     val quotaTimeText by lazy { findViewById<TextView>(R.id.quotaTime) }
 
-    val authStateListener = object : FirebaseAuth.AuthStateListener {
-        override fun onAuthStateChanged(p0: FirebaseAuth) {
-            Handler(ctx.mainLooper).post {
-                updateAccount()
-                updateBalance()
-            }
+    val accessCard by lazy { findViewById<MaterialCardView>(R.id.accessCard) }
+    val blacklistBtn by lazy { findViewById<MaterialButton>(R.id.blacklistBtn) }
+
+    val unlockCard by lazy { findViewById<MaterialCardView>(R.id.unlockCard) }
+    val trainingBtn by lazy { findViewById<MaterialButton>(R.id.trainingBtn) }
+    val removeTrainingBtn by lazy { findViewById<MaterialCardView>(R.id.removeTrainingBtn) }
+    val testUnlockBtn by lazy { findViewById<MaterialButton>(R.id.testUnlockBtn) }
+
+    val authStateListener = FirebaseAuth.AuthStateListener {
+        Handler(mainLooper).post {
+            updateAccount()
+            updateBalance()
+            updateRemoteAccess()
+            updateRemoteUnlock()
         }
     }
     val echoChanged: (Context) -> Unit = { ctx ->
-        Handler(ctx.mainLooper).postDelayed({
-            updateBoosterQuantity()
+        Handler(mainLooper).postDelayed({
+            updateBalance()
         }, 1000)
     }
-
-    var dView: View
-
-    init {
-        val lInflater = LayoutInflater.from(ctx)
-        dView = lInflater.inflate(R.layout.dialog_echo_mode, null)
-
-        setView(dView)
-        setCanceledOnTouchOutside(false)
-        applyWindowParameters()
-    }
-
-    fun applyWindowParameters() {
-        window?.apply {
-            setBackgroundDrawableResource(android.R.color.transparent)
-            //setWindowAnimations(R.style.Base_Theme_Extendroid)
-            addFlags(
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-                        or WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
-                        or WindowManager.LayoutParams.FLAG_DIM_BEHIND
-            )
-            attributes = attributes.apply {
-                dimAmount = dimValue
-                gravity = android.view.Gravity.CENTER
-            }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContentView(R.layout.activity_echo)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
         }
-    }
 
-    override fun show() {
-        super.show()
         preventShowing = true
-        applyWindowParameters()
         updateAccount()
         updateBalance()
+        updateRemoteAccess()
+        updateRemoteUnlock()
         FirebaseAuth.getInstance().addAuthStateListener(authStateListener)
         prefs.registerEchoChangeListener(echoChanged)
     }
-
 
     fun updateAccount() {
         signInlayout?.isVisible = user == null
         logoutBtn?.isVisible = signInlayout?.isVisible == false
         accountTextView?.isSelected = true
         accountTextView?.text = if (signInlayout?.isVisible == false) {
-            ctx.getString(R.string.signed_in_as, user!!.email)
+            getString(R.string.signed_in_as, user!!.email)
         } else {
-            ctx.getString(R.string.sign_in_or_sign_up_to_use_extendroid_echo)
+            getString(R.string.sign_in_or_sign_up_to_use_extendroid_echo)
         }
 
         signupBtn!!.setOnClickListener {
@@ -116,7 +100,7 @@ class EchoControlDialog(
                     } else {
                         // Show error message
                         val exception = task.exception?.message ?: "Sign up failed"
-                        Toast.makeText(ctx, exception, Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -135,7 +119,7 @@ class EchoControlDialog(
                     } else {
                         // Show error message
                         val exception = task.exception?.message ?: "Login failed"
-                        Toast.makeText(ctx, exception, Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
                     }
                 }
             } else {
@@ -154,11 +138,11 @@ class EchoControlDialog(
                 auth.sendPasswordResetEmail(email)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            Toast.makeText(ctx, "Password reset email sent", Toast.LENGTH_LONG)
+                            Toast.makeText(this, "Password reset email sent", Toast.LENGTH_LONG)
                                 .show()
                         } else {
                             val exception = task.exception?.message ?: "Failed to send reset email"
-                            Toast.makeText(ctx, exception, Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
                         }
                     }
             } else {
@@ -183,23 +167,39 @@ class EchoControlDialog(
         quotaTimeText?.text = estimateHourMinuteForBoosters(prefs.balance)
     }
 
-    override fun dismiss() {
-        super.dismiss()
-        FirebaseAuth.getInstance().removeAuthStateListener(authStateListener)
-        prefs.unregisterEchoChangeListener(echoChanged)
-        preventShowing = false
+    fun updateRemoteAccess(){
+        accessCard?.isVisible = user != null
     }
 
-    override fun cancel() {
-        super.cancel()
+    fun updateRemoteUnlock(){
+        unlockCard?.isVisible = user != null
+        trainingBtn?.isVisible = remoteUnlocker.unlockData.isEmpty()
+        removeTrainingBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
+        testUnlockBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
+        trainingBtn.setOnClickListener {
+            Utils.showInfoDialog(this@EchoActivity, getString(R.string.unlock_training), getString(R.string.training_steps)) {
+                remoteUnlocker.startTraining(){
+                    runOnUiThread { updateRemoteUnlock() }
+                }
+            }
+        }
+        removeTrainingBtn.setOnClickListener {
+            Utils.showInfoDialog(this@EchoActivity,"Confirmation","Are you sure you want to remove the existing training data?") {
+                remoteUnlocker.unlockData = emptyArray()
+                updateRemoteUnlock()
+            }
+        }
+    }
+
+    override fun onDestroy() {
         FirebaseAuth.getInstance().removeAuthStateListener(authStateListener)
         prefs.unregisterEchoChangeListener(echoChanged)
         preventShowing = false
+        super.onDestroy()
     }
 
     companion object {
         var preventShowing = false
-        var dimValue = 0.75f
         var HOURS_PER_CREDIT = 0.2f
 
         fun hourMinuteForBoosters(balance: Float): Pair<Int, Int> {

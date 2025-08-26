@@ -8,6 +8,7 @@ import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
+import dev.legendsayantan.extendroid.EchoActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
@@ -142,7 +143,7 @@ class CloudMessageService : FirebaseMessagingService(){
                                                 prefs.balance = body.substringAfter("\"balance\":").substringBefore("}")
                                                     .toFloatOrNull() ?: 0.0f
                                                 prefs.nextSyncTime =
-                                                    System.currentTimeMillis() + EchoControlDialog.hourMinuteForBoosters(
+                                                    System.currentTimeMillis() + EchoActivity.hourMinuteForBoosters(
                                                         prefs.balance
                                                     ).second.let {
                                                         if (it < 30) Utils.minuteToMilliseconds(
