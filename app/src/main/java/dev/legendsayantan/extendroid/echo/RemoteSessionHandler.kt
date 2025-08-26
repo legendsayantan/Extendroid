@@ -9,7 +9,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.annotations.SerializedName
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.mappings
-import dev.legendsayantan.extendroid.lib.AsciiToKeyEvent
+import dev.legendsayantan.extendroid.lib.MapKeyEvent
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.IRootService
@@ -18,9 +18,7 @@ import org.webrtc.DataChannel
 import kotlin.collections.forEach
 import kotlin.collections.plus
 import kotlin.collections.set
-import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 /**
  * @author legendsayantan
@@ -150,7 +148,7 @@ class RemoteSessionHandler {
                 PacketType.KeyEvent -> {
                     try {
                         val keyEventData = jsonToHashMap(content)
-                        val keyEvent = AsciiToKeyEvent.buildKeyEvent(
+                        val keyEvent = MapKeyEvent.buildKeyEvent(
                             keyEventData["downTime"]?.toLongOrNull() ?: System.currentTimeMillis(),
                             keyEventData["eventTime"]?.toLongOrNull() ?: System.currentTimeMillis(),
                             keyEventData["action"]?.toIntOrNull() ?: KeyEvent.ACTION_DOWN,
@@ -202,6 +200,9 @@ class RemoteSessionHandler {
                 svc.exitTasks(appPackage)
             }
             mediaCore.appRemoteAccessHistory.remove(connectionId)
+            mediaCore.echoDisplays.remove(connectionId)?.release()
+            mediaCore.echoDisplayParams.remove(connectionId)
+            mediaCore.sessionCapturerResizers.remove(connectionId)
         }
 
         fun jsonToHashMap(json: String): HashMap<String, String> {
