@@ -11,4 +11,5 @@ interface IRootService {
     String dispatch(in MotionEvent event, int displayID);
     String setBuiltInDisplayPowerMode(int mode);
     String registerMotionEventListener();
+    String unregisterMotionEventListener();
 }

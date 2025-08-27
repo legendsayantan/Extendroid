@@ -1,10 +1,12 @@
 package dev.legendsayantan.extendroid.services
 
 import android.content.Context
-import android.view.KeyEvent
 import android.view.MotionEvent
 import dev.legendsayantan.extendroid.lib.ActivityHelper
+import dev.legendsayantan.extendroid.lib.DevInputReader
 import dev.legendsayantan.extendroid.lib.DisplayHelper
+import dev.legendsayantan.extendroid.lib.InputEventListener
+import dev.legendsayantan.extendroid.lib.InputEvent
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -12,7 +14,7 @@ import java.io.InputStreamReader
 
 class RootService() : IRootService.Stub() {
     var context: Context? = null;
-
+    lateinit var inputReader : DevInputReader
     constructor(context: Context) : this() {
         this.context = context;
     }
@@ -93,7 +95,39 @@ class RootService() : IRootService.Stub() {
 
     override fun registerMotionEventListener(): String{
         return try{
-            DisplayHelper.listenForInputEvents()
+            inputReader = DevInputReader(listener = object : InputEventListener {
+                override fun onEvent(event: InputEvent) {
+                    // This will be called on a background thread.
+                    println("Got event from ${event.devicePath}: type=${event.type}, code=${event.code}, value=${event.value}, time=${event.sec}.${event.usec}")
+                    // Do NOT touch UI components here.
+                }
+
+                override fun onDeviceAdded(devicePath: String) {
+                    println("Device added: $devicePath")
+                }
+
+                override fun onDeviceRemoved(devicePath: String) {
+                    println("Device removed: $devicePath")
+                }
+
+                override fun onError(devicePath: String?, throwable: Throwable) {
+                    print(throwable.stackTraceToString())
+                    System.err.println("Error ${devicePath ?: "scanner"}: ${throwable.message}")
+                }
+            })
+
+// start reading (spawns background threads)
+            inputReader.start()
+
+            "success"
+        }catch (e: Exception) {
+            e.stackTraceToString()
+        }
+    }
+
+    override fun unregisterMotionEventListener(): String{
+        return try{
+            inputReader.stop()
             "success"
         }catch (e: Exception) {
             e.stackTraceToString()
