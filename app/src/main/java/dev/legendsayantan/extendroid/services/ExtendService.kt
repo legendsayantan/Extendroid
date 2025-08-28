@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
 import android.view.MotionEvent
+import dev.legendsayantan.extendroid.IEventCallback
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
@@ -121,9 +122,6 @@ class ExtendService : Service() {
                 startFGS()
                 MediaCore.proceedWithRequest = true
             }, 500)
-
-            println("RMEL")
-            println(svc!!.registerMotionEventListener())
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -286,6 +284,7 @@ class ExtendService : Service() {
     }
 
     override fun onDestroy() {
+        svc?.unregisterMotionEventListener()
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
         unregisterReceiver(configReceiver)
         prefs.unregisterConfigChangeListener(prefsChangedListener)

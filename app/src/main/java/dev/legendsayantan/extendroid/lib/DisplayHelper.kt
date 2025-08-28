@@ -1,8 +1,10 @@
 package dev.legendsayantan.extendroid.lib
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.InputEvent
@@ -223,5 +225,283 @@ class DisplayHelper {
                 method.invoke(null, getBuiltInDisplay(), mode)
             }
         }
+
+        // helper to check if screen is on
+        fun isInteractive(ctx: Context): Boolean {
+            return try {
+                val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                pm?.isInteractive ?: false
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        fun goToSleepRobust(ctx: Context): Boolean {
+            val now = SystemClock.uptimeMillis()
+
+            // 1) Try IPowerManager.goToSleep(long, int, int) via ServiceManager (preferred)
+            try {
+                val svcMgrClass = Class.forName("android.os.ServiceManager")
+                val getService: Method = svcMgrClass.getMethod("getService", String::class.java)
+                val imBinder = getService.invoke(null, "power") as IBinder
+
+                val ipmStubClass = Class.forName("android.os.IPowerManager\$Stub")
+                val asInterface: Method = ipmStubClass.getMethod("asInterface", IBinder::class.java)
+                val ipm = asInterface.invoke(null, imBinder)
+
+                if (ipm != null) {
+                    // Try several possible signatures seen across versions / OEMs
+                    val signatures = listOf(
+                        arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType),
+                        arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType),
+                        arrayOf(Long::class.javaPrimitiveType)
+                    )
+
+                    for (sig in signatures) {
+                        try {
+                            val method = ipm.javaClass.getMethod("goToSleep", *sig)
+                            // Prepare args: when 3 params -> (time, reason, flags). Use 0 for reason/flags.
+                            val args = when (sig.size) {
+                                3 -> arrayOf(now, 0, 0)
+                                2 -> arrayOf(now, 0)
+                                1 -> arrayOf(now)
+                                else -> arrayOf(now)
+                            }
+                            method.invoke(ipm, *args)
+                            // If invoke didn't throw, success.
+                            return true
+                        } catch (ignored: NoSuchMethodException) {
+                            // try next signature
+                        } catch (e: Exception) {
+                            // Invocation may throw; log & try next fallback
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // couldn't use IPowerManager route; try next fallback
+                e.printStackTrace()
+            }
+
+            // 2) Try PowerManager.goToSleep(long) on the system PowerManager (may be hidden; requires permission)
+            try {
+                val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                if (pm != null) {
+                    try {
+                        // Prefer direct method if available
+                        val pmClass = pm.javaClass
+                        try {
+                            val mGoToSleep = pmClass.getMethod("goToSleep", Long::class.javaPrimitiveType)
+                            mGoToSleep.invoke(pm, now)
+                            return true
+                        } catch (nsme: NoSuchMethodException) {
+                            // try alternate signature (if any) via reflection
+                            // some platforms use different signatures; attempt fallback reflective tries
+                            val altSignatures = listOf(
+                                arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType),
+                                arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                            )
+                            for (sig in altSignatures) {
+                                try {
+                                    val method = pmClass.getMethod("goToSleep", *sig)
+                                    val args = when (sig.size) {
+                                        3 -> arrayOf(now, 0, 0)
+                                        2 -> arrayOf(now, 0)
+                                        else -> arrayOf(now)
+                                    }
+                                    method.invoke(pm, *args)
+                                    return true
+                                } catch (ignored: NoSuchMethodException) {
+                                } catch (ex: Exception) {
+                                    ex.printStackTrace()
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 3) Fallback: run shell input keyevent 26 (power). This toggles power; if screen was on, it will turn off.
+            try {
+                val proc = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "26"))
+                // Wait briefly for exit; success if process exit code is 0
+                val rc = proc.waitFor()
+                if (rc == 0) return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // Nothing worked
+            return false
+        }
+
+        fun wakeUpRobust(ctx:Context): Boolean {
+            val now = SystemClock.uptimeMillis()
+
+            // 1) Try IPowerManager.wakeUp(...) via ServiceManager (preferred)
+            try {
+                val svcMgrClass = Class.forName("android.os.ServiceManager")
+                val getService = svcMgrClass.getMethod("getService", String::class.java)
+                val powerBinder = getService.invoke(null, "power") as IBinder
+
+                val ipmStub = Class.forName("android.os.IPowerManager\$Stub")
+                val asInterface = ipmStub.getMethod("asInterface", IBinder::class.java)
+                val ipm = asInterface.invoke(null, powerBinder)
+
+                if (ipm != null) {
+                    val trySigs = listOf(
+                        arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java),
+                        arrayOf(Long::class.javaPrimitiveType, Boolean::class.javaPrimitiveType),
+                        arrayOf(Long::class.javaPrimitiveType)
+                    )
+
+                    for (sig in trySigs) {
+                        try {
+                            val method = ipm.javaClass.getMethod("wakeUp", *sig)
+                            val args = when (sig.size) {
+                                3 -> arrayOf(now, 0, "wakeup")       // (time, reason, details)
+                                2 -> arrayOf(now, true)             // (time, wakeReasonBoolean) — some OEMs vary
+                                else -> arrayOf(now)
+                            }
+                            method.invoke(ipm, *args)
+                            // small pause to let system become interactive
+                            Thread.sleep(150)
+                            if (isInteractive(ctx)) return true
+                        } catch (ignored: NoSuchMethodException) {
+                            // try next signature
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 2) Try PowerManager.wakeUp(...) via reflection on the local PowerManager
+            try {
+                val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                if (pm != null) {
+                    try {
+                        // Common signature: wakeUp(long)
+                        val pmClass = pm.javaClass
+                        try {
+                            val m = pmClass.getMethod("wakeUp", Long::class.javaPrimitiveType)
+                            m.invoke(pm, now)
+                            Thread.sleep(150)
+                            if (isInteractive(ctx)) return true
+                        } catch (nsme: NoSuchMethodException) {
+                            // try alt signature: wakeUp(long, int, String)
+                            val altSigs = listOf(
+                                arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java),
+                                arrayOf(Long::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                            )
+                            for (sig in altSigs) {
+                                try {
+                                    val m = pmClass.getMethod("wakeUp", *sig)
+                                    val args = when (sig.size) {
+                                        3 -> arrayOf(now, 0, "wakeup")
+                                        2 -> arrayOf(now, 0)
+                                        else -> arrayOf(now)
+                                    }
+                                    m.invoke(pm, *args)
+                                    Thread.sleep(150)
+                                    if (isInteractive(ctx)) return true
+                                } catch (ignoreNsme: NoSuchMethodException) {
+                                } catch (ex: Exception) {
+                                    ex.printStackTrace()
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 3) Try acquiring a wake lock with ACQUIRE_CAUSES_WAKEUP (may require WAKE_LOCK permission)
+            try {
+                val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                if (pm != null) {
+                    try {
+                        // Use deprecated flags — system-level code typically still accepts them.
+                        // They are deprecated for apps, but when running as shell/system they work.
+                        val FULL_WAKE = try {
+                            // fallback if missing
+                            val f = PowerManager::class.java.getField("FULL_WAKE_LOCK")
+                            f.getInt(null)
+                        } catch (t: Throwable) {
+                            // fallback constant value (older SDKs): 0x1
+                            PowerManager.FULL_WAKE_LOCK
+                        }
+
+                        val ACQUIRE_CAUSES_WAKEUP = try {
+                            val f = PowerManager::class.java.getField("ACQUIRE_CAUSES_WAKEUP")
+                            f.getInt(null)
+                        } catch (t: Throwable) {
+                            // fallback to constant from SDK
+                            try {
+                                val f2 = PowerManager::class.java.getField("ACQUIRE_CAUSES_WAKEUP")
+                                f2.getInt(null)
+                            } catch (_: Throwable) {
+                                0x10000000 // best-effort fallback if reflection fails
+                            }
+                        }
+
+                        val flags = FULL_WAKE or ACQUIRE_CAUSES_WAKEUP
+                        // newWakeLock is public API
+                        val wl = pm.newWakeLock(flags, "RobustWake:waketask")
+                        // Acquire briefly
+                        wl.acquire(1000L) // 1 second
+                        Thread.sleep(100) // allow screen to turn on
+                        if (isInteractive(ctx)) {
+                            try { wl.release() } catch (_: Throwable) {}
+                            return true
+                        }
+                        try { wl.release() } catch (_: Throwable) {}
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 4) Fallback: shell input keyevent 224 (KEYCODE_WAKEUP). If that fails, try 26 (POWER).
+            try {
+                // explicit wakeup key
+                var rc = -1
+                try {
+                    val p1 = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "224"))
+                    rc = p1.waitFor()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                Thread.sleep(150)
+                if (isInteractive(ctx)) return true
+
+                // try power key as last resort
+                try {
+                    val p2 = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "26"))
+                    val rc2 = p2.waitFor()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                Thread.sleep(150)
+                if (isInteractive(ctx)) return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // nothing worked
+            return false
+        }
     }
 }
+

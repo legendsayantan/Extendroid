@@ -34,7 +34,7 @@ interface InputEventListener {
 
 class DevInputReader(
     private val inputDir: String = "/dev/input",
-    private val pollIntervalMs: Long = 2000L, // poll for new/removed devices
+    private val pollIntervalMs: Long = 5000L, // poll for new/removed devices
     private val listener: InputEventListener
 ) {
 
@@ -71,7 +71,7 @@ class DevInputReader(
         try {
             val dir = File(inputDir)
             if (!dir.exists() || !dir.isDirectory) return
-            val deviceFiles = dir.listFiles { f -> f.isFile && f.name.startsWith("event") }?.map { it.absolutePath } ?: emptyList()
+            var deviceFiles = dir.listFiles { f -> f.name.startsWith("event") }?.map { it.absolutePath } ?: emptyList()
 
             // Add new devices
             for (path in deviceFiles) {

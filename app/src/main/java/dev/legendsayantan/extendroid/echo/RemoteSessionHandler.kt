@@ -15,6 +15,8 @@ import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.IRootService
 import org.json.JSONObject
 import org.webrtc.DataChannel
+import kotlin.collections.component1
+import kotlin.collections.component2
 import kotlin.collections.forEach
 import kotlin.collections.plus
 import kotlin.collections.set
@@ -230,44 +232,48 @@ class RemoteSessionHandler {
             try {
                 val eventData = gson.fromJson(jsonString, MotionEventData::class.java)
 
-                val pointerCount = eventData.pointers.size
-                val pointerProperties = Array(pointerCount) { MotionEvent.PointerProperties() }
-                val pointerCoords = Array(pointerCount) { MotionEvent.PointerCoords() }
-
-                eventData.pointers.forEachIndexed { index, pointer ->
-                    pointerProperties[index].apply {
-                        id = pointer.id
-                        toolType = MotionEvent.TOOL_TYPE_FINGER
-                    }
-                    pointerCoords[index].apply {
-                        x = pointer.x
-                        y = pointer.y
-                        pressure = pointer.pressure
-                        size = pointer.size
-                        pointer.axisValues?.forEach { (axis, value) ->
-                            setAxisValue(axis.toInt(), value)
-                        }
-                    }
-                }
-
-                val finalAction = if (eventData.action == MotionEvent.ACTION_POINTER_DOWN ||
-                    eventData.action == MotionEvent.ACTION_POINTER_UP
-                ) {
-                    eventData.action + (eventData.actionIndex shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
-                } else {
-                    eventData.action
-                }
-
-                return MotionEvent.obtain(
-                    eventData.downTime, eventData.eventTime, finalAction,
-                    pointerCount, pointerProperties, pointerCoords,
-                    0, 0, 1.0f, 1.0f, 0, 0,
-                    InputDevice.SOURCE_TOUCHSCREEN, 0
-                )
+                return createMotionEventFromData(eventData)
             } catch (e: JsonSyntaxException) {
                 // Log.e("MotionEventParser", "Failed to parse JSON with Gson", e)
                 return null
             }
+        }
+        fun createMotionEventFromData(eventData: MotionEventData): MotionEvent{
+            val pointerCount = eventData.pointers.size
+            val pointerProperties = Array(pointerCount) { MotionEvent.PointerProperties() }
+            val pointerCoords = Array(pointerCount) { MotionEvent.PointerCoords() }
+
+            eventData.pointers.forEachIndexed { index, pointer ->
+                pointerProperties[index].apply {
+                    id = pointer.id
+                    toolType = MotionEvent.TOOL_TYPE_FINGER
+                }
+                pointerCoords[index].apply {
+                    x = pointer.x
+                    y = pointer.y
+                    pressure = pointer.pressure
+                    size = pointer.size
+                    pointer.axisValues?.forEach { (axis, value) ->
+                        println("Axis values $axis $value")
+                        setAxisValue(axis.toInt(), value)
+                    }
+                }
+            }
+
+            val finalAction = if (eventData.action == MotionEvent.ACTION_POINTER_DOWN ||
+                eventData.action == MotionEvent.ACTION_POINTER_UP
+            ) {
+                eventData.action + (eventData.actionIndex shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+            } else {
+                eventData.action
+            }
+
+            return MotionEvent.obtain(
+                eventData.downTime, eventData.eventTime, finalAction,
+                pointerCount, pointerProperties, pointerCoords,
+                0, 0, 1.0f, 1.0f, 0, 0,
+                InputDevice.SOURCE_TOUCHSCREEN, 0
+            )
         }
     }
 
@@ -282,8 +288,8 @@ class RemoteSessionHandler {
 
     // Data class for the top-level motion event object
     data class MotionEventData(
-        @SerializedName("downTime") val downTime: Long,
-        @SerializedName("eventTime") val eventTime: Long,
+        @SerializedName("downTime") var downTime: Long,
+        @SerializedName("eventTime") var eventTime: Long,
         @SerializedName("action") val action: Int,
         @SerializedName("actionIndex") val actionIndex: Int,
         @SerializedName("pointers") val pointers: List<PointerData>

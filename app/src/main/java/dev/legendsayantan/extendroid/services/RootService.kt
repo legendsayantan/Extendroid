@@ -2,6 +2,8 @@ package dev.legendsayantan.extendroid.services
 
 import android.content.Context
 import android.view.MotionEvent
+import dev.legendsayantan.extendroid.IEventCallback
+import dev.legendsayantan.extendroid.echo.MotionEventParser
 import dev.legendsayantan.extendroid.lib.ActivityHelper
 import dev.legendsayantan.extendroid.lib.DevInputReader
 import dev.legendsayantan.extendroid.lib.DisplayHelper
@@ -14,7 +16,12 @@ import java.io.InputStreamReader
 
 class RootService() : IRootService.Stub() {
     var context: Context? = null;
-    lateinit var inputReader : DevInputReader
+    var inputReader : DevInputReader? = null
+    val parser = MotionEventParser()
+    private val gson = com.google.gson.Gson()
+    private val callbackExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var motionJsonCallback: ((String) -> Unit)? = null
+
     constructor(context: Context) : this() {
         this.context = context;
     }
@@ -93,33 +100,29 @@ class RootService() : IRootService.Stub() {
         }
     }
 
-    override fun registerMotionEventListener(): String{
+    override fun registerMotionEventListener(callback: IEventCallback): String{
         return try{
+
             inputReader = DevInputReader(listener = object : InputEventListener {
                 override fun onEvent(event: InputEvent) {
-                    // This will be called on a background thread.
-                    println("Got event from ${event.devicePath}: type=${event.type}, code=${event.code}, value=${event.value}, time=${event.sec}.${event.usec}")
-                    // Do NOT touch UI components here.
+                    val motionEvent = parser.feedEvent(event)
+                    if (motionEvent != null) {
+                        val json = gson.toJson(motionEvent)
+                        // offload to executor so the input thread isn't blocked
+                        val cb = callback
+                        callbackExecutor.execute { cb.onMotionEvent(json) }
+                    }
                 }
-
-                override fun onDeviceAdded(devicePath: String) {
-                    println("Device added: $devicePath")
-                }
-
-                override fun onDeviceRemoved(devicePath: String) {
-                    println("Device removed: $devicePath")
-                }
-
+                override fun onDeviceAdded(devicePath: String) { println("Device added: $devicePath") }
+                override fun onDeviceRemoved(devicePath: String) { println("Device removed: $devicePath") }
                 override fun onError(devicePath: String?, throwable: Throwable) {
-                    print(throwable.stackTraceToString())
                     System.err.println("Error ${devicePath ?: "scanner"}: ${throwable.message}")
+                    throwable.printStackTrace()
                 }
             })
 
-// start reading (spawns background threads)
-            inputReader.start()
-
-            "success"
+            inputReader?.start()
+            return "success"
         }catch (e: Exception) {
             e.stackTraceToString()
         }
@@ -127,10 +130,24 @@ class RootService() : IRootService.Stub() {
 
     override fun unregisterMotionEventListener(): String{
         return try{
-            inputReader.stop()
+            inputReader?.stop()
+            inputReader = null
+            callbackExecutor.shutdownNow()
             "success"
         }catch (e: Exception) {
             e.stackTraceToString()
         }
+    }
+
+    override fun goToSleep(): Boolean {
+        return DisplayHelper.goToSleepRobust(context ?: return false)
+    }
+
+    override fun isDisplayActive(): Boolean{
+        return DisplayHelper.isInteractive(context ?: return false)
+    }
+
+    override fun wakeUp(): Boolean {
+        return DisplayHelper.wakeUpRobust(context ?: return false)
     }
 }

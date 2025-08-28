@@ -1,5 +1,7 @@
 package dev.legendsayantan.extendroid.services;
 
+import dev.legendsayantan.extendroid.IEventCallback;
+
 interface IRootService {
     String executeCommand(String cmd);
     boolean isRunningAsShell();
@@ -10,6 +12,9 @@ interface IRootService {
     String dispatchKey(int keyCode,int action, int displayID, int metaState);
     String dispatch(in MotionEvent event, int displayID);
     String setBuiltInDisplayPowerMode(int mode);
-    String registerMotionEventListener();
+    String registerMotionEventListener(IEventCallback callback);
     String unregisterMotionEventListener();
+    boolean goToSleep();
+    boolean isDisplayActive();
+    boolean wakeUp();
 }

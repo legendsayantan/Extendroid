@@ -16,8 +16,10 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
+import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
 import kotlin.math.floor
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker;
+import dev.legendsayantan.extendroid.services.ExtendService
 
 class EchoActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(this) }
@@ -58,6 +60,7 @@ class EchoActivity : AppCompatActivity() {
             updateBalance()
         }, 1000)
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -167,26 +170,47 @@ class EchoActivity : AppCompatActivity() {
         quotaTimeText?.text = estimateHourMinuteForBoosters(prefs.balance)
     }
 
-    fun updateRemoteAccess(){
+    fun updateRemoteAccess() {
         accessCard?.isVisible = user != null
     }
 
-    fun updateRemoteUnlock(){
+    fun updateRemoteUnlock() {
         unlockCard?.isVisible = user != null
         trainingBtn?.isVisible = remoteUnlocker.unlockData.isEmpty()
         removeTrainingBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
         testUnlockBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
         trainingBtn.setOnClickListener {
-            Utils.showInfoDialog(this@EchoActivity, getString(R.string.unlock_training), getString(R.string.training_steps)) {
-                remoteUnlocker.startTraining(){
-                    runOnUiThread { updateRemoteUnlock() }
+            Utils.showInfoDialog(
+                this@EchoActivity,
+                getString(R.string.unlock_training),
+                getString(R.string.training_steps)
+            ) {
+                ExtendService.svc?.let {
+                    remoteUnlocker.startTraining(it) { success ->
+                        Handler(mainLooper).postDelayed({
+                            if(success){
+                                updateRemoteUnlock()
+                            }else{
+                                showInfoDialog(this@EchoActivity,"An error occured!","Failed to train, try to restart your device.",{})
+                            }
+                        },1000)
+                    }
                 }
             }
         }
         removeTrainingBtn.setOnClickListener {
-            Utils.showInfoDialog(this@EchoActivity,"Confirmation","Are you sure you want to remove the existing training data?") {
+            Utils.showInfoDialog(
+                this@EchoActivity,
+                "Confirmation",
+                "Are you sure you want to remove the existing training data?"
+            ) {
                 remoteUnlocker.unlockData = emptyArray()
                 updateRemoteUnlock()
+            }
+        }
+        testUnlockBtn.setOnClickListener {
+            ExtendService.svc?.let {
+                remoteUnlocker.testUnlock(it)
             }
         }
     }
