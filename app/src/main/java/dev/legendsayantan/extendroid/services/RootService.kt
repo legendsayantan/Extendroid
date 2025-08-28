@@ -105,7 +105,7 @@ class RootService() : IRootService.Stub() {
 
             inputReader = DevInputReader(listener = object : InputEventListener {
                 override fun onEvent(event: InputEvent) {
-                    val motionEvent = parser.feedEvent(event)
+                    val motionEvent = parser.feed(event)
                     if (motionEvent != null) {
                         val json = gson.toJson(motionEvent)
                         // offload to executor so the input thread isn't blocked

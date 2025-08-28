@@ -3,6 +3,7 @@ package dev.legendsayantan.extendroid.echo
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.Handler
+import android.os.SystemClock
 import com.google.gson.Gson
 import dev.legendsayantan.extendroid.IEventCallback
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler.MotionEventData
@@ -56,7 +57,7 @@ class RemoteUnlocker(val ctx: Context) {
         var wasLocked = false
         var startDownTime = 0L
         var startEventTime = 0L
-        timer.scheduleAtFixedRate(timerTask {
+        timer.schedule(timerTask {
             if(wasLocked != keyguardManager.isKeyguardLocked){
                 if (keyguardManager.isKeyguardLocked) {
                     println("RMEL")
@@ -108,13 +109,16 @@ class RemoteUnlocker(val ctx: Context) {
         handler.postDelayed({
             svc.wakeUp();
             val now = System.currentTimeMillis()+1000;
+            val uptimeMillis = SystemClock.uptimeMillis()+1000;
             unlockData.forEach { eventData ->
-                eventData.downTime += now;
-                eventData.eventTime += now;
+                val timeToRun = now + eventData.eventTime
+                eventData.downTime += uptimeMillis;
+                eventData.eventTime += uptimeMillis;
                 val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData)
                 timer.schedule(timerTask {
+                    println("posting $eventData")
                     handler.post { svc.dispatch(motionEvent,0) }
-                }, Date(eventData.eventTime))
+                }, Date(timeToRun))
             }
         },2000)
     }

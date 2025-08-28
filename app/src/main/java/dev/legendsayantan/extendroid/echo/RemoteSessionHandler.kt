@@ -239,6 +239,7 @@ class RemoteSessionHandler {
             }
         }
         fun createMotionEventFromData(eventData: MotionEventData): MotionEvent{
+            println(eventData)
             val pointerCount = eventData.pointers.size
             val pointerProperties = Array(pointerCount) { MotionEvent.PointerProperties() }
             val pointerCoords = Array(pointerCount) { MotionEvent.PointerCoords() }

@@ -1,305 +1,361 @@
+// MotionEventParser.kt
 package dev.legendsayantan.extendroid.echo
 
-import dev.legendsayantan.extendroid.echo.RemoteSessionHandler.*;
+import dev.legendsayantan.extendroid.echo.RemoteSessionHandler.*
 import dev.legendsayantan.extendroid.lib.InputEvent
 
-// Parser that accepts InputEvent (as in your listener) and emits MotionEventData on SYN_REPORT
+/**
+ * MotionEvent action constants (Android's integer action codes)
+ */
+object MotionActions {
+    const val ACTION_DOWN = 0
+    const val ACTION_UP = 1
+    const val ACTION_MOVE = 2
+    const val ACTION_POINTER_DOWN = 5
+    const val ACTION_POINTER_UP = 6
+}
+
+/**
+ * Parser that accepts InputEvent items one-by-one and produces MotionEventData on SYN_REPORT.
+ */
 class MotionEventParser {
 
-    // Linux/evdev constants (common values)
+    // --- Known EV / ABS codes (numbers used by typical Linux input)
     companion object {
-        const val EV_SYN = 0x00
-        const val EV_KEY = 0x01
-        const val EV_ABS = 0x03
+        // event types
+        private const val EV_SYN = 0
+        private const val EV_KEY = 1
+        private const val EV_ABS = 3
 
-        const val SYN_REPORT = 0x00
-        const val SYN_DROPPED = 0x03
+        // EV_SYN codes
+        private const val SYN_REPORT = 0
 
-        // ABS codes (common)
-        const val ABS_X = 0      // 0
-        const val ABS_Y = 1      // 1
-        const val ABS_PRESSURE = 24 // 24
-
-        // in companion object
-        const val ABS_MT_PRESSURE = 58  // multitouch pressure (ABS_MT_PRESSURE)
-
-        // Multi-touch (ABS_MT_*) codes (common values)
-        const val ABS_MT_SLOT = 47          // select slot
-        const val ABS_MT_TOUCH_MAJOR = 48   // touch major
-        const val ABS_MT_TOUCH_MINOR = 49   // touch minor
-        const val ABS_MT_POSITION_X = 53    // mt position x
-        const val ABS_MT_POSITION_Y = 54    // mt position y
-        const val ABS_MT_TRACKING_ID = 57   // tracking id
-        // (If your device uses other ABS codes, adapt accordingly)
-
-        // EV_KEY codes
-        const val BTN_TOUCH = 330
+        // commonly seen ABS_MT codes (numeric constants)
+        private const val ABS_MT_SLOT = 47          // selects active slot (if device supports slots)
+        private const val ABS_MT_TRACKING_ID = 57  // tracking id (>=0 active, -1 release)
+        private const val ABS_MT_POSITION_X = 53
+        private const val ABS_MT_POSITION_Y = 54
+        private const val ABS_MT_PRESSURE = 58
+        private const val ABS_MT_TOUCH_MAJOR = 48
+        // A common BTN_TOUCH (EV_KEY) to indicate general touch state
+        private const val BTN_TOUCH = 330
     }
 
-    // Android MotionEvent action ints (stable)
-    private object Actions {
-        const val ACTION_DOWN = 0
-        const val ACTION_UP = 1
-        const val ACTION_MOVE = 2
-        const val ACTION_CANCEL = 3
-        const val ACTION_OUTSIDE = 4
-        const val ACTION_POINTER_DOWN = 5
-        const val ACTION_POINTER_UP = 6
-    }
-
-    // Internal slot state for type-B multitouch
     private data class SlotState(
         var trackingId: Int = -1,
-        var x: Int = 0,
-        var y: Int = 0,
-        var pressure: Int = 0,
-        var touchMajor: Int = 0,
-        var touchMinor: Int = 0,
-        val axisValues: MutableMap<String, Float> = mutableMapOf()
+        var x: Float = 0f,
+        var y: Float = 0f,
+        var pressure: Float = 1.0f,
+        var size: Float = 0.05f,
+        var active: Boolean = false
     )
 
-    // parser state
-    private var currentSlot = 0
-    private val slots = mutableMapOf<Int, SlotState>() // slotIndex -> SlotState
-    private var singleTouchX = 0
-    private var singleTouchY = 0
-    private var singleTouchPressure = 0
-    private var btnTouchDown = false
+    // Map of slot index -> slot state (supports devices that use slots)
+    private val slots: MutableMap<Int, SlotState> = mutableMapOf()
+    // snapshot of active slots as of last SYN_REPORT (used as "previous" state)
+    private var lastActiveSlotsSnapshot: Map<Int, SlotState> = mapOf()
 
-    // for downTime semantics
-    private var gestureDownTimeMs: Long = 0L
-    private var prevActiveSlotsOrder: List<Int> = emptyList() // keeps ordering (slot indices) used for actionIndex mapping
+    private var currentSlot: Int = 0
+    private var deviceReportsSlot = false
+
+    // state to detect changes inside a SYN frame
+    private val touchedSlotsThisFrameDown = mutableSetOf<Int>()
+    private val touchedSlotsThisFrameUp = mutableSetOf<Int>()
+    private var movedInFrame = false
+    private var btnTouchState: Int? = null // optional state from BTN_TOUCH
+    private var frameEventsSeen: Boolean = false
+
+    // mapping kernel trackingId -> compact pointerId (0..N-1)
+    private val trackingToPointerId = mutableMapOf<Int, Int>()
+    private val freePointerIds: ArrayDeque<Int> = ArrayDeque()
+    private var nextPointerId = 0
+
+    // when a tracking id becomes -1 in a frame, hold it until SYN_REPORT so UP snapshot can still use it
+    private val toFreeTrackingIdsThisFrame = mutableListOf<Int>()
+
+    // time bookkeeping
+    private var downTimeMs: Long = 0L  // set when first pointer goes down, reset after all up
+
+    init {
+        // initialize implicit slot 0
+        slots[0] = SlotState()
+        currentSlot = 0
+    }
+
+    private fun snapshotActiveSlots(): Map<Int, SlotState> {
+        return slots.mapValues { (_, s) -> s.copy() }
+    }
+    private fun allocatePointerId(trackingId: Int): Int {
+        return trackingToPointerId.getOrPut(trackingId) {
+            val id = if (freePointerIds.isNotEmpty()) freePointerIds.removeFirst() else nextPointerId++
+            trackingToPointerId[trackingId] = id
+            id
+        }
+    }
+
+    private fun freePointerIdForTracking(trackingId: Int) {
+        val pid = trackingToPointerId.remove(trackingId) ?: return
+        freePointerIds.addLast(pid)
+    }
+
 
     /**
-     * Feed an input event. Returns a MotionEventData object when a SYN_REPORT frame completes,
-     * otherwise returns null.
-     *
-     * Uses the `event` fields you already have: event.type (Int), event.code (Int), event.value (Int),
-     * and event.sec / event.usec for timestamp.
+     * Feed a single InputEvent. Returns a MotionEventData when a complete frame (SYN_REPORT) produces an event,
+     * otherwise null.
      */
-    fun feedEvent(event: InputEvent): MotionEventData? {
-        // compute ms timestamp for this event
-        val eventTimeMs = event.sec * 1000L + (event.usec / 1000L)
+    fun feed(ev: InputEvent): MotionEventData? {
+        val eventTimeMs = ev.sec * 1000L + (ev.usec / 1000L)
 
-        when (event.type) {
-            EV_ABS -> handleAbs(event.code, event.value)
-            EV_KEY -> handleKey(event.code, event.value)
+        // If this is the first event in a frame (i.e. since last SYN), capture previous snapshot
+        if (!frameEventsSeen && ev.type != EV_SYN) {
+            lastActiveSlotsSnapshot = snapshotActiveSlots()
+            frameEventsSeen = true
+        }
+
+        when (ev.type) {
+            EV_ABS -> handleAbs(ev.code, ev.value)
+            EV_KEY -> handleKey(ev.code, ev.value, eventTimeMs)
             EV_SYN -> {
-                when (event.code) {
-                    SYN_REPORT -> {
-                        // Build a MotionEventData for the current frame (if meaningful)
-                        val motion = buildFrame(eventTimeMs)
-                        // after building, clear per-frame "updated" flags if any (we store persistent slot state)
-                        return motion
-                    }
-                    SYN_DROPPED -> {
-                        // Kernel dropped events and state is out-of-sync. Reset state.
-                        slots.clear()
-                        prevActiveSlotsOrder = emptyList()
-                        gestureDownTimeMs = 0L
-                    }
-                    else -> {
-                        // ignore other SYN codes
-                    }
+                if (ev.code == SYN_REPORT) {
+                    val out = produceMotionEventIfNeeded(eventTimeMs)
+                    // clear per-frame trackers
+                    touchedSlotsThisFrameDown.clear()
+                    touchedSlotsThisFrameUp.clear()
+                    movedInFrame = false
+                    frameEventsSeen = false
+                    // update "previous" snapshot to current active slots for next frame
+                    lastActiveSlotsSnapshot = snapshotActiveSlots()
+                    // free compact ids for any tracking ids that were released in this frame
+                    toFreeTrackingIdsThisFrame.forEach { freePointerIdForTracking(it) }
+                    toFreeTrackingIdsThisFrame.clear()
+
+                    return out
                 }
-            }
-            else -> {
-                // ignore other event types
             }
         }
         return null
     }
 
-    private fun mapAbsToAxisName(code: Int): String? {
-        return when (code) {
-            ABS_X, ABS_MT_POSITION_X -> "AXIS_X"
-            ABS_Y, ABS_MT_POSITION_Y -> "AXIS_Y"
-            ABS_PRESSURE, ABS_MT_PRESSURE -> "AXIS_PRESSURE"
-            ABS_MT_TOUCH_MAJOR -> "AXIS_TOUCH_MAJOR"
-            ABS_MT_TOUCH_MINOR -> "AXIS_TOUCH_MINOR"
-            // add more mappings here if you discover more codes you care about
-            else -> null
-        }
-    }
 
     private fun handleAbs(code: Int, value: Int) {
         when (code) {
             ABS_MT_SLOT -> {
+                deviceReportsSlot = true
                 currentSlot = value
-                // ensure slot exists
-                slots.getOrPut(currentSlot) { SlotState() }
+                slots.putIfAbsent(currentSlot, SlotState())
             }
             ABS_MT_TRACKING_ID -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.trackingId = value // -1 usually means release
-                if (value == -1) {
-                    // pointer released in this slot; keep slot state but mark trackingId = -1
+                val slot = slots.getOrPut(currentSlot) { SlotState() }
+                if (value >= 0) {
+                    // new tracking id -> pointer down for this slot
+                    val wasActive = slot.active
+                    slot.trackingId = value
+                    slot.active = true
+                    // allocate compact pointer id now so it's available immediately
+                    allocatePointerId(value)
+                    if (!wasActive) touchedSlotsThisFrameDown.add(currentSlot)
+                } else {
+                    // -1 => pointer up for this slot
+                    // capture the old tracking id so we can free its compact id after SYN_REPORT
+                    val prevTracking = slot.trackingId
+                    if (prevTracking >= 0) {
+                        toFreeTrackingIdsThisFrame.add(prevTracking)
+                    }
+                    if (slot.active) touchedSlotsThisFrameUp.add(currentSlot)
+                    slot.trackingId = -1
+                    slot.active = false
                 }
             }
+
             ABS_MT_POSITION_X -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.x = value
+                val slot = slots.getOrPut(currentSlot) { SlotState() }
+                slot.x = value.toFloat()
+                movedInFrame = true
             }
             ABS_MT_POSITION_Y -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.y = value
-            }
-            ABS_MT_TOUCH_MAJOR -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.touchMajor = value
-            }
-            ABS_MT_TOUCH_MINOR -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.touchMinor = value
+                val slot = slots.getOrPut(currentSlot) { SlotState() }
+                slot.y = value.toFloat()
+                movedInFrame = true
             }
             ABS_MT_PRESSURE -> {
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                s.pressure = value
+                val slot = slots.getOrPut(currentSlot) { SlotState() }
+                slot.pressure = value.toFloat()
             }
-            ABS_X -> {
-                singleTouchX = value
-            }
-            ABS_Y -> {
-                singleTouchY = value
-            }
-            ABS_PRESSURE -> {
-                singleTouchPressure = value
+            ABS_MT_TOUCH_MAJOR -> {
+                val slot = slots.getOrPut(currentSlot) { SlotState() }
+                slot.size = value.toFloat()
             }
             else -> {
-                // try to map known codes to Android axis names, otherwise keep raw ABS_<code>
-                val s = slots.getOrPut(currentSlot) { SlotState() }
-                val axisName = mapAbsToAxisName(code)
-                if (axisName != null) {
-                    s.axisValues[axisName] = value.toFloat()
-                } else {
-                    s.axisValues[code.toString()] = value.toFloat()
-                }
+                // unknown ABS code - ignore for now (extensible)
             }
         }
     }
 
-
-    private fun handleKey(code: Int, value: Int) {
+    private fun handleKey(code: Int, value: Int, eventTimeMs: Long) {
         if (code == BTN_TOUCH) {
-            btnTouchDown = value != 0
-            // If starting a new gesture on BTN_TOUCH press, set downTime when appropriate on next SYN_REPORT
+            // keep BTN_TOUCH state. When value==1 it indicates screen is touched (global),
+            // value==0 means touch released. We don't emit immediately here; SYN_REPORT will finalize.
+            btnTouchState = value
+            if (value == 1 && downTimeMs == 0L) {
+                // if global touch indicates initial down and we haven't set downTime
+                downTimeMs = eventTimeMs
+            }
+            if (value == 0) {
+                // If BTN_TOUCH reports release for devices that don't use tracking id - rely on that in SYN stage
+            }
         }
     }
 
-    private fun buildFrame(eventTimeMs: Long): MotionEventData? {
-        // Determine active pointers (type B multitouch prefers slots with trackingId != -1).
-        val activeSlots = slots.filterValues { it.trackingId != -1 }.toSortedMap() // sort by slot index
-        val pointers = mutableListOf<PointerData>()
+    /**
+     * Called at SYN_REPORT boundary to decide whether to create a MotionEventData.
+     */
+    private fun produceMotionEventIfNeeded(eventTimeMs: Long): MotionEventData? {
+        // Snapshot previous active pointers (before applying frame up/down semantics),
+        // We'll reconstruct behavior:
+        val prevActiveSlotsSnapshot = slots
+            .filterValues { it.active || it.trackingId >= 0 } // active according to state before potential clearing above
+            .mapValues { it.value.copy() } // defensive copy
 
-        if (activeSlots.isNotEmpty()) {
-            // type-B multitouch
-            for ((slotIndex, slotState) in activeSlots) {
-                val id = if (slotState.trackingId >= 0) slotState.trackingId else slotIndex
-                val pressureF = slotState.pressure.toFloat().let { if (it == 0f) slotState.touchMajor.toFloat() / 1000f else it } // heuristic
-                val sizeF = (slotState.touchMajor + slotState.touchMinor).toFloat() / 2f
-                val axisMap = if (slotState.axisValues.isNotEmpty()) slotState.axisValues.toMap() else null
-                pointers.add(
-                    PointerData(
-                        id = id,
-                        x = slotState.x.toFloat(),
-                        y = slotState.y.toFloat(),
-                        pressure = pressureF,
-                        size = sizeF,
-                        axisValues = axisMap
-                    )
+        // Current active after ABS handling (slots map already updated)
+        // Current active after applying ABS handling
+        val currentActiveSlotsList = slots
+            .filter { it.value.active && it.value.trackingId >= 0 }
+            .toSortedMap()
+            .map { Pair(it.key, it.value.copy()) } // copy defensive
+
+// Prev active list should come from lastActiveSlotsSnapshot (captured at frame start)
+        val prevActiveList = lastActiveSlotsSnapshot
+            .filter { it.value.active && it.value.trackingId >= 0 }
+            .toSortedMap()
+            .map { Pair(it.key, it.value.copy()) }
+
+        val prevCount = prevActiveList.size
+        val currCount = currentActiveSlotsList.size
+
+
+        // Determine which kind of event happened in this frame (priority: down -> up -> move -> maybe none)
+        val downOccurred = touchedSlotsThisFrameDown.isNotEmpty()
+        val upOccurred = touchedSlotsThisFrameUp.isNotEmpty()
+        val moveOccurred = movedInFrame && (currCount > 0)
+
+        // If no relevant change, do not produce an event
+        if (!downOccurred && !upOccurred && !moveOccurred) {
+            // but if BTN_TOUCH indicates full release for devices without tracking ids, create UP
+            if (btnTouchState == 0 && prevCount > 0) {
+                // emulate full up
+                val pointersForUp = prevActiveList.map { slotPair ->
+                    slotToPointer(slotPair.second, slotPair.first)
+                }
+                val action: Int
+                val actionIndex: Int
+                if (prevCount == 1) {
+                    action = MotionActions.ACTION_UP
+                    actionIndex = 0
+                } else {
+                    action = MotionActions.ACTION_POINTER_UP
+                    // choose the first pointer index as the one that "went up" (best-effort)
+                    actionIndex = 0
+                }
+                downTimeMs = 0L
+                return MotionEventData(
+                    downTime = downTimeMs,
+                    eventTime = eventTimeMs,
+                    action = action,
+                    actionIndex = actionIndex,
+                    pointers = pointersForUp
                 )
             }
-        } else {
-            // fall back to single-touch (ABS_X/ABS_Y / BTN_TOUCH)
-            if (!btnTouchDown && singleTouchPressure == 0) {
-                // no touch currently -> nothing to emit
-                // but we may want to emit events with empty pointer list for UP; below logic handles UP when prevActiveSlotsOrder non-empty
-            }
-            // If BTN_TOUCH indicates contact OR coordinates nonzero, produce one pointer
-            if (btnTouchDown || singleTouchPressure > 0 || singleTouchX != 0 || singleTouchY != 0) {
-                pointers.add(
-                    PointerData(
-                        id = 0,
-                        x = singleTouchX.toFloat(),
-                        y = singleTouchY.toFloat(),
-                        pressure = singleTouchPressure.toFloat(),
-                        size = 0f,
-                        axisValues = null
-                    )
-                )
-            }
-        }
-
-        // Decide action / actionIndex by comparing previous frame's pointers to current
-        val currentSlotOrder: List<Int> = if (activeSlots.isNotEmpty()) activeSlots.keys.toList() else if (pointers.isNotEmpty()) listOf(0) else emptyList()
-
-        val prevSet = prevActiveSlotsOrder.toSet()
-        val currSet = currentSlotOrder.toSet()
-
-        // newly added slots = curr - prev
-        val added = currSet - prevSet
-        // removed = prev - curr
-        val removed = prevSet - currSet
-
-        val action: Int
-        var actionIndex = 0
-
-        if (added.isNotEmpty()) {
-            // choose single added pointer (if multiple added, pick first)
-            val addedSlot = added.first()
-            // if previously there were none -> ACTION_DOWN, else -> ACTION_POINTER_DOWN
-            action = if (prevSet.isEmpty()) {
-                actionIndex = currentSlotOrder.indexOf(addedSlot).coerceAtLeast(0)
-                Actions.ACTION_DOWN
-            } else {
-                actionIndex = currentSlotOrder.indexOf(addedSlot).coerceAtLeast(0)
-                Actions.ACTION_POINTER_DOWN
-            }
-            // When gesture starts, set downTime if not already set
-            if (gestureDownTimeMs == 0L) gestureDownTimeMs = eventTimeMs
-        } else if (removed.isNotEmpty()) {
-            // pointer(s) removed
-            val removedSlot = removed.first()
-            // if result has zero pointers -> ACTION_UP, else ACTION_POINTER_UP
-            action = if (currSet.isEmpty()) {
-                // for UP, actionIndex is index of removed pointer in the previous ordering (we kept prevActiveSlotsOrder)
-                actionIndex = prevActiveSlotsOrder.indexOf(removedSlot).coerceAtLeast(0)
-                Actions.ACTION_UP
-            } else {
-                // when pointer up but others still present
-                actionIndex = prevActiveSlotsOrder.indexOf(removedSlot).coerceAtLeast(0)
-                Actions.ACTION_POINTER_UP
-            }
-            if (currSet.isEmpty()) {
-                // gesture ended -> reset downTime
-                gestureDownTimeMs = 0L
-            }
-        } else if (pointers.isNotEmpty()) {
-            // no add/remove -> movement or stationary press
-            action = Actions.ACTION_MOVE
-            actionIndex = 0
-            if (gestureDownTimeMs == 0L) gestureDownTimeMs = eventTimeMs // safety
-        } else {
-            // nothing meaningful (no pointers now and none before)
-            // update prev and return null
-            prevActiveSlotsOrder = currentSlotOrder
             return null
         }
 
-        val downTimeFinal = if (gestureDownTimeMs != 0L) gestureDownTimeMs else eventTimeMs
+        // Build MotionEvent depending on which change happened
+        return when {
+            downOccurred -> {
+                // create list of pointers *after* the newly down ones were added (currentActiveSlotsList)
+                val pointers = currentActiveSlotsList.map { slotPair -> slotToPointer(slotPair.second, slotPair.first) }
 
-        // Build MotionEventData
-        val motion = MotionEventData(
-            downTime = downTimeFinal,
-            eventTime = eventTimeMs,
-            action = action,
-            actionIndex = actionIndex,
-            pointers = pointers
+                // If no downTime yet (first pointer ever down), set it
+                if (downTimeMs == 0L) downTimeMs = eventTimeMs
+
+                val action: Int
+                val actionIndex: Int
+                action = if (prevCount == 0) {
+                    MotionActions.ACTION_DOWN
+                } else {
+                    MotionActions.ACTION_POINTER_DOWN
+                }
+                // pick one of the newly-down slots as action index (first)
+                val newSlot = touchedSlotsThisFrameDown.first()
+                // find index of newSlot in current pointers list
+                actionIndex = currentActiveSlotsList.indexOfFirst { it.first == newSlot }.coerceAtLeast(0)
+
+                MotionEventData(
+                    downTime = downTimeMs,
+                    eventTime = eventTimeMs,
+                    action = action,
+                    actionIndex = actionIndex,
+                    pointers = pointers
+                )
+            }
+
+            upOccurred -> {
+                // Build pointer list from prevActiveList (before removal)
+                val pointersBeforeRemoval = prevActiveList.map { slotPair -> slotToPointer(slotPair.second, slotPair.first) }
+
+                val action: Int
+                val actionIndex: Int
+                val oldDown = downTimeMs
+
+                if (prevCount == 1) {
+                    action = MotionActions.ACTION_UP
+                    actionIndex = 0
+                } else {
+                    action = MotionActions.ACTION_POINTER_UP
+                    val upSlot = touchedSlotsThisFrameUp.first()
+                    actionIndex = prevActiveList.indexOfFirst { it.first == upSlot }.coerceAtLeast(0)
+                }
+
+                // reset downTime only after creating MotionEventData when no pointers remain
+                if (currCount == 0) {
+                    downTimeMs = 0L
+                }
+
+                MotionEventData(
+                    downTime = oldDown,
+                    eventTime = eventTimeMs,
+                    action = action,
+                    actionIndex = actionIndex,
+                    pointers = pointersBeforeRemoval
+                )
+            }
+
+
+            moveOccurred -> {
+                // ACTION_MOVE with current active pointers
+                val pointers = currentActiveSlotsList.map { slotPair -> slotToPointer(slotPair.second, slotPair.first) }
+                MotionEventData(
+                    downTime = downTimeMs,
+                    eventTime = eventTimeMs,
+                    action = MotionActions.ACTION_MOVE,
+                    actionIndex = 0,
+                    pointers = pointers
+                )
+            }
+
+            else -> null
+        }
+    }
+
+    private fun slotToPointer(slot: SlotState, slotIndex: Int): PointerData {
+        // prefer compact pointer id mapped from kernel trackingId; if none, fallback to slotIndex
+        val pid = if (slot.trackingId >= 0) allocatePointerId(slot.trackingId) else slotIndex
+        return PointerData(
+            id = pid,
+            x = slot.x,
+            y = slot.y,
+            pressure = slot.pressure,
+            size = slot.size,
+            axisValues = null
         )
-
-        // Save current ordering for next frame comparison
-        prevActiveSlotsOrder = currentSlotOrder
-
-        return motion
     }
 }

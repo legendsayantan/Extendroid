@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 import android.view.InputDevice
 import android.view.InputEvent
 import android.view.KeyEvent
@@ -151,40 +152,7 @@ class DisplayHelper {
             event.recycle()
         }
 
-        @SuppressLint("PrivateApi")
-        fun listenForInputEvents() {
-            val path = "/dev/input/event2" // adjust as needed
-            Thread{
-                try {
-                    FileInputStream(path).use { fis ->
-                        BufferedInputStream(fis).use { bis ->
-                            val buf = ByteArray(24)
-                            while (true) {
-                                val read = bis.read(buf)
-                                if (read != buf.size) {
-                                    System.err.println("Read incomplete event, got " + read + " bytes")
-                                    break
-                                }
 
-                                val bb = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN)
-                                val sec = bb.getLong()
-                                val usec = bb.getLong()
-                                val type = bb.getShort()
-                                val code = bb.getShort()
-                                val value = bb.getInt()
-
-                                System.out.printf(
-                                    "Event - time: %d.%06d, type: 0x%04x, code: 0x%04x, value: %d%n",
-                                    sec, usec, type.toInt() and 0xFFFF, code.toInt() and 0xFFFF, value
-                                )
-                            }
-                        }
-                    }
-                } catch (e: IOException) {
-                    System.err.println("Error reading input_event: " + e.message)
-                }
-            }.start()
-        }
 
 
 
