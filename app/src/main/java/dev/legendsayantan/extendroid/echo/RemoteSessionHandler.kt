@@ -82,6 +82,7 @@ class RemoteSessionHandler {
             Resize("Resize"),
             KeyEvent("KeyEvent"),
             MotionEvent("MotionEvent"),
+            Unlock("Unlock"),
         }
 
         fun processDataMessage(
@@ -92,6 +93,7 @@ class RemoteSessionHandler {
             svc: IRootService
         ) {
             val type = mappings[message[0].toString()]?.let { PacketType.valueOf(it) }
+            println("${message[0]} ${mappings[message[0].toString()]}")
             if (type == null) return
             val content = message.substring(1)
             when (type) {
@@ -183,6 +185,15 @@ class RemoteSessionHandler {
                     } catch (e: Exception) {
                         e.printStackTrace()
                         print("Error processing motion event: ${e.message}")
+                    }
+                }
+
+                PacketType.Unlock -> {
+                    try {
+                        RemoteUnlocker(ctx).unlock(svc)
+                    }catch (e: Exception){
+                        e.printStackTrace()
+                        print("Error processing unlock event: ${e.message}")
                     }
                 }
 

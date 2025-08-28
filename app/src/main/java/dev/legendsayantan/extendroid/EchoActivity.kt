@@ -201,16 +201,22 @@ class EchoActivity : AppCompatActivity() {
         removeTrainingBtn.setOnClickListener {
             Utils.showInfoDialog(
                 this@EchoActivity,
-                "Confirmation",
-                "Are you sure you want to remove the existing training data?"
+                getString(R.string.confirmation),
+                getString(R.string.training_data_removal_message)
             ) {
                 remoteUnlocker.unlockData = emptyArray()
                 updateRemoteUnlock()
             }
         }
         testUnlockBtn.setOnClickListener {
-            ExtendService.svc?.let {
-                remoteUnlocker.testUnlock(it)
+            Utils.showInfoDialog(
+                this@EchoActivity,
+                getString(R.string.test_unlock),
+                getString(R.string.test_unlock_steps)
+            ) {
+                ExtendService.svc?.let {
+                    remoteUnlocker.testUnlock(it)
+                }
             }
         }
     }

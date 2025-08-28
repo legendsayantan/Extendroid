@@ -103,24 +103,28 @@ class RemoteUnlocker(val ctx: Context) {
     }
 
     fun testUnlock(svc: IRootService){
-        val handler = Handler(ctx.mainLooper)
         svc.goToSleep()
-        val timer = Timer()
-        handler.postDelayed({
-            svc.wakeUp();
-            val now = System.currentTimeMillis()+1000;
-            val uptimeMillis = SystemClock.uptimeMillis()+1000;
-            unlockData.forEach { eventData ->
-                val timeToRun = now + eventData.eventTime
-                eventData.downTime += uptimeMillis;
-                eventData.eventTime += uptimeMillis;
-                val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData)
-                timer.schedule(timerTask {
-                    println("posting $eventData")
-                    handler.post { svc.dispatch(motionEvent,0) }
-                }, Date(timeToRun))
-            }
+        Handler(ctx.mainLooper).postDelayed({
+            unlock(svc)
         },2000)
+    }
+
+    fun unlock(svc: IRootService){
+        svc.wakeUp();
+        val timer = Timer()
+        val handler = Handler(ctx.mainLooper)
+        val now = System.currentTimeMillis()+1000;
+        val uptimeMillis = SystemClock.uptimeMillis()+1000;
+        unlockData.forEach { eventData ->
+            val timeToRun = now + eventData.eventTime
+            eventData.downTime += uptimeMillis;
+            eventData.eventTime += uptimeMillis;
+            val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData)
+            timer.schedule(timerTask {
+                println("posting $eventData")
+                handler.post { svc.dispatch(motionEvent,0) }
+            }, Date(timeToRun))
+        }
     }
 
     companion object {

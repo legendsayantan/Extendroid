@@ -19,4 +19,8 @@
     <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A fixed minimum amount of Booster is charged when a new session starts, and further charges are based on usage. Transferring large files may consume more Boosters.</string>
     <string name="unlock_training">Unlock Training</string>
     <string name="training_steps">Your device will be locked, then the screen will light up. Unlock slowly and correctly using your pin/pattern/password only, NOT Biometrics. </string>
+    <string name="test_unlock">Test Unlock</string>
+    <string name="test_unlock_steps">Your screen will be locked, then Extendroid will attempt to unlock it automatically.</string>
+    <string name="confirmation">Confirmation</string>
+    <string name="training_data_removal_message">Are you sure you want to remove the existing training data?</string>
 </resources>
