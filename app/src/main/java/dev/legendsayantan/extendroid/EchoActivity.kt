@@ -12,8 +12,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import com.google.android.gms.tasks.Task
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
@@ -48,6 +50,7 @@ class EchoActivity : AppCompatActivity() {
     val testUnlockBtn by lazy { findViewById<MaterialButton>(R.id.testUnlockBtn) }
 
     val authStateListener = FirebaseAuth.AuthStateListener {
+        if(user!=null && !user!!.isEmailVerified) return@AuthStateListener
         Handler(mainLooper).post {
             updateAccount()
             updateBalance()
@@ -80,6 +83,29 @@ class EchoActivity : AppCompatActivity() {
         prefs.registerEchoChangeListener(echoChanged)
     }
 
+    fun handleSignIn(task: Task<AuthResult>){
+        if(task.isSuccessful){
+            if (user?.isEmailVerified ?: false){
+                FirebaseMessaging.getInstance().deleteToken().addOnSuccessListener {
+                    FirebaseMessaging.getInstance().token
+                }
+            }else{
+                user?.let{
+                    it.sendEmailVerification().addOnSuccessListener {
+                        FirebaseAuth.getInstance().signOut()
+                        showInfoDialog(this@EchoActivity,
+                            getString(R.string.your_account_is_there_but),
+                            getString(R.string.your_email_isn_t_verified),{})
+                    }
+                }
+            }
+        } else {
+            // Show error message
+            val exception = task.exception?.message ?: "Sign in failed"
+            Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun updateAccount() {
         signInlayout?.isVisible = user == null
         logoutBtn?.isVisible = signInlayout?.isVisible == false
@@ -96,15 +122,7 @@ class EchoActivity : AppCompatActivity() {
             if (email.isNotEmpty() && password.length >= 6) {
                 val auth = FirebaseAuth.getInstance()
                 auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        FirebaseMessaging.getInstance().deleteToken().addOnSuccessListener {
-                            FirebaseMessaging.getInstance().token
-                        }
-                    } else {
-                        // Show error message
-                        val exception = task.exception?.message ?: "Sign up failed"
-                        Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
-                    }
+                    handleSignIn(task)
                 }
             }
         }
@@ -115,15 +133,7 @@ class EchoActivity : AppCompatActivity() {
                 //login using firebase
                 val auth = FirebaseAuth.getInstance()
                 auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        FirebaseMessaging.getInstance().deleteToken().addOnSuccessListener {
-                            FirebaseMessaging.getInstance().token
-                        }
-                    } else {
-                        // Show error message
-                        val exception = task.exception?.message ?: "Login failed"
-                        Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
-                    }
+                    handleSignIn(task)
                 }
             } else {
                 // Show error message
@@ -180,7 +190,7 @@ class EchoActivity : AppCompatActivity() {
         removeTrainingBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
         testUnlockBtn?.isVisible = remoteUnlocker.unlockData.isNotEmpty()
         trainingBtn.setOnClickListener {
-            Utils.showInfoDialog(
+            showInfoDialog(
                 this@EchoActivity,
                 getString(R.string.unlock_training),
                 getString(R.string.training_steps)
@@ -191,7 +201,7 @@ class EchoActivity : AppCompatActivity() {
                             if(success){
                                 updateRemoteUnlock()
                             }else{
-                                showInfoDialog(this@EchoActivity,"An error occured!","Failed to train, try to restart your device.",{})
+                                showInfoDialog(this@EchoActivity,"An error occured!","Failed to train, try to restart Extendroid or your device.",{})
                             }
                         },1000)
                     }
@@ -199,7 +209,7 @@ class EchoActivity : AppCompatActivity() {
             }
         }
         removeTrainingBtn.setOnClickListener {
-            Utils.showInfoDialog(
+            showInfoDialog(
                 this@EchoActivity,
                 getString(R.string.confirmation),
                 getString(R.string.training_data_removal_message)
@@ -209,7 +219,7 @@ class EchoActivity : AppCompatActivity() {
             }
         }
         testUnlockBtn.setOnClickListener {
-            Utils.showInfoDialog(
+            showInfoDialog(
                 this@EchoActivity,
                 getString(R.string.test_unlock),
                 getString(R.string.test_unlock_steps)

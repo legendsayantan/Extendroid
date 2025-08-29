@@ -23,4 +23,7 @@
     <string name="test_unlock_steps">Your screen will be locked, then Extendroid will attempt to unlock it automatically.</string>
     <string name="confirmation">Confirmation</string>
     <string name="training_data_removal_message">Are you sure you want to remove the existing training data?</string>
+    <string name="your_account_is_there_but">Your account is there, but…</string>
+    <string name="your_email_isn_t_verified">Your email isn\'t verified. Check your mailbox and verify account first, then sign in with the same credentials.
+    </string>
 </resources>

@@ -29,6 +29,7 @@ import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
 import org.webrtc.PeerConnection
+import org.webrtc.PeerConnection.IceConnectionState.*;
 import org.webrtc.VideoCapturer
 import rikka.shizuku.Shizuku
 
@@ -90,7 +91,7 @@ class ExtendService : Service() {
                 30,
                 { state ->
                     println("PeerConnection state: $state")
-                    if (listOf(PeerConnection.IceConnectionState.DISCONNECTED,PeerConnection.IceConnectionState.CLOSED).contains(state)){
+                    if (listOf(DISCONNECTED, CLOSED, FAILED).contains(state)){
                         RemoteSessionHandler.shutDownRemoteSession(connectionId.toString(), MediaCore.mInstance!!, svc!!)
                     }
                 },{
