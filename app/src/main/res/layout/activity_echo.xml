@@ -33,12 +33,13 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="start"
-                    android:text="Access your apps from anytime, anywhere..."
-                    android:layout_marginBottom="10dp"
-                    android:textSize="22sp" />
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="start"
+                        android:text="@string/access_your_apps_from_anytime_anywhere"
+                        android:layout_marginBottom="10dp"
+                        android:textSize="22sp"/>
+
 
                 <com.google.android.material.card.MaterialCardView
                     app:strokeWidth="0dp"
@@ -92,6 +93,14 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="5dp"/>
+
+                        <TextView android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:textSize="18sp"
+                                  android:autoLink="web"
+                                  android:layout_margin="10dp"
+                                  android:textColorLink="?attr/colorOnSecondary"
+                                  android:id="@+id/subheader"/>
                         <LinearLayout
                             android:orientation="vertical"
                             android:id="@+id/signInAccount"

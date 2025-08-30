@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Extendroid</string>
     <string name="url_shizuku">https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api</string>
+    <string name="url_homepage_web">https://extendroid.pages.dev</string>
     <string name="url_get_boosters">https://extendroid.pages.dev/boosters</string>
     <string name="package_shizuku">moe.shizuku.privileged.api</string>
     <!-- TODO: Remove or change this placeholder text -->
@@ -31,4 +32,6 @@
     <string name="blacklisted_apps">Blacklisted apps</string>
     <string name="an_error_occured">An error occured!</string>
     <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
+    <string name="access_your_apps_from_anytime_anywhere">Access your apps from anytime, anywhere...</string>
+    <string name="visit_to_access">Visit %1$s to access your device.</string>
 </resources>

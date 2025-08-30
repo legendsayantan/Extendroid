@@ -31,6 +31,8 @@ class EchoActivity : AppCompatActivity() {
     val remoteUnlocker by lazy { RemoteUnlocker(this) }
     val user
         get() = FirebaseAuth.getInstance().currentUser
+
+    val subheader by lazy { findViewById<TextView>(R.id.subheader) }
     val emailField by lazy { findViewById<EditText>(R.id.email) }
     val passwordField by lazy { findViewById<EditText>(R.id.password) }
     val signupBtn by lazy { findViewById<MaterialButton>(R.id.signupBtn) }
@@ -77,7 +79,9 @@ class EchoActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
+        subheader.text = getString(
+            R.string.visit_to_access,
+            getString(R.string.url_homepage_web))
         preventShowing = true
         updateAccount()
         updateBalance()
@@ -112,6 +116,7 @@ class EchoActivity : AppCompatActivity() {
 
     fun updateAccount() {
         signInlayout?.isVisible = user == null
+        subheader.isVisible = user != null
         logoutBtn?.isVisible = signInlayout?.isVisible == false
         accountTextView?.isSelected = true
         accountTextView?.text = if (signInlayout?.isVisible == false) {
