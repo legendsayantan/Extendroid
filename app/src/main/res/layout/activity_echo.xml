@@ -346,7 +346,7 @@
 
                         </LinearLayout>
                         <TextView
-                            android:text="Blacklisted apps will not be accessible through Echo. (Coming Soon)"
+                            android:text="@string/blacklisted_apps_will_not_be_accessible_through_echo"
                             android:layout_margin="10dp"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"/>

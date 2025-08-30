@@ -225,12 +225,12 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                 androidx.recyclerview.widget.GridLayoutManager(ctx, gridColumnCount)
             if (tab.position == 1) {
                 recyclerView.adapter = AppGridAdapter(
-                    specialApps
-                ) { startPreviewFor(it, newLaunch = true) }
+                    specialApps,{ startPreviewFor(it, newLaunch = true) }
+                )
             } else {
                 recyclerView.adapter = AppGridAdapter(
-                    installedApps.filter { !activePackages.contains(it.packageName) }
-                ) { startPreviewFor(it, newLaunch = true) }
+                    installedApps.filter { !activePackages.contains(it.packageName) }, { startPreviewFor(it, newLaunch = true) }
+                )
             }
         }
         setAutoHide()

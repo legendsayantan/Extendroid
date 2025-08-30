@@ -121,13 +121,11 @@ open class MediaCore {
         width: Int,
         height: Int,
         scale:Float,
-        onStopped: () -> Unit
+        onMediaProjectionStopped: () -> Unit
     ): RemoteSessionRenderer {
         val mediaProjectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
-                // This is invoked by the system when the projection is stopped.
-                // We forward this event to our app's logic.
-                onStopped()
+                onMediaProjectionStopped()
             }
         }
 

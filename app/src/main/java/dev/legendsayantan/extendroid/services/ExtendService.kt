@@ -19,7 +19,6 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Display
 import android.view.MotionEvent
-import dev.legendsayantan.extendroid.IEventCallback
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
@@ -28,7 +27,6 @@ import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
 import dev.legendsayantan.extendroid.ui.PopupManager
-import org.webrtc.PeerConnection
 import org.webrtc.PeerConnection.IceConnectionState.*;
 import org.webrtc.VideoCapturer
 import rikka.shizuku.Shizuku
@@ -64,8 +62,8 @@ class ExtendService : Service() {
             val connectionId = System.currentTimeMillis()
             var width = 0
             var height = 0
-            var capturer : VideoCapturer? = null
-            if(data["res"] !=null){
+            var capturer: VideoCapturer? = null
+            if (data["res"] != null) {
                 val resolution = data["res"].toString()
                     .split("x", "/")
                     .map { it.trim() }
@@ -74,9 +72,15 @@ class ExtendService : Service() {
                 height = resolution[1].toIntOrNull() ?: 720
                 val scale = resolution[2].toFloatOrNull() ?: 1f
                 capturer =
-                    MediaCore.mInstance!!.newSessionRenderer(applicationContext,connectionId.toString(), width,height, scale, {
-                        println("Capturer stopped")
-                    })
+                    MediaCore.mInstance!!.newSessionRenderer(
+                        applicationContext,
+                        connectionId.toString(),
+                        width,
+                        height,
+                        scale,
+                        {
+                            println("Projection stopped")
+                        })
             }
 
             WebRTC.checkAndStart(
@@ -91,19 +95,30 @@ class ExtendService : Service() {
                 30,
                 { state ->
                     println("PeerConnection state: $state")
-                    if (listOf(DISCONNECTED, CLOSED, FAILED).contains(state)){
-                        RemoteSessionHandler.shutDownRemoteSession(connectionId.toString(), MediaCore.mInstance!!, svc!!)
+                    if (listOf(DISCONNECTED, CLOSED, FAILED).contains(state)) {
+                        RemoteSessionHandler.shutDownRemoteSession(
+                            connectionId.toString(),
+                            MediaCore.mInstance!!,
+                            svc!!
+                        )
                     }
-                },{
+                    showServiceNotification(WebRTC.getPeerConnectionCount())
+                }, {
                     RemoteSessionHandler.handleDataChannel(
                         applicationContext,
                         MediaCore.mInstance!!,
                         it,
-                        width==0 && height==0
+                        width == 0 && height == 0
                     )
                 },
                 {
-                    RemoteSessionHandler.processDataMessage(applicationContext,connectionId.toString(),it, MediaCore.mInstance!!, svc!!)
+                    RemoteSessionHandler.processDataMessage(
+                        applicationContext,
+                        connectionId.toString(),
+                        it,
+                        MediaCore.mInstance!!,
+                        svc!!
+                    )
                 })
         }
     }
@@ -120,7 +135,8 @@ class ExtendService : Service() {
             svc = IRootService.Stub.asInterface(binder)
             grantOwnPerms()
             Handler(mainLooper).postDelayed({
-                startFGS()
+                startAsForegroundService()
+                setupUI()
                 MediaCore.proceedWithRequest = true
             }, 500)
         }
@@ -165,31 +181,6 @@ class ExtendService : Service() {
         bindPrivilegedService()
     }
 
-    fun startFGS() {
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(ACTION_MENU_OPEN),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notiMan = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        notiMan.createNotificationChannel(
-            NotificationChannel(
-                SERVICE_CHANNEL,
-                SERVICE_CHANNEL,
-                NotificationManager.IMPORTANCE_NONE
-            )
-        )
-        val notification = Notification.Builder(this, SERVICE_CHANNEL)
-            .setContentText("Click to open Extendroid menu")
-            .setSmallIcon(R.drawable.logo)
-            .setContentIntent(pendingIntent)
-            .build()
-        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-
-        setupUI()
-    }
 
     override fun onBind(intent: Intent): IBinder {
         return null!!
@@ -266,7 +257,7 @@ class ExtendService : Service() {
             val r = svc?.dispatchKey(
                 keyCode,
                 action,
-                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1,0
+                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1, 0
             )
             println(r)
         }
@@ -298,6 +289,7 @@ class ExtendService : Service() {
     companion object {
         var svc: IRootService? = null
         private const val SERVICE_CHANNEL = "Service"
+        private const val SERVICE_CHANNEL_LOW_PRIORITY = "Service_Silent"
         private const val ACTION_MENU_OPEN = "dev.legendsayantan.extendroid.action.MENU_OPEN"
         const val ACTION_GET_MEDIA_PROJECTION =
             "dev.legendsayantan.extendroid.action.MEDIA_PROJECTION"
@@ -306,5 +298,50 @@ class ExtendService : Service() {
             { data, uid, token ->
                 // Default implementation does nothing
             }
+
+        fun Context.createNoti(echoRemoteCount: Int = 0): Notification {
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                Intent(ACTION_MENU_OPEN),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notiMan = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notiMan.createNotificationChannel(
+                NotificationChannel(
+                    SERVICE_CHANNEL,
+                    SERVICE_CHANNEL,
+                    NotificationManager.IMPORTANCE_NONE
+                )
+            )
+            notiMan.createNotificationChannel(
+                NotificationChannel(
+                    SERVICE_CHANNEL_LOW_PRIORITY,
+                    SERVICE_CHANNEL_LOW_PRIORITY,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    setSound(null,null)
+                }
+            )
+            val notification = Notification.Builder(this, if (echoRemoteCount > 0) SERVICE_CHANNEL else SERVICE_CHANNEL_LOW_PRIORITY)
+                .setContentTitle("Click to open Extendroid menu")
+                .let { if (echoRemoteCount > 0) it.setContentText("Echo has $echoRemoteCount active connections.") else it }
+                .setSmallIcon(R.drawable.logo)
+                .setContentIntent(pendingIntent)
+                .build()
+            return notification
+        }
+
+
+        fun Service.startAsForegroundService() {
+            startForeground(1, createNoti(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        }
+
+        fun Context.showServiceNotification(echoRemoteCount: Int) {
+            val n = createNoti(echoRemoteCount)
+            val notiMan = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notiMan.notify(1,n)
+        }
     }
 }

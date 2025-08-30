@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.annotations.SerializedName
+import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.mappings
 import dev.legendsayantan.extendroid.lib.MapKeyEvent
 import dev.legendsayantan.extendroid.lib.MediaCore
@@ -34,6 +35,7 @@ class RemoteSessionHandler {
             dataChannel: DataChannel,
             noDisplay: Boolean
         ) {
+            val prefs = Prefs(ctx)
             when (dataChannel.state()) {
                 DataChannel.State.CLOSED, DataChannel.State.CLOSING -> {
                     //do nothing
@@ -51,7 +53,8 @@ class RemoteSessionHandler {
                                     .associate {
                                         it.packageName to it.appName
                                     }
-                            val appListJson = Gson().toJson(allAppsMap)
+                            val blacklist = prefs.echoBlackList
+                            val appListJson = Gson().toJson(allAppsMap.filterNot { blacklist.contains(it.key) })
                             dataChannel.send(
                                 createDataChannelPacket(appListJson, PacketType.InstalledApps)
                             )

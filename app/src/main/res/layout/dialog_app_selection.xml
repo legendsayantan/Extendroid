@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+        app:cardCornerRadius="20dp"
+        xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+        app:cardBackgroundColor="?attr/colorOnBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                  android:orientation="vertical"
+                  android:layout_marginVertical="15dp" >
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:layout_marginHorizontal="15dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:id="@+id/heading"
+                      android:layout_weight="1"
+                      android:text="Select Apps"
+                      android:textSize="20dp"/>
+            <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/btnSelectAll"
+                    android:layout_width="45dp"
+                    app:strokeWidth="3dp"
+                    app:cardCornerRadius="25dp"
+                    app:strokeColor="?attr/colorOnSecondary"
+                    android:layout_marginVertical="2dp"
+                    app:cardBackgroundColor="?attr/colorOnBackground"
+                    android:layout_height="match_parent">
+                <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+                           android:layout_margin="11dp"
+                           android:src="@drawable/round_done_all_24" android:tint="?attr/colorOnSecondary"/>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/doneBtn"
+                    android:layout_marginStart="10dp"
+                    app:backgroundTint="?attr/colorOnSecondary"
+                    android:textColor="?attr/colorOnBackground"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Done"/>
+        </LinearLayout>
+        <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

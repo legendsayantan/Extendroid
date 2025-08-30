@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="70dp"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:layout_marginStart="20dp"
-    android:layout_marginEnd="10dp">
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:layout_marginEnd="10dp">
 
-    <ImageView
-        android:id="@+id/logo"
-        android:contentDescription="@string/app_logo"
-        android:layout_width="50dp"
-        android:layout_height="50dp" />
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="70dp"
+            android:layout_height="50dp">
+        <ImageView
+                android:id="@+id/logo"
+                android:contentDescription="@string/app_logo"
+                android:layout_width="50dp"
+                android:layout_height="50dp" app:layout_constraintEnd_toEndOf="parent"/>
+        <ImageView android:layout_width="30dp"
+                   android:layout_height="30dp"
+                   android:id="@+id/selected"
+                   android:tint="?attr/colorOnSecondary"
+                   android:src="@drawable/round_done_24"
+                   android:layout_marginStart="5dp"
+                   app:layout_constraintStart_toStartOf="parent"
+                   app:layout_constraintTop_toTopOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <TextView
         android:id="@+id/appName"

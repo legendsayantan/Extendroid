@@ -9,12 +9,15 @@ import kotlinx.coroutines.launch
 import org.webrtc.*
 import java.util.Timer
 import kotlin.concurrent.timerTask
+import org.webrtc.PeerConnection.IceConnectionState.*;
 
 class WebRTC {
     companion object {
 
         private val eglBase = EglBase.create()
         private val peerConnections = hashMapOf<Long, PeerConnection>()
+
+        fun getPeerConnectionCount():Int = peerConnections.size
         private lateinit var peerConnectionFactory: PeerConnectionFactory
         private var videoCapturers = hashMapOf<Long, VideoCapturer>()
         private var surfaceTextureHelpers = hashMapOf<Long, SurfaceTextureHelper>()
@@ -274,6 +277,9 @@ class WebRTC {
 
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                         if (state != null) onStateChanged(state)
+                        if (listOf(FAILED, CLOSED, DISCONNECTED).contains(state)){
+                            peerConnections.remove(connectionId)
+                        }
                     }
 
                     override fun onDataChannel(dataChannel: DataChannel?) {

@@ -144,6 +144,12 @@ class Prefs(val context: Context) {
             echo.edit { putBoolean("disclaimerTextShown", value) }
         }
 
+    var echoBlackList : Set<String>
+        get() = echo.getStringSet("blacklist",setOf<String>())?: setOf<String>()
+        set(value) {
+            echo.edit { putStringSet("blacklist",value) }
+        }
+
 
 
     companion object {

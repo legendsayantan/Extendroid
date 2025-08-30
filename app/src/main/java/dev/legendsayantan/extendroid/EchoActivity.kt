@@ -21,7 +21,9 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
 import kotlin.math.floor
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker;
+import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.ExtendService
+import dev.legendsayantan.extendroid.ui.AppSelectionDialog
 
 class EchoActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(this) }
@@ -182,6 +184,17 @@ class EchoActivity : AppCompatActivity() {
 
     fun updateRemoteAccess() {
         accessCard?.isVisible = user != null
+        blacklistBtn.setOnClickListener {
+            val dialog = AppSelectionDialog(
+                this@EchoActivity,
+                allApps = PackageManagerHelper.getLaunchableApps(packageManager), // List<AppItem>
+                title = "Blacklisted apps",
+                selectedApps = prefs.echoBlackList
+            ) { selectedPackages ->
+                prefs.echoBlackList = selectedPackages
+            }
+            dialog.show()
+        }
     }
 
     fun updateRemoteUnlock() {
