@@ -20,11 +20,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import dev.legendsayantan.extendroid.Utils.Companion.launchOnDefaultBrowser
 import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
-import kotlin.math.floor
-import dev.legendsayantan.extendroid.echo.RemoteUnlocker;
+import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.ExtendService
 import dev.legendsayantan.extendroid.ui.AppSelectionDialog
+import kotlin.math.floor
 
 class EchoActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(this) }
@@ -271,7 +271,7 @@ class EchoActivity : AppCompatActivity() {
 
         fun estimateHourMinuteForBoosters(balance: Float): String {
             return hourMinuteForBoosters(balance).let { it ->
-                "${it.first} h" + if (it.second > 0) " ${it.second} m" else ""
+                if (it.first > 0) "${it.first} h" else "" + if (it.second > 0) " ${it.second} m" else ""
             }
         }
     }
