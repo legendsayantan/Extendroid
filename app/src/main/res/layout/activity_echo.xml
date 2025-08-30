@@ -257,6 +257,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"/>
                         <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/getBoostersBtn"
                             app:strokeColor="?attr/colorPrimary"
                             app:strokeWidth="4dp"
                             app:cardCornerRadius="25dp"

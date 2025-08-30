@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.provider.Settings
@@ -24,6 +25,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.shizuku.Shizuku
 import java.util.Locale
+import androidx.core.net.toUri
 
 /**
  * @author legendsayantan
@@ -165,6 +167,17 @@ class Utils {
             })
             builder.setView(container)
             dialog = builder.show()
+        }
+
+        fun Context.launchOnDefaultBrowser(url: String) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
     }

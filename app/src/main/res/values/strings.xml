@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Extendroid</string>
     <string name="url_shizuku">https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api</string>
+    <string name="url_get_boosters">https://extendroid.pages.dev/boosters</string>
     <string name="package_shizuku">moe.shizuku.privileged.api</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
@@ -27,4 +28,7 @@
     <string name="your_email_isn_t_verified">Your email isn\'t verified. Check your mailbox and verify account first, then sign in with the same credentials.
     </string>
     <string name="blacklisted_apps_will_not_be_accessible_through_echo">Blacklisted apps cannot be started through Echo.</string>
+    <string name="blacklisted_apps">Blacklisted apps</string>
+    <string name="an_error_occured">An error occured!</string>
+    <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
 </resources>

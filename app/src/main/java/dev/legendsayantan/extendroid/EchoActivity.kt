@@ -18,6 +18,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
+import dev.legendsayantan.extendroid.Utils.Companion.launchOnDefaultBrowser
 import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
 import kotlin.math.floor
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker;
@@ -42,6 +43,7 @@ class EchoActivity : AppCompatActivity() {
     val usageCard by lazy { findViewById<MaterialCardView>(R.id.usageCard) }
     val boosterAmountText by lazy { findViewById<TextView>(R.id.boosterAmount) }
     val quotaTimeText by lazy { findViewById<TextView>(R.id.quotaTime) }
+    val getBoostersBtn by lazy { findViewById<MaterialCardView>(R.id.getBoostersBtn) }
 
     val accessCard by lazy { findViewById<MaterialCardView>(R.id.accessCard) }
     val blacklistBtn by lazy { findViewById<MaterialButton>(R.id.blacklistBtn) }
@@ -175,6 +177,9 @@ class EchoActivity : AppCompatActivity() {
         if (usageCard!!.isVisible) {
             updateBoosterQuantity()
         }
+        getBoostersBtn.setOnClickListener {
+            launchOnDefaultBrowser(getString(R.string.url_get_boosters))
+        }
     }
 
     fun updateBoosterQuantity() {
@@ -188,7 +193,7 @@ class EchoActivity : AppCompatActivity() {
             val dialog = AppSelectionDialog(
                 this@EchoActivity,
                 allApps = PackageManagerHelper.getLaunchableApps(packageManager), // List<AppItem>
-                title = "Blacklisted apps",
+                title = getString(R.string.blacklisted_apps),
                 selectedApps = prefs.echoBlackList
             ) { selectedPackages ->
                 prefs.echoBlackList = selectedPackages
@@ -214,7 +219,8 @@ class EchoActivity : AppCompatActivity() {
                             if(success){
                                 updateRemoteUnlock()
                             }else{
-                                showInfoDialog(this@EchoActivity,"An error occured!","Failed to train, try to restart Extendroid or your device.",{})
+                                showInfoDialog(this@EchoActivity,
+                                    getString(R.string.an_error_occured), getString(R.string.failed_to_train),{})
                             }
                         },1000)
                     }
