@@ -36,7 +36,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="start"
-                        android:text="@string/access_your_apps_from_anytime_anywhere"
+                        android:text="@string/access_your_apps_anytime_anywhere"
                         android:layout_marginBottom="10dp"
                         android:textSize="22sp"/>
 
@@ -96,10 +96,11 @@
 
                         <TextView android:layout_width="match_parent"
                                   android:layout_height="wrap_content"
-                                  android:textSize="18sp"
+                                  android:textSize="20sp"
                                   android:autoLink="web"
-                                  android:layout_margin="10dp"
-                                  android:textColorLink="?attr/colorOnSecondary"
+                                  android:layout_margin="15dp"
+                                  android:lineSpacingExtra="2dp"
+                                  android:textColorLink="?attr/colorOnPrimary"
                                   android:id="@+id/subheader"/>
                         <LinearLayout
                             android:orientation="vertical"

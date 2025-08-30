@@ -32,6 +32,6 @@
     <string name="blacklisted_apps">Blacklisted apps</string>
     <string name="an_error_occured">An error occured!</string>
     <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
-    <string name="access_your_apps_from_anytime_anywhere">Access your apps from anytime, anywhere...</string>
+    <string name="access_your_apps_anytime_anywhere">Access your apps anytime, anywhere…</string>
     <string name="visit_to_access">Visit %1$s to access your device.</string>
 </resources>
