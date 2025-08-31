@@ -34,4 +34,12 @@
     <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
     <string name="access_your_apps_anytime_anywhere">Access your apps anytime, anywhere…</string>
     <string name="visit_to_access">Visit %1$s to access your device.</string>
+    <string name="creating_your_account">Creating your account...</string>
+    <string name="logging_you_in">Logging you in...</string>
+    <string name="email_cannot_be_empty">Email cannot be empty</string>
+    <string name="password_cannot_be_empty">Password cannot be empty</string>
+    <string name="password_must_be_at_least_6_characters">Password must be at least 6 characters</string>
+    <string name="password_reset_email_sent">Password reset email sent</string>
+    <string name="failed_to_send_reset_email">Failed to send reset email</string>
+    <string name="sign_in_failed">Sign in failed</string>
 </resources>

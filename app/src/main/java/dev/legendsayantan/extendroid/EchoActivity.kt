@@ -94,23 +94,39 @@ class EchoActivity : AppCompatActivity() {
     fun handleSignIn(task: Task<AuthResult>){
         if(task.isSuccessful){
             if (user?.isEmailVerified ?: false){
-                FirebaseMessaging.getInstance().deleteToken().addOnSuccessListener {
-                    FirebaseMessaging.getInstance().token
+                FirebaseMessaging.getInstance().deleteToken().addOnCompleteListener { task ->
+                    if(task.isSuccessful){
+                        FirebaseMessaging.getInstance().token
+                    }
+                    runOnUiThread {
+                        signupBtn.isEnabled = true
+                        loginBtn.isEnabled = true
+                    }
                 }
             }else{
                 user?.let{
-                    it.sendEmailVerification().addOnSuccessListener {
-                        FirebaseAuth.getInstance().signOut()
-                        showInfoDialog(this@EchoActivity,
-                            getString(R.string.your_account_is_there_but),
-                            getString(R.string.your_email_isn_t_verified),{})
+                    it.sendEmailVerification().addOnCompleteListener { task ->
+                        if(task.isSuccessful){
+                            FirebaseAuth.getInstance().signOut()
+                            showInfoDialog(this@EchoActivity,
+                                getString(R.string.your_account_is_there_but),
+                                getString(R.string.your_email_isn_t_verified),{})
+                        }
+                        runOnUiThread {
+                            signupBtn.isEnabled = true
+                            loginBtn.isEnabled = true
+                        }
                     }
                 }
             }
         } else {
             // Show error message
-            val exception = task.exception?.message ?: "Sign in failed"
+            val exception = task.exception?.message ?: getString(R.string.sign_in_failed)
             Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
+            runOnUiThread {
+                signupBtn.isEnabled = true
+                loginBtn.isEnabled = true
+            }
         }
     }
 
@@ -129,6 +145,7 @@ class EchoActivity : AppCompatActivity() {
             val email = emailField!!.text.toString().trim()
             val password = passwordField!!.text.toString().trim()
             if (email.isNotEmpty() && password.length >= 6) {
+                Toast.makeText(applicationContext, getString(R.string.creating_your_account), Toast.LENGTH_LONG).show()
                 val auth = FirebaseAuth.getInstance()
                 auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
                     handleSignIn(task)
@@ -140,16 +157,19 @@ class EchoActivity : AppCompatActivity() {
             val password = passwordField!!.text.toString().trim()
             if (email.isNotEmpty() && password.length >= 6) {
                 //login using firebase
+                signupBtn.isEnabled = false
+                loginBtn.isEnabled = false
+                Toast.makeText(applicationContext, getString(R.string.logging_you_in), Toast.LENGTH_LONG).show()
                 val auth = FirebaseAuth.getInstance()
                 auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { task ->
                     handleSignIn(task)
                 }
             } else {
                 // Show error message
-                if (email.isEmpty()) emailField!!.error = "Email cannot be empty"
-                if (password.isEmpty()) passwordField!!.error = "Password cannot be empty"
+                if (email.isEmpty()) emailField!!.error = getString(R.string.email_cannot_be_empty)
+                if (password.isEmpty()) passwordField!!.error = getString(R.string.password_cannot_be_empty)
                 else if (password.length < 6) passwordField!!.error =
-                    "Password must be at least 6 characters"
+                    getString(R.string.password_must_be_at_least_6_characters)
             }
         }
         forgotPasswordBtn!!.setOnClickListener {
@@ -160,15 +180,15 @@ class EchoActivity : AppCompatActivity() {
                 auth.sendPasswordResetEmail(email)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            Toast.makeText(this, "Password reset email sent", Toast.LENGTH_LONG)
+                            Toast.makeText(this, getString(R.string.password_reset_email_sent), Toast.LENGTH_LONG)
                                 .show()
                         } else {
-                            val exception = task.exception?.message ?: "Failed to send reset email"
+                            val exception = task.exception?.message ?: getString(R.string.failed_to_send_reset_email)
                             Toast.makeText(this, exception, Toast.LENGTH_LONG).show()
                         }
                     }
             } else {
-                emailField!!.error = "Email cannot be empty"
+                emailField!!.error = getString(R.string.email_cannot_be_empty)
             }
         }
         logoutBtn!!.setOnClickListener {
