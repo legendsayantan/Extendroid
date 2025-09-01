@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.Drawable
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.provider.Settings
@@ -178,6 +177,38 @@ class Utils {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+
+        /**
+         * Returns a base62 (alphanumeric) encoding of:
+         *   (current Unix epoch seconds) - (Unix epoch seconds at 2025-01-01 00:00:00 UTC)
+         */
+        fun uniqueID(): String {
+            val epoch2025 = 1756709400L // initial seconds
+            val nowSeconds = System.currentTimeMillis() / 1000L
+            val num = nowSeconds - epoch2025
+            return toBase62(num)
+        }
+
+        private fun toBase62(value: Long): String {
+            if (value == 0L) return "0"
+            // handle negative values (if clock is before 2025-01-01)
+            var n = value
+            val negative = n < 0
+            if (negative) n = -n
+
+            val alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            val base = alphabet.length.toLong() // 62
+
+            val sb = StringBuilder()
+            var x = n
+            while (x > 0) {
+                val rem = (x % base).toInt()
+                sb.append(alphabet[rem])
+                x /= base
+            }
+            if (negative) sb.append('-')
+            return sb.reverse().toString()
         }
 
     }

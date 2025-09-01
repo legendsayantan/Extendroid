@@ -3,7 +3,6 @@ package dev.legendsayantan.extendroid.echo
 import android.content.Context
 import android.os.Build
 import android.os.Handler
-import android.provider.Settings
 import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
@@ -26,7 +25,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.IOException
-import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.*
 
 /**
  * @author legendsayantan
@@ -98,7 +99,7 @@ class CloudMessageService : FirebaseMessagingService(){
                     }+" "+ Build.MODEL }
                     val client = OkHttpClient()
                     val checkIfDesiredNameIsRegistered = Request.Builder()
-                        .url(EchoNetworkUtils.getBackendUrl(ctx) + "/device?uid=$uid&token=$idToken&devicename=$desiredDeviceName")
+                        .url(EchoNetworkUtils.getBackendUrl(ctx) + "/device?uid=$uid&token=$idToken&devicepattern=$desiredDeviceName%")
                         .get()
                         .addHeader("Content-Type", "application/json")
                         .addHeader("X-UID", uid)
@@ -112,10 +113,14 @@ class CloudMessageService : FirebaseMessagingService(){
                         override fun onResponse(call: Call, response: Response) {
                             response.use { response ->
                                 if (response.isSuccessful) {
-                                    // A device with our desired name is already registered, but we need to check if it's the same device
-                                    if(prefs.deviceName != desiredDeviceName){
-                                        //A different device has the name we want, so we need to change the name of current device
-                                        desiredDeviceName = "$desiredDeviceName (${Settings.Global.getString(ctx.contentResolver,Settings.Global.DEVICE_NAME)})"
+                                    val resbody = response.body?.string()
+                                    val uniqueName = getUsableDeviceName(desiredDeviceName,JSONObject(resbody).get("results").toString())
+                                    if(uniqueName!=desiredDeviceName){
+                                        // Our desired name is already registered, but we need to check if it's the same device
+                                        if(prefs.deviceName != desiredDeviceName){
+                                            //A different device has the name we want, so we need to use the uniqueName
+                                            desiredDeviceName = uniqueName
+                                        }
                                     }
                                 }
                                 // Now we can register the device with the backend
@@ -162,6 +167,41 @@ class CloudMessageService : FirebaseMessagingService(){
                     });
                 }
 
+        }
+
+        /**
+         * Return a device name that does not already exist in `devices`.
+         *
+         * - `name` is the desired base name, e.g. "Realme RMX2156"
+         * - `devices` is a JSON array string where each element is an object that may contain "devicename"
+         * - If `name` is free, returns `name`.
+         * - Otherwise returns the first available variant "name (N)" with N >= 2 (do NOT use (1)).
+         * - If parsing fails, falls back to a simple existence check and appends " (2)" when needed.
+         */
+        fun getUsableDeviceName(name: String, devices: String): String {
+            val base = name.trim()
+            try {
+                val existing = mutableSetOf<String>()
+                val arr = JSONArray(devices)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val dn = obj.optString("devicename", "").trim()
+                    if (dn.isNotEmpty()) existing.add(dn)
+                }
+
+                if (!existing.contains(base)) return base
+
+                var n = 2
+                while (true) {
+                    val candidate = "$base ($n)"
+                    if (!existing.contains(candidate)) return candidate
+                    n++
+                    // (practically infinite loop shouldn't happen; you'll eventually find a free slot)
+                }
+            } catch (e: Exception) {
+                // Parsing error: best-effort fallback
+                return if (!devices.contains(base)) base else "$base (2)"
+            }
         }
     }
 

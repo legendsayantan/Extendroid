@@ -10,6 +10,7 @@ import org.webrtc.*
 import java.util.Timer
 import kotlin.concurrent.timerTask
 import org.webrtc.PeerConnection.IceConnectionState.*;
+import java.util.TimerTask
 
 class WebRTC {
     companion object {
@@ -216,68 +217,133 @@ class WebRTC {
             peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
                 object : PeerConnection.Observer {
-                    override fun onIceCandidate(candidate: IceCandidate) {
-                        thisConnectionIceCandidates.add(candidate)
-                        println("found candidate : ${thisConnectionIceCandidates.size}")
+
+                    // --- per-connection state for the countdown logic ---
+                    private val gatherLock = Any()
+                    private var gatherTimer: Timer? = null
+                    private var gatherTimerTask: TimerTask? = null
+                    private val candidateTimestamps = mutableListOf<Long>()
+                    private var gatheringFinalized = false
+
+                    // helper that packages & posts SDP + ICE candidates (runs once)
+                    private fun postLocalSdpAndCandidates() {
+                        synchronized(gatherLock) {
+                            if (gatheringFinalized) return
+                            gatheringFinalized = true
+                            gatherTimerTask?.cancel()
+                            gatherTimer?.cancel()
+                        }
+
+                        peerConnection.localDescription?.let { localSdp ->
+                            val iceCandidatesJson = org.json.JSONArray()
+                            thisConnectionIceCandidates.forEach { candidate ->
+                                val candidateJson = org.json.JSONObject().apply {
+                                    put("sdpMid", candidate.sdpMid)
+                                    put("sdpMLineIndex", candidate.sdpMLineIndex)
+                                    put("candidate", candidate.sdp)
+                                }
+                                iceCandidatesJson.put(candidateJson)
+                            }
+                            val ourIce = iceCandidatesJson.toString()
+                            GlobalScope.launch(Dispatchers.IO) {
+                                EchoNetworkUtils.postSignal(
+                                    ctx,
+                                    uid,
+                                    token,
+                                    devicesdp = localSdp.description,
+                                    deviceice = ourIce
+                                )
+                            }
+                        }
                     }
 
+                    // schedule/reset countdown based on recorded timestamps & candidate count
+                    private fun resetGatheringCountdown() {
+                        synchronized(gatherLock) {
+                            // Don't schedule if we already finalized (e.g. COMPLETE or timer fired)
+                            if (gatheringFinalized) return
+
+                            // cancel previous timer/task
+                            try {
+                                gatherTimerTask?.cancel()
+                                gatherTimer?.cancel()
+                            } catch (_: Exception) { /* ignore */ }
+
+                            val now = System.currentTimeMillis()
+                            // candidateTimestamps already updated by caller (onIceCandidate)
+                            val count = candidateTimestamps.size.coerceAtLeast(1) // avoid division by zero
+
+                            // compute max inter-arrival (ms)
+                            val maxInterArrivalMs = if (candidateTimestamps.size >= 2) {
+                                var maxDiff = 0L
+                                for (i in 1 until candidateTimestamps.size) {
+                                    val diff = candidateTimestamps[i] - candidateTimestamps[i - 1]
+                                    if (diff > maxDiff) maxDiff = diff
+                                }
+                                // If somehow negative or zero, allow small minimum
+                                maxDiff.coerceAtLeast(50L)
+                            } else {
+                                0L
+                            }
+
+                            // compute alternative: 30 / count seconds -> millis
+                            val altMillis = ((30.0 / count) * 1000.0).toLong()
+
+                            // countdown is the maximum of the two
+                            val countdownMs = maxOf(maxInterArrivalMs, altMillis)
+
+                            // Debug/log
+                            println("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs")
+
+                            // schedule new timer task
+                            gatherTimer = Timer(true)
+                            gatherTimerTask = timerTask {
+                                // when countdown finishes, send SDP+ICE (only once)
+                                postLocalSdpAndCandidates()
+                            }
+                            // schedule
+                            gatherTimer?.schedule(gatherTimerTask, countdownMs)
+                        }
+                    }
+
+                    override fun onIceCandidate(candidate: IceCandidate?) {
+                        if (candidate == null) return
+                        // add candidate and timestamp, then reset countdown
+                        thisConnectionIceCandidates.add(candidate)
+                        val now = System.currentTimeMillis()
+                        synchronized(gatherLock) {
+                            candidateTimestamps.add(now)
+                        }
+                        println("found candidate : ${thisConnectionIceCandidates.size}")
+
+                        // Reset/start the countdown after each discovered candidate
+                        resetGatheringCountdown()
+                    }
+
+
                     override fun onIceCandidatesRemoved(p0: Array<out IceCandidate?>?) {
-                        //TODO("Not yet implemented")
+                        p0?.forEach {
+                            thisConnectionIceCandidates.remove(it)
+                        }
                     }
 
                     override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
                         println("ICE Gathering State Changed: $state")
-                    if (state == PeerConnection.IceGatheringState.GATHERING) {
-                        Timer().schedule(timerTask {
-                            peerConnection.localDescription?.let { localSdp ->
-                                val iceCandidatesJson = org.json.JSONArray()
-                                thisConnectionIceCandidates.forEach { candidate ->
-                                    val candidateJson = org.json.JSONObject()
-                                    candidateJson.put("sdpMid", candidate.sdpMid)
-                                    candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
-                                    candidateJson.put("candidate", candidate.sdp)
-                                    iceCandidatesJson.put(candidateJson)
-                                }
-                                val ourIce = iceCandidatesJson.toString()
-                                GlobalScope.launch(Dispatchers.IO) {
-                                    EchoNetworkUtils.postSignal(
-                                        ctx,
-                                        uid,
-                                        token,
-                                        devicesdp = localSdp.description,
-                                        deviceice = ourIce
-                                    )
-                                }
+                        when (state) {
+                            PeerConnection.IceGatheringState.COMPLETE -> {
+                                // ICE finished normally: cancel countdown and send immediately (if not already sent)
+                                postLocalSdpAndCandidates()
                             }
-                        },3000)
-                    }
-//                        if (state == PeerConnection.IceGatheringState.COMPLETE) {
-//                            peerConnection.localDescription?.let { localSdp ->
-//                                val iceCandidatesJson = org.json.JSONArray()
-//                                thisConnectionIceCandidates.forEach { candidate ->
-//                                    val candidateJson = org.json.JSONObject()
-//                                    candidateJson.put("sdpMid", candidate.sdpMid)
-//                                    candidateJson.put("sdpMLineIndex", candidate.sdpMLineIndex)
-//                                    candidateJson.put("candidate", candidate.sdp)
-//                                    iceCandidatesJson.put(candidateJson)
-//                                }
-//                                val ourIce = iceCandidatesJson.toString()
-//                                GlobalScope.launch(Dispatchers.IO) {
-//                                    EchoNetworkUtils.postSignal(
-//                                        ctx,
-//                                        uid,
-//                                        token,
-//                                        devicesdp = localSdp.description,
-//                                        deviceice = ourIce
-//                                    )
-//                                }
-//                            }
-//                        }
+                            PeerConnection.IceGatheringState.GATHERING -> {
+                                println("ICE gathering started")
+                            }
+                            else -> {}
+                        }
                     }
 
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                         if (state != null) onStateChanged(state)
-                        if (listOf(FAILED, CLOSED, DISCONNECTED).contains(state)){
+                        if (listOf(FAILED, CLOSED, DISCONNECTED).contains(state)) {
                             peerConnections.remove(connectionId)
                         }
                     }
@@ -294,7 +360,6 @@ class WebRTC {
                                 println("Data channel state changed: ${dataChannel.state()}")
                                 if (dataChannel.state() == DataChannel.State.OPEN) {
                                     dataChannelhandler(dataChannel)
-
                                 }
                             }
 
@@ -308,7 +373,8 @@ class WebRTC {
                     override fun onSignalingChange(p0: PeerConnection.SignalingState?) {}
                     override fun onRemoveStream(p0: MediaStream?) {}
                     override fun onRenegotiationNeeded() {}
-                })!!
+                }
+            )!!
 
             if(capturer!=null && width>0 && height>0 && framerate>0) {
                 //create video track

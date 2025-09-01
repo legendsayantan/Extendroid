@@ -33,7 +33,7 @@
     <string name="an_error_occured">An error occured!</string>
     <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
     <string name="access_your_apps_anytime_anywhere">Access your apps anytime, anywhere…</string>
-    <string name="visit_to_access">Visit %1$s to access your device.</string>
+    <string name="visit_to_access">%1$s is accessible from %2$s.</string>
     <string name="creating_your_account">Creating your account...</string>
     <string name="logging_you_in">Logging you in...</string>
     <string name="email_cannot_be_empty">Email cannot be empty</string>

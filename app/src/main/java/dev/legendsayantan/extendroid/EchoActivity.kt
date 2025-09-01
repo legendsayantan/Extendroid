@@ -80,7 +80,7 @@ class EchoActivity : AppCompatActivity() {
             insets
         }
         subheader.text = getString(
-            R.string.visit_to_access,
+            R.string.visit_to_access,prefs.deviceName.ifEmpty { "Your device" },
             getString(R.string.url_homepage_web))
         preventShowing = true
         updateAccount()
