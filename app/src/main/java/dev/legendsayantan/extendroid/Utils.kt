@@ -25,11 +25,30 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import rikka.shizuku.Shizuku
 import java.util.Locale
 import androidx.core.net.toUri
+import moe.shizuku.server.IShizukuService
+import java.io.BufferedReader
+import java.io.FileInputStream
+import java.io.InputStreamReader
 
 /**
  * @author legendsayantan
  */
 class Utils {
+
+    interface CommandResultListener {
+        /*
+        * Runs after the command executes, at least partially. Does not run with 'done' if the command throws an error.
+        * output: The output of the command
+        * done: If the command has finished executing
+         */
+        fun onCommandResult(output: String, done: Boolean){}
+
+        /*
+        * Runs if the command throws an error.
+        * error: The error message
+         */
+        fun onCommandError(error: String) {}
+    }
     companion object {
 
         fun isShizukuSetup(): Boolean {
@@ -210,6 +229,110 @@ class Utils {
             if (negative) sb.append('-')
             return sb.reverse().toString()
         }
+
+        fun adbCommand(command: String, listener: CommandResultListener, lineBundle: Int = 50) {
+            Thread {
+                try {
+                    val process = IShizukuService.Stub.asInterface(Shizuku.getBinder())
+                        .newProcess(arrayOf("sh","-c",command), null, null)
+                    val reader = BufferedReader(InputStreamReader(FileInputStream(process.inputStream.fileDescriptor)))
+                    val err = BufferedReader(InputStreamReader(FileInputStream(process.errorStream.fileDescriptor)))
+                    val output = StringBuilder()
+                    val errordata = StringBuilder()
+                    var line: String?
+                    var linecount = 0
+                    while (reader.readLine().also { line = it } != null) {
+                        linecount++
+                        output.append(line).append("\n")
+                        if (linecount == lineBundle) {
+                            linecount = 0
+                            listener.onCommandResult(output.toString(), false)
+                        }
+                    }
+                    while (err.readLine().also { line = it } != null) {
+                        errordata.append(line).append("\n")
+                    }
+                    if(errordata.isNotBlank()) listener.onCommandError(errordata.toString())
+                    else listener.onCommandResult(output.toString(), true)
+                    process.waitFor()
+                } catch (e: Exception) {
+                    listener.onCommandError(e.message ?: "No Shizuku")
+                }
+
+            }.start()
+        }
+
+        /**
+         * Start an activity using `am start` via Shizuku (calls your adbCommand).
+         *
+         * Examples of usage are below the function.
+         */
+        fun startComponent(
+            component: String? = null,                 // e.g. "com.example.app/.MainActivity"
+            action: String? = null,                    // e.g. "android.intent.action.VIEW"
+            data: String? = null,                      // e.g. "https://example.com/path"
+            mimeType: String? = null,                  // e.g. "image/png"
+            categories: List<String>? = null,          // e.g. listOf("android.intent.category.DEFAULT")
+            extras: Map<String, Any?>? = null,         // extras: String->Any? (String, Int, Long, Float, Boolean, null)
+            flags: Int? = null,                        // intent flags (decimal)
+            user: String? = null,                      // e.g. "0" or "all"
+            stopApp: Boolean = false,                  // -S : force-stop before start
+            listener: CommandResultListener,
+            lineBundle: Int = 50
+        ) {
+            // POSIX-safe single-quote wrapper: handles embedded single quotes safely
+            fun shellQuote(s: String): String {
+                return if (s.contains("'")) {
+                    // close, insert '"'"', reopen: the standard safe way
+                    "'" + s.replace("'", "'\"'\"'") + "'"
+                } else {
+                    "'$s'"
+                }
+            }
+
+            // Build the command
+            val cmd = StringBuilder("am start")
+
+            if (stopApp) cmd.append(" -S")
+            action?.let { cmd.append(" -a ").append(shellQuote(it)) }
+            data?.let { cmd.append(" -d ").append(shellQuote(it)) }
+            mimeType?.let { cmd.append(" -t ").append(shellQuote(it)) }
+            categories?.forEach { cat -> cmd.append(" -c ").append(shellQuote(cat)) }
+            flags?.let { cmd.append(" -f ").append(it) } // decimal
+            component?.let { cmd.append(" -n ").append(shellQuote(it)) }
+            user?.let { cmd.append(" --user ").append(shellQuote(it)) }
+
+            // extras: choose appropriate --es/--ei/--el/--ef/--ez or --esn (null string)
+            extras?.forEach { (key, value) ->
+                when (value) {
+                    null -> cmd.append(" --esn ").append(shellQuote(key))
+                    is Boolean -> {
+                        // --ez <KEY> <true|false>
+                        cmd.append(" --ez ").append(shellQuote(key)).append(" ").append(if (value) "true" else "false")
+                    }
+                    is Int -> cmd.append(" --ei ").append(shellQuote(key)).append(" ").append(value)
+                    is Long -> cmd.append(" --el ").append(shellQuote(key)).append(" ").append(value)
+                    is Float -> cmd.append(" --ef ").append(shellQuote(key)).append(" ").append(value)
+                    is Double -> cmd.append(" --ef ").append(shellQuote(key)).append(" ").append(value)
+                    else -> {
+                        // Fallback to string
+                        cmd.append(" --es ").append(shellQuote(key)).append(" ").append(shellQuote(value.toString()))
+                    }
+                }
+            }
+
+            // final string command — passed to sh -c inside adbCommand
+            val finalCmd = cmd.toString()
+
+            // Basic sanity: ensure we have something to start
+            if (component == null && action == null && data == null) {
+                listener.onCommandError("startComponent: you must supply at least one of component, action or data")
+                return
+            }
+
+            adbCommand(finalCmd, listener, lineBundle)
+        }
+
 
     }
 }

@@ -3,6 +3,7 @@ package dev.legendsayantan.extendroid.echo
 import android.content.Context
 import android.os.Handler
 import android.widget.Toast
+import dev.legendsayantan.extendroid.lib.Logging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -55,6 +56,7 @@ class WebRTC {
             onStateChanged: (PeerConnection.IceConnectionState) -> Unit,
             dataChannelHandler: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
+            val logging = Logging(ctx)
             if (data["fetchsdp"] == "true") {
                 //if so, fetch the sdp from the backend
                 EchoNetworkUtils.getSignalWithCallback(ctx, uid, token) { str, ex ->
@@ -111,20 +113,10 @@ class WebRTC {
                                 dataChannelHandler, onDataMessage
                             )
                         } catch (e: Exception) {
-                            System.err.println("Error parsing WebRTC data1: ${e.message}")
-                            Handler(ctx.mainLooper).post {
-                                Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG)
-                                    .show()
-                            }
+                            logging.notify("Failed to start Echo session","Parse Error: ${e.message}","Echo")
                         }
                     } else {
-                        Handler(ctx.mainLooper).post {
-                            Toast.makeText(
-                                ctx,
-                                "Error fetching SDP: ${ex?.message ?: "Unknown error"}",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+                        logging.notify("Failed to start Echo session","Exception: ${ex?.message}","Echo")
                     }
                 }
             } else {
@@ -178,10 +170,7 @@ class WebRTC {
                         dataChannelHandler, onDataMessage
                     )
                 } catch (e: Exception) {
-                    System.err.println("Error parsing WebRTC data: ${e.message}")
-                    Handler(ctx.mainLooper).post {
-                        Toast.makeText(ctx, "Parse error: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                    logging.notify("Failed to start Echo session","Parse Error: ${e.message}","Echo")
                 }
             }
         }
@@ -206,6 +195,7 @@ class WebRTC {
             dataChannelhandler: (DataChannel) -> Unit, onDataMessage: (String) -> Unit
         ) {
             ensurePeerConnectionFactory(ctx)
+            val logging = Logging(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
 
@@ -293,7 +283,7 @@ class WebRTC {
                             val countdownMs = maxOf(maxInterArrivalMs, altMillis)
 
                             // Debug/log
-                            println("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs")
+                            logging.i("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs","WebRTC.start")
 
                             // schedule new timer task
                             gatherTimer = Timer(true)
@@ -314,7 +304,7 @@ class WebRTC {
                         synchronized(gatherLock) {
                             candidateTimestamps.add(now)
                         }
-                        println("found candidate : ${thisConnectionIceCandidates.size}")
+                        logging.i("found candidate : ${thisConnectionIceCandidates.size}","WebRTC.start")
 
                         // Reset/start the countdown after each discovered candidate
                         resetGatheringCountdown()
@@ -328,14 +318,14 @@ class WebRTC {
                     }
 
                     override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
-                        println("ICE Gathering State Changed: $state")
+                        logging.i("ICE Gathering State Changed: $state","WebRTC.start")
                         when (state) {
                             PeerConnection.IceGatheringState.COMPLETE -> {
                                 // ICE finished normally: cancel countdown and send immediately (if not already sent)
                                 postLocalSdpAndCandidates()
                             }
                             PeerConnection.IceGatheringState.GATHERING -> {
-                                println("ICE gathering started")
+                                logging.i("ICE gathering started","WebRTC.start")
                             }
                             else -> {}
                         }
@@ -357,7 +347,7 @@ class WebRTC {
                             }
 
                             override fun onStateChange() {
-                                println("Data channel state changed: ${dataChannel.state()}")
+                                logging.i("Data channel state changed: ${dataChannel.state()}","WebRTC.start")
                                 if (dataChannel.state() == DataChannel.State.OPEN) {
                                     dataChannelhandler(dataChannel)
                                 }
@@ -401,7 +391,7 @@ class WebRTC {
                     height, // Height
                     framerate // FPS
                 ) ?: run {
-                    System.err.println("Video capturer is null for peer connection ID: $connectionId")
+                    logging.i("Video capturer is null for peer connection ID: $connectionId","WebRTC.start")
                 }
             }
 
@@ -415,7 +405,7 @@ class WebRTC {
 
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
-                            println("Created Answer SDP: ${answer.description}")
+                            logging.i("Created Answer SDP: ${answer.description}","WebRTC.start")
                             peerConnection.setLocalDescription(object : SdpObserver {
                                 override fun onSetSuccess() {}
                                 override fun onSetFailure(p0: String?) {}

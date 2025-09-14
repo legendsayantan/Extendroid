@@ -2,7 +2,6 @@ package dev.legendsayantan.extendroid
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -10,9 +9,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -33,20 +30,20 @@ import dev.legendsayantan.extendroid.Utils.Companion.isShizukuAllowed
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuSetup
 import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
+import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
 import dev.legendsayantan.extendroid.services.ExtendService
+import dev.legendsayantan.extendroid.services.ExtendService.Companion.svcIntent
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
+import java.util.*
+import kotlin.concurrent.timerTask
 import kotlin.system.exitProcess
-import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.setPadding
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(applicationContext) }
-    lateinit var svcIntent: Intent
+    val logging by lazy { Logging(applicationContext) }
     var onPauseTask = {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -204,11 +201,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(
-                        applicationContext,
-                        "Failed to fetch disclaimer, please check your internet connection and try again.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    logging.notify("Failed to fetch disclaimer","please check your internet connection and try again.","Echo")
                 }
             }
 
@@ -220,13 +213,15 @@ class MainActivity : AppCompatActivity() {
         } else {
             stopBtn.visibility = View.VISIBLE
             stopBtn.setOnClickListener {
-                stopService(svcIntent)
+                try {
+                    stopService(svcIntent)
+                } catch (_: Exception) { }
                 onPauseTask = {
                     exitProcess(0)
                 }
                 Toast.makeText(
                     applicationContext,
-                    "Terminating background jobs, press back to restart the app.",
+                    "Stopping services, press back to restart the app.",
                     Toast.LENGTH_LONG
                 ).show()
                 initialiseSetupMenu()
@@ -239,10 +234,14 @@ class MainActivity : AppCompatActivity() {
         echoTxt.text =
             if (FirebaseAuth.getInstance().currentUser != null && prefs.fcmSent && ExtendService.svc != null) {
                 EchoNetworkUtils.trySyncBoostersWithServer(applicationContext)
-                "Echo Boosters left : ${String.format("%.2f", prefs.balance)}"
+                "Echo Boosters : ${String.format("%.2f", prefs.balance)}"
             } else {
                 getString(R.string.extendroid_echo)
             }
+
+        logBtn.setOnClickListener {
+            startActivity(Intent(applicationContext, LogsActivity::class.java))
+        }
     }
 
     private fun startForegroundService() {
@@ -254,20 +253,44 @@ class MainActivity : AppCompatActivity() {
         }
         svcIntent = Intent(applicationContext, ExtendService::class.java)
         startForegroundService(svcIntent)
-        this@MainActivity.requestMediaProjection()
-        mediaProjection = {
-            requestMediaProjection()
+        val projectionScheduler = Timer()
+        projectionScheduler.schedule(timerTask {
+            if(ExtendService.svc!=null){
+                requestMediaProjection()
+                this.cancel()
+                projectionScheduler.cancel()
+            }
+        },500,500)
+        if (intent.action == ACTION_AUTOSTART || intent.hasExtra(EXTRA_AUTOSTART)) {
+            val closeTimer = Timer()
+            closeTimer.schedule(timerTask {
+                if (ExtendService.svc != null && MediaCore.mInstance?.projection != null) {
+                    this.cancel()
+                    closeTimer.cancel()
+                    finishAffinity()
+                }
+            }, 500, 500)
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        MediaCore.onMediaProjectionResult(requestCode, resultCode, data)
+        try {
+            MediaCore.onMediaProjectionResult(requestCode, resultCode, data)
+        }catch (e: Exception){
+
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        this.intent = intent
     }
 
 
     companion object {
-        var mediaProjection = {}
+        const val ACTION_AUTOSTART = "dev.legendsayantan.extendroid.action.autostart"
+        const val EXTRA_AUTOSTART = "dev.legendsayantan.extendroid.extra.autostart"
     }
 
 }

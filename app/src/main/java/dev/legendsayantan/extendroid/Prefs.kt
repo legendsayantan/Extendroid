@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.content.edit
+import dev.legendsayantan.extendroid.lib.Logging
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -123,7 +124,7 @@ class Prefs(val context: Context) {
                 val jsonObject = JSONObject(jsonString)
                 jsonObject.keys().asSequence().associateWith { jsonObject.getString(it) }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Logging(context).e(e,"Prefs")
                 emptyMap()
             }
         }

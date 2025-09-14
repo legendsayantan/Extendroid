@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+        android:id="@+id/container"
+        android:orientation="vertical"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:layout_marginVertical="5dp" android:layout_marginHorizontal="10dp" >
+        <TextView android:layout_width="0dp" android:textSize="16sp" android:textStyle="bold" android:layout_weight="1" android:layout_height="wrap_content" android:id="@+id/time"
+                  android:text="TIME"/>
+        <TextView android:layout_width="wrap_content" android:textSize="16sp" android:textStyle="bold" android:layout_height="wrap_content" android:id="@+id/level"
+                  android:text="LEVEL"/>
+    </LinearLayout>
+
+    <TextView
+            android:layout_width="match_parent" android:layout_marginHorizontal="10dp" android:layout_marginBottom="10dp"
+            android:layout_height="wrap_content" android:id="@+id/content" android:text="log message"/>
+
+</LinearLayout>

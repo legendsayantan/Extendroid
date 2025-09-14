@@ -8,10 +8,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import dev.legendsayantan.extendroid.EchoActivity
+import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.THIRTY_MINUTES
+import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.services.ExtendService
 import dev.legendsayantan.extendroid.services.ExtendService.Companion.svc
@@ -28,21 +30,25 @@ import okio.IOException
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.*
+import kotlin.concurrent.timerTask
+import kotlin.math.log
 
 /**
  * @author legendsayantan
  */
 class CloudMessageService : FirebaseMessagingService(){
+    lateinit var logging : Logging
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val ctx = applicationContext
+        logging = Logging(ctx)
         GlobalScope.launch(Dispatchers.IO){
             registerTokenToBackend(ctx,{
                 Prefs(ctx).fcmSent = true
-                Handler(ctx.mainLooper).post { Toast.makeText(ctx,it, Toast.LENGTH_LONG).show() }
+                logging.i(it,"registerTokenToBackend")
             },{
                 Prefs(ctx).fcmSent = false
-                Handler(ctx.mainLooper).post { Toast.makeText(ctx,it, Toast.LENGTH_LONG).show() }
+                logging.e(it,"registerTokenToBackend")
             })
         }
     }
@@ -50,24 +56,40 @@ class CloudMessageService : FirebaseMessagingService(){
     override fun onMessageReceived(remoteMessage: com.google.firebase.messaging.RemoteMessage) {
         super.onMessageReceived(remoteMessage)
         val a = remoteMessage.data
-        if (a.toString().isNotBlank() && svc!=null && MediaCore.mInstance?.projection!=null) {
-            //we can start!
-            val uid = FirebaseAuth.getInstance().currentUser?.uid?: return
-            FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.addOnCompleteListener {
-                if (!it.isSuccessful) {
-                    Handler(applicationContext.mainLooper).post {
-                        Toast.makeText(applicationContext, "Failed to get ID Token: ${it.exception?.message}", Toast.LENGTH_SHORT).show()
-                    }
+        logging = Logging(applicationContext)
+        if (a.toString().isNotBlank()) {
+            if (!Utils.isShizukuSetup() || !Utils.isShizukuAllowed()) {
+                logging.notify("Failed to start Echo!","Extendroid is not properly set up.","Echo")
+                return
+            }
+            if (svc == null || MediaCore.mInstance?.projection == null) {
+                val compName = "${applicationContext.packageName}/.${MainActivity::class.java.simpleName}"
+                Utils.startComponent(
+                    compName,
+                    action = MainActivity.ACTION_AUTOSTART,
+                    listener = object : Utils.CommandResultListener {})
+            }
+            FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.addOnCompleteListener { tokenResult->
+                if (!tokenResult.isSuccessful) {
+                    logging.i("Failed to get ID token: ${tokenResult.exception?.message?:"No error message"}","CloudMessageService")
                     return@addOnCompleteListener
                 }
-                val idToken = it.result!!.token!!
-                ExtendService.setupEchoCommand(a,uid,idToken)
+                val scheduledChecker = Timer()
+                scheduledChecker.schedule(timerTask {
+                    if(svc != null && MediaCore.mInstance?.projection != null){
+                        //we can start!
+                        this.cancel()
+                        scheduledChecker.cancel()
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid?: return@timerTask
+                        val idToken = tokenResult.result!!.token!!
+                        ExtendService.setupEchoCommand(a,uid,idToken)
+
+                    }
+                },0,1000)
             }
         } else {
             // Handle the case where there is no data in the message
-            Handler(applicationContext.mainLooper).post {
-                Toast.makeText(applicationContext, "Unable to start Echo", Toast.LENGTH_SHORT).show()
-            }
+            logging.e("Received message with no data payload","CloudMessageService" )
         }
     }
 
@@ -79,10 +101,7 @@ class CloudMessageService : FirebaseMessagingService(){
     companion object{
 
         fun registerTokenToBackend(ctx:Context,onSuccess: (String) -> Unit = {}, onFailure: (String) -> Unit = {}) {
-            val user = FirebaseAuth.getInstance().currentUser
-            if(user==null){
-                return
-            }
+            val user = FirebaseAuth.getInstance().currentUser ?: return
             FirebaseMessaging.getInstance().token
                 .addOnCompleteListener { task ->
                     if (!task.isSuccessful) {

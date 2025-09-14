@@ -9,6 +9,7 @@ import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
+import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.services.IRootService
 import dev.legendsayantan.extendroid.services.RootService
@@ -21,6 +22,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.IOException
 import org.webrtc.DataChannel
+import kotlin.math.log
 
 /**
  * @author legendsayantan
@@ -47,7 +49,7 @@ class EchoNetworkUtils {
             val prefs = Prefs(ctx)
             if (System.currentTimeMillis() < prefs.nextSyncTime) return
             val uID = user!!.uid.toJsonSanitized()
-
+            val logging = Logging(ctx)
             user!!.getIdToken(false).addOnSuccessListener { it ->
                 GlobalScope.launch(Dispatchers.IO) {
                     val client = OkHttpClient()
@@ -61,7 +63,7 @@ class EchoNetworkUtils {
                     client.newCall(req)
                         .enqueue(object : okhttp3.Callback {
                             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                                e.printStackTrace()
+                                logging.e(e,"trySyncBoostersWithServer")
                             }
 
                             override fun onResponse(
@@ -92,7 +94,7 @@ class EchoNetworkUtils {
                                     // Handle the error response
                                     val errorBody =
                                         response.body?.string() ?: "Error syncing with server"
-                                    System.err.print(errorBody)
+                                    logging.e(errorBody,"trySyncBoostersWithServer")
                                 }
                             }
                         })
@@ -168,15 +170,15 @@ class EchoNetworkUtils {
                 .addHeader("X-UID", uid)
                 .addHeader("Authorization", "Bearer $token")
                 .build()
-
+            val logging = Logging(ctx)
             client.newCall(request).enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
-                    e.printStackTrace()
+                    logging.e(e,"postSignal")
                 }
 
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                     response.use { resp ->
-                        println("${resp.code}  ${resp.body?.string()}")
+                        logging.i("${resp.code}  ${resp.body?.string()}","postSignal")
                     }
                 }
             })
@@ -195,6 +197,7 @@ class EchoNetworkUtils {
                 .get()
                 .addHeader("User-Agent", "Extendroid")
                 .build()
+            val logging = Logging(ctx)
             try {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
@@ -205,7 +208,7 @@ class EchoNetworkUtils {
                     valueCallback(prefs.echoMappings)
                 }
             } catch (e: IOException) {
-                e.printStackTrace()
+                logging.e(e,"updateMappings")
                 valueCallback(prefs.echoMappings)
             }
         }
@@ -224,7 +227,7 @@ class EchoNetworkUtils {
                 .url(disclaimerUrl)
                 .get()
                 .build()
-
+            val logging = Logging(ctx)
             GlobalScope.launch(Dispatchers.IO) {
                 try {
                     client.newCall(request).execute().use { response ->
@@ -233,20 +236,15 @@ class EchoNetworkUtils {
                                 launch(Dispatchers.Main) { // Switch to Main thread for UI updates
                                     then(it)
                                 }
-                            } ?: launch(Dispatchers.Main) {
-                                then("Error: Empty response body") // Or handle as you see fit
+                            } ?: {
+                                logging.e("Empty response body","getDisclaimerText")
                             }
                         } else {
-                            launch(Dispatchers.Main) {
-                                then("Error: ${response.code}") // Or handle as you see fit
-                            }
+                            logging.e("Error: ${response.code}","getDisclaimerText")
                         }
                     }
                 } catch (e: IOException) {
-                    e.printStackTrace()
-                    launch(Dispatchers.Main) {
-                        throw RuntimeException("Error fetching disclaimer text", e)
-                    }
+                    logging.e(e,"getDisclaimerText" )
                 }
             }
         }

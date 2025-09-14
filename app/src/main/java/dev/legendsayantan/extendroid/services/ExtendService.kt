@@ -23,6 +23,7 @@ import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.echo.WebRTC
+import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
 import dev.legendsayantan.extendroid.ui.OverlayMenu
@@ -40,6 +41,8 @@ class ExtendService : Service() {
     val prefsChangedListener = { ctx: Context ->
         setupPrefsRelated()
     }
+
+    val logging by lazy { Logging(applicationContext) }
 
     init {
         MediaCore.mInstance = object : MediaCore() {
@@ -79,7 +82,7 @@ class ExtendService : Service() {
                         height,
                         scale,
                         {
-                            println("Projection stopped")
+                            logging.i("Projection stopped","ExtendService")
                         })
             }
 
@@ -94,7 +97,6 @@ class ExtendService : Service() {
                 height,
                 30,
                 { state ->
-                    println("PeerConnection state: $state")
                     if (listOf(DISCONNECTED, CLOSED, FAILED).contains(state)) {
                         RemoteSessionHandler.shutDownRemoteSession(
                             connectionId.toString(),
@@ -131,7 +133,7 @@ class ExtendService : Service() {
     }
     var svcConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            println("SVC CONNECT")
+            logging.i("SVC CONNECT","ExtendService")
             svc = IRootService.Stub.asInterface(binder)
             grantOwnPerms()
             Handler(mainLooper).postDelayed({
@@ -142,12 +144,12 @@ class ExtendService : Service() {
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            println("SVC DISCONNECT")
+            logging.i("SVC DISCONNECT","ExtendService")
             svc = null
         }
 
         override fun onBindingDied(name: ComponentName?) {
-            println("SVC DEATH")
+            logging.i("SVC DEATH","ExtendService")
             super.onBindingDied(name)
         }
     }
@@ -192,7 +194,7 @@ class ExtendService : Service() {
 
     private fun bindPrivilegedService() {
         if (svc != null) return
-        println("SVC INITIATE")
+        logging.i("SVC INITIATE","ExtendService")
         Shizuku.bindUserService(svcArgs, svcConnection)
     }
 
@@ -205,7 +207,7 @@ class ExtendService : Service() {
                 if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
             ).filter { it.isNotBlank() }
         )
-        println(r)
+        logging.d(r.toString(),"ExtendService")
     }
 
     private fun setupPrefsRelated() {
@@ -277,8 +279,11 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         svc?.unregisterMotionEventListener()
+        MediaCore.mInstance?.projection?.stop()
+        MediaCore.mInstance = null
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
         unregisterReceiver(configReceiver)
+        unregisterReceiver(menuOpenReceiver)
         prefs.unregisterConfigChangeListener(prefsChangedListener)
         svc = null
         ball.hide()
@@ -288,6 +293,8 @@ class ExtendService : Service() {
 
     companion object {
         var svc: IRootService? = null
+
+        lateinit var svcIntent: Intent
         private const val SERVICE_CHANNEL = "Service"
         private const val SERVICE_CHANNEL_LOW_PRIORITY = "Service_Silent"
         private const val ACTION_MENU_OPEN = "dev.legendsayantan.extendroid.action.MENU_OPEN"

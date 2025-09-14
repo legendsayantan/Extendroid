@@ -8,6 +8,7 @@ import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.view.Surface
+import dev.legendsayantan.extendroid.lib.Logging
 import org.webrtc.CapturerObserver
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.ThreadUtils
@@ -55,17 +56,26 @@ class RemoteSessionRenderer(
     private var height: Int = 0
     private var isDisposed = false
 
+    lateinit var logging : Logging
+
     override fun initialize(
         surfaceTextureHelper: SurfaceTextureHelper?,
-        applicationContext: Context?,
+        applicationContext: Context,
         capturerObserver: CapturerObserver?
     ) {
         checkNotDisposed()
+        logging = Logging(applicationContext)
         if (capturerObserver == null) {
-            throw RuntimeException("CapturerObserver cannot be null")
+            RuntimeException("CapturerObserver cannot be null").let {
+                logging.e(it,"RemoteSessionRenderer")
+                throw it
+            }
         }
         if (surfaceTextureHelper == null) {
-            throw RuntimeException("SurfaceTextureHelper cannot be null")
+            RuntimeException("SurfaceTextureHelper cannot be null").let {
+                logging.e(it,"RemoteSessionRenderer")
+                throw it
+            }
         }
         this.surfaceTextureHelper = surfaceTextureHelper
         this.capturerObserver = capturerObserver
@@ -119,7 +129,7 @@ class RemoteSessionRenderer(
     }
 
     fun updateDimensions(width: Int,height: Int, density:Int){
-        println("New density: $density")
+        logging.i("New density: $density","RemoteSessionRenderer")
         this.width = width
         this.height = height
         surfaceTextureHelper?.setTextureSize( width, height)
@@ -160,7 +170,10 @@ class RemoteSessionRenderer(
 
     private fun checkNotDisposed() {
         if (isDisposed) {
-            throw RuntimeException("This capturer is disposed")
+            RuntimeException("This capturer is disposed").let {
+                logging.e(it,"RemoteSessionRenderer")
+                throw it
+            }
         }
     }
 }
