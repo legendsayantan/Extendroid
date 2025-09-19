@@ -165,6 +165,7 @@ class Utils {
             heading.setTextColor(themedCtx.resources.getColor(R.color.theme0, null))
             contents.text = content
             contents.textSize = 16f
+            contents.linksClickable = true
             contents.setPadding(0, 10, 0, 10)
             contents.setTextColor(themedCtx.resources.getColor(R.color.theme1, null))
             container.addView(LinearLayout(themedCtx).apply {

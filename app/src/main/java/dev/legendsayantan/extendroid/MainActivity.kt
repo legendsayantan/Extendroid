@@ -191,17 +191,13 @@ class MainActivity : AppCompatActivity() {
                 openEcho()
             } else {
                 Toast.makeText(applicationContext, "Please wait...", Toast.LENGTH_SHORT).show()
-                try {
-                    EchoNetworkUtils.getDisclaimerText(applicationContext) {
-                        Utils.showInfoDialog(this@MainActivity, "Disclaimer", it) {
-                            prefs.disclaimerTextShown = true
-                            runOnUiThread {
-                                openEcho()
-                            }
-                        }
+                Utils.showInfoDialog(this@MainActivity, "Disclaimer",
+                    "${getString(R.string.agreed_to_tos)} ${getString(R.string.url_homepage_web)}/tos"
+                ) {
+                    prefs.disclaimerTextShown = true
+                    runOnUiThread {
+                        openEcho()
                     }
-                } catch (e: Exception) {
-                    logging.notify("Failed to fetch disclaimer","please check your internet connection and try again.","Echo")
                 }
             }
 
