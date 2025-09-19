@@ -283,7 +283,7 @@ class WebRTC {
                             val countdownMs = maxOf(maxInterArrivalMs, altMillis)
 
                             // Debug/log
-                            logging.i("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs","WebRTC.start")
+                            logging.d("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs","WebRTC.start")
 
                             // schedule new timer task
                             gatherTimer = Timer(true)
@@ -304,7 +304,7 @@ class WebRTC {
                         synchronized(gatherLock) {
                             candidateTimestamps.add(now)
                         }
-                        logging.i("found candidate : ${thisConnectionIceCandidates.size}","WebRTC.start")
+                        logging.d("found candidate : ${thisConnectionIceCandidates.size}","WebRTC.start")
 
                         // Reset/start the countdown after each discovered candidate
                         resetGatheringCountdown()
@@ -405,7 +405,7 @@ class WebRTC {
 
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
-                            logging.i("Created Answer SDP: ${answer.description}","WebRTC.start")
+                            logging.d("Created Answer SDP: ${answer.description}","WebRTC.start")
                             peerConnection.setLocalDescription(object : SdpObserver {
                                 override fun onSetSuccess() {}
                                 override fun onSetFailure(p0: String?) {}

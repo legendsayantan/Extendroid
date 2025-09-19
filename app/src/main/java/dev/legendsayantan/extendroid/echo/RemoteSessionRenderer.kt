@@ -129,7 +129,7 @@ class RemoteSessionRenderer(
     }
 
     fun updateDimensions(width: Int,height: Int, density:Int){
-        logging.i("New density: $density","RemoteSessionRenderer")
+        logging.d("New density: $density","RemoteSessionRenderer")
         this.width = width
         this.height = height
         surfaceTextureHelper?.setTextureSize( width, height)

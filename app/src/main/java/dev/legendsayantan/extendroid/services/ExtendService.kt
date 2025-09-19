@@ -82,7 +82,7 @@ class ExtendService : Service() {
                         height,
                         scale,
                         {
-                            logging.i("Projection stopped","ExtendService")
+                            logging.i("Projection was stopped.","ExtendService")
                         })
             }
 
@@ -133,7 +133,7 @@ class ExtendService : Service() {
     }
     var svcConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            logging.i("SVC CONNECT","ExtendService")
+            logging.i("Connnected to RootService.","ExtendService")
             svc = IRootService.Stub.asInterface(binder)
             grantOwnPerms()
             Handler(mainLooper).postDelayed({
@@ -144,12 +144,12 @@ class ExtendService : Service() {
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            logging.i("SVC DISCONNECT","ExtendService")
+            logging.i("Disconnnected from RootService.","ExtendService")
             svc = null
         }
 
         override fun onBindingDied(name: ComponentName?) {
-            logging.i("SVC DEATH","ExtendService")
+            logging.i("RootService Died.","ExtendService")
             super.onBindingDied(name)
         }
     }
@@ -194,7 +194,7 @@ class ExtendService : Service() {
 
     private fun bindPrivilegedService() {
         if (svc != null) return
-        logging.i("SVC INITIATE","ExtendService")
+        logging.i("Attempting to start RootService.","ExtendService")
         Shizuku.bindUserService(svcArgs, svcConnection)
     }
 
