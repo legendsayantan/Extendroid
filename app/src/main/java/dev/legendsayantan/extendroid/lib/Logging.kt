@@ -58,13 +58,13 @@ class Logging(val ctx: Context) {
         val cutoff = System.currentTimeMillis() - days * 24 * 60 * 60 * 1000
         val keysToRemove = logs.all.keys.filter { key ->
             val timestampStr = key.split("|").firstOrNull()?.removePrefix("[")?.removeSuffix("]")
-            val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").parse(timestampStr ?: "")?.time
+            val timestamp = logDateFormat.parse(timestampStr ?: "")?.time
             timestamp != null && timestamp < cutoff
         }
         logs.edit().apply {
             keysToRemove.forEach { remove(it) }
         }.apply()
-        i("Logs older than $days days were cleared.","Logging")
+        i("Logs older than ${logDateFormat.format(cutoff)} were cleared.","Logging")
     }
 
     fun getLogs(): Map<String, String> {

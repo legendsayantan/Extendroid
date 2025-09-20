@@ -151,6 +151,12 @@ class Prefs(val context: Context) {
             echo.edit { putStringSet("blacklist",value) }
         }
 
+    var existingAccounts : Set<String>
+        get() = echo.getStringSet("existingAccounts",setOf<String>()) ?: setOf<String>()
+        set(value) {
+            echo.edit { putStringSet("existingAccounts",value) }
+        }
+
 
 
     companion object {

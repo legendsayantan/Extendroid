@@ -18,34 +18,23 @@
     <string name="signed_in_as">Currently signed in as %1$s</string>
     <string name="extendroid_echo">Extendroid Echo</string>
     <string name="sign_in_or_sign_up_to_use_extendroid_echo">Log in or Sign up to use Extendroid Echo.</string>
-    <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A
-        fixed minimum amount of Booster is charged when a new session starts, and further charges are based on usage.
-        Transferring large files may consume more Boosters.
-    </string>
+    <string name="booster_info">Boosters are used to enhance your connection to the Echo network, when necessary. A fixed minimum amount of Booster is charged when a new session starts, and further charges are based on usage. Transferring large files may consume more Boosters.</string>
     <string name="unlock_training">Unlock Training</string>
-    <string name="training_steps">Your device will be locked, then the screen will light up. Unlock slowly and correctly
-        using your pin/pattern/password only, NOT Biometrics.
-    </string>
+    <string name="training_steps">Your device will be locked, then the screen will light up. Unlock slowly and correctly using your pin/pattern/password only, NOT Biometrics.</string>
     <string name="test_unlock">Test Unlock</string>
-    <string name="test_unlock_steps">Your screen will be locked, then Extendroid will attempt to unlock it
-        automatically.
-    </string>
+    <string name="test_unlock_steps">Your screen will be locked, then Extendroid will attempt to unlock it automatically.</string>
     <string name="confirmation">Confirmation</string>
     <string name="training_data_removal_message">Are you sure you want to remove the existing training data?</string>
-    <string name="your_account_is_there_but">Your account is present, but…</string>
-    <string name="your_email_isn_t_verified">Your email isn\'t verified. Check your mailbox and verify account first,
-        then sign in with the same credentials.
-    </string>
-    <string name="blacklisted_apps_will_not_be_accessible_through_echo">Blacklisted apps cannot be started through
-        Echo.
-    </string>
+    <string name="your_account_is_there_but">Your account is created, but…</string>
+    <string name="your_email_isn_t_verified">Your email isn\'t verified. Check your mailbox and verify account first, then Log in with the same credentials. Unverified accounts may be deleted after 2 days.</string>
+    <string name="blacklisted_apps_will_not_be_accessible_through_echo">Blacklisted apps cannot be started through Echo.</string>
     <string name="blacklisted_apps">Blacklisted apps</string>
-    <string name="an_error_occured">An error occured!</string>
+    <string name="an_error_occured">An error occurred!</string>
     <string name="failed_to_train">Failed to train, try to restart Extendroid or your device.</string>
     <string name="access_your_apps_anytime_anywhere">Access your apps anytime, anywhere…</string>
     <string name="visit_to_access">%1$s is accessible from %2$s.</string>
-    <string name="creating_your_account">Creating your account...</string>
-    <string name="logging_you_in">Logging you in...</string>
+    <string name="creating_your_account">Creating your account…</string>
+    <string name="logging_you_in">Logging you in…</string>
     <string name="email_cannot_be_empty">Email cannot be empty</string>
     <string name="password_cannot_be_empty">Password cannot be empty</string>
     <string name="password_must_be_at_least_6_characters">Password must be at least 6 characters</string>
@@ -53,4 +42,5 @@
     <string name="failed_to_send_reset_email">Failed to send reset email</string>
     <string name="sign_in_failed">Sign in failed</string>
     <string name="agreed_to_tos">"Only proceed to use Echo if you have read and agree to the Terms of Service provided at</string>
+    <string name="account_already_exists">Account already exists, use the Log In Button.</string>
 </resources>

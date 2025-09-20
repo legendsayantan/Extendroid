@@ -18,6 +18,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
+import dev.legendsayantan.extendroid.Utils.Companion.asCommonEmail
 import dev.legendsayantan.extendroid.Utils.Companion.launchOnDefaultBrowser
 import dev.legendsayantan.extendroid.Utils.Companion.showInfoDialog
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker
@@ -92,7 +93,10 @@ class EchoActivity : AppCompatActivity() {
     }
 
     fun handleSignIn(task: Task<AuthResult>){
-        if(task.isSuccessful){
+        if(task.isSuccessful && user!=null && user?.email!=null){
+            val exiAcc = prefs.existingAccounts.ifEmpty { mutableSetOf() } as MutableSet
+            exiAcc.add(user!!.email!!.asCommonEmail())
+            prefs.existingAccounts = exiAcc
             if (user?.isEmailVerified ?: false){
                 FirebaseMessaging.getInstance().deleteToken().addOnCompleteListener { task ->
                     if(task.isSuccessful){
@@ -145,6 +149,13 @@ class EchoActivity : AppCompatActivity() {
             val email = emailField!!.text.toString().trim()
             val password = passwordField!!.text.toString().trim()
             if (email.isNotEmpty() && password.length >= 6) {
+                if(prefs.existingAccounts.contains(email.asCommonEmail())){
+                    Toast.makeText(applicationContext, getString(R.string.account_already_exists), Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                //signup using firebase
+                signupBtn.isEnabled = false
+                loginBtn.isEnabled = false
                 Toast.makeText(applicationContext, getString(R.string.creating_your_account), Toast.LENGTH_LONG).show()
                 val auth = FirebaseAuth.getInstance()
                 auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->

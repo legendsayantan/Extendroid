@@ -334,6 +334,10 @@ class Utils {
             adbCommand(finalCmd, listener, lineBundle)
         }
 
+        fun String.asCommonEmail():String{
+            return this.trim().lowercase(Locale.ROOT).replace(Regex("\\.(?=[^@]*@)"), "")
+        }
+
 
     }
 }
