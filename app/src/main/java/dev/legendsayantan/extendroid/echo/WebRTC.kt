@@ -1,8 +1,6 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
-import android.os.Handler
-import android.widget.Toast
 import dev.legendsayantan.extendroid.lib.Logging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -11,7 +9,7 @@ import org.webrtc.*
 import java.util.Timer
 import kotlin.concurrent.timerTask
 import org.webrtc.PeerConnection.IceConnectionState.*;
-import java.lang.reflect.Constructor
+import java.util.Locale
 import java.util.TimerTask
 
 class WebRTC {
@@ -211,13 +209,13 @@ class WebRTC {
             val logging = Logging(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
-                bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
-                rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
-                candidateNetworkPolicy = PeerConnection.CandidateNetworkPolicy.ALL
-                keyType = PeerConnection.KeyType.ECDSA
-
-                enableDscp = true
-                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+//                bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
+//                rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
+//                candidateNetworkPolicy = PeerConnection.CandidateNetworkPolicy.ALL
+//                keyType = PeerConnection.KeyType.ECDSA
+//
+//                enableDscp = true
+//                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             }
 
             val thisConnectionIceCandidates = mutableListOf<IceCandidate>()
@@ -478,7 +476,6 @@ class WebRTC {
         // Returns modified SDP where m=video payloads are reordered to prefer H264 on mobile, else VP8.
         private fun preferLowestLatencyCodecInSdp(sdp: String,logging: Logging): String {
             try {
-                val ua = android.os.Build.MODEL ?: "" // simple device hint
                 val preferH264 =
                     true // On Android, prefer H264 by default (hardware encoders common)
                 val lines = sdp.split("\r\n").toMutableList()
@@ -496,7 +493,8 @@ class WebRTC {
                         val parts = line.substringAfter("a=rtpmap:").split(" ", limit = 2)
                         if (parts.size >= 2) {
                             val pt = parts[0].trim()
-                            val codec = parts[1].split("/", limit = 2)[0].trim().toLowerCase()
+                            val codec = parts[1].split("/", limit = 2)[0].trim()
+                                .lowercase(Locale.ROOT)
                             when {
                                 codec.contains("h264") || codec.contains("h263") -> h264Pts.add(pt)
                                 codec.contains("vp8") -> vp8Pts.add(pt)

@@ -2,8 +2,10 @@ package dev.legendsayantan.extendroid
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -66,6 +68,11 @@ class MainActivity : AppCompatActivity() {
         prefs.registerConfigChangeListener {
             handleSections()
         }
+        refreshRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
+        } else {
+            (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay;
+        }.refreshRate.toInt()
     }
 
     override fun onPause() {
@@ -285,6 +292,7 @@ class MainActivity : AppCompatActivity() {
 
 
     companion object {
+        var refreshRate : Int = 60
         const val ACTION_AUTOSTART = "dev.legendsayantan.extendroid.action.autostart"
         const val EXTRA_AUTOSTART = "dev.legendsayantan.extendroid.extra.autostart"
     }

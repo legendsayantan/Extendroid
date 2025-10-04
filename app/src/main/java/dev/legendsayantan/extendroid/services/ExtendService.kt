@@ -20,6 +20,7 @@ import android.provider.Settings
 import android.view.Display
 import android.view.MotionEvent
 import android.view.WindowManager
+import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
@@ -87,12 +88,6 @@ class ExtendService : Service() {
                         })
             }
 
-            val mainDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                display
-            } else {
-                (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay;
-            }
-
             WebRTC.checkAndStart(
                 applicationContext,
                 connectionId,
@@ -102,7 +97,7 @@ class ExtendService : Service() {
                 capturer,
                 width,
                 height,
-                mainDisplay.refreshRate.toInt(),
+                MainActivity.refreshRate.coerceAtMost(60),
                 { state ->
                     if (listOf(DISCONNECTED, CLOSED, FAILED).contains(state)) {
                         RemoteSessionHandler.shutDownRemoteSession(
