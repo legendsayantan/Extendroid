@@ -11,6 +11,7 @@ import org.webrtc.*
 import java.util.Timer
 import kotlin.concurrent.timerTask
 import org.webrtc.PeerConnection.IceConnectionState.*;
+import java.lang.reflect.Constructor
 import java.util.TimerTask
 
 class WebRTC {
@@ -19,7 +20,7 @@ class WebRTC {
         private val eglBase = EglBase.create()
         private val peerConnections = hashMapOf<Long, PeerConnection>()
 
-        fun getPeerConnectionCount():Int = peerConnections.size
+        fun getPeerConnectionCount(): Int = peerConnections.size
         private lateinit var peerConnectionFactory: PeerConnectionFactory
         private var videoCapturers = hashMapOf<Long, VideoCapturer>()
         private var surfaceTextureHelpers = hashMapOf<Long, SurfaceTextureHelper>()
@@ -113,10 +114,18 @@ class WebRTC {
                                 dataChannelHandler, onDataMessage
                             )
                         } catch (e: Exception) {
-                            logging.notify("Failed to start Echo session","Parse Error: ${e.message}","Echo")
+                            logging.notify(
+                                "Failed to start Echo session",
+                                "Parse Error: ${e.message}",
+                                "Echo"
+                            )
                         }
                     } else {
-                        logging.notify("Failed to start Echo session","Exception: ${ex?.message}","Echo")
+                        logging.notify(
+                            "Failed to start Echo session",
+                            "Exception: ${ex?.message}",
+                            "Echo"
+                        )
                     }
                 }
             } else {
@@ -170,7 +179,11 @@ class WebRTC {
                         dataChannelHandler, onDataMessage
                     )
                 } catch (e: Exception) {
-                    logging.notify("Failed to start Echo session","Parse Error: ${e.message}","Echo")
+                    logging.notify(
+                        "Failed to start Echo session",
+                        "Parse Error: ${e.message}",
+                        "Echo"
+                    )
                 }
             }
         }
@@ -198,7 +211,13 @@ class WebRTC {
             val logging = Logging(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
+                bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
+                rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
+                candidateNetworkPolicy = PeerConnection.CandidateNetworkPolicy.ALL
+                keyType = PeerConnection.KeyType.ECDSA
 
+                enableDscp = true
+                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             }
 
             val thisConnectionIceCandidates = mutableListOf<IceCandidate>()
@@ -257,11 +276,13 @@ class WebRTC {
                             try {
                                 gatherTimerTask?.cancel()
                                 gatherTimer?.cancel()
-                            } catch (_: Exception) { /* ignore */ }
+                            } catch (_: Exception) { /* ignore */
+                            }
 
                             val now = System.currentTimeMillis()
                             // candidateTimestamps already updated by caller (onIceCandidate)
-                            val count = candidateTimestamps.size.coerceAtLeast(1) // avoid division by zero
+                            val count =
+                                candidateTimestamps.size.coerceAtLeast(1) // avoid division by zero
 
                             // compute max inter-arrival (ms)
                             val maxInterArrivalMs = if (candidateTimestamps.size >= 2) {
@@ -283,7 +304,10 @@ class WebRTC {
                             val countdownMs = maxOf(maxInterArrivalMs, altMillis)
 
                             // Debug/log
-                            logging.d("resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs","WebRTC.start")
+                            logging.d(
+                                "resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs",
+                                "WebRTC.start"
+                            )
 
                             // schedule new timer task
                             gatherTimer = Timer(true)
@@ -304,7 +328,10 @@ class WebRTC {
                         synchronized(gatherLock) {
                             candidateTimestamps.add(now)
                         }
-                        logging.d("found candidate : ${thisConnectionIceCandidates.size}","WebRTC.start")
+                        logging.d(
+                            "found candidate : ${thisConnectionIceCandidates.size}",
+                            "WebRTC.start"
+                        )
 
                         // Reset/start the countdown after each discovered candidate
                         resetGatheringCountdown()
@@ -318,15 +345,17 @@ class WebRTC {
                     }
 
                     override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
-                        logging.i("ICE Gathering State Changed: $state","WebRTC.start")
+                        logging.i("ICE Gathering State Changed: $state", "WebRTC.start")
                         when (state) {
                             PeerConnection.IceGatheringState.COMPLETE -> {
                                 // ICE finished normally: cancel countdown and send immediately (if not already sent)
                                 postLocalSdpAndCandidates()
                             }
+
                             PeerConnection.IceGatheringState.GATHERING -> {
-                                logging.i("ICE gathering started","WebRTC.start")
+                                logging.i("ICE gathering started", "WebRTC.start")
                             }
+
                             else -> {}
                         }
                     }
@@ -347,7 +376,10 @@ class WebRTC {
                             }
 
                             override fun onStateChange() {
-                                logging.i("Data channel state changed: ${dataChannel.state()}","WebRTC.start")
+                                logging.i(
+                                    "Data channel state changed: ${dataChannel.state()}",
+                                    "WebRTC.start"
+                                )
                                 if (dataChannel.state() == DataChannel.State.OPEN) {
                                     dataChannelhandler(dataChannel)
                                 }
@@ -366,7 +398,7 @@ class WebRTC {
                 }
             )!!
 
-            if(capturer!=null && width>0 && height>0 && framerate>0) {
+            if (capturer != null && width > 0 && height > 0 && framerate > 0) {
                 //create video track
                 surfaceTextureHelpers[connectionId] =
                     SurfaceTextureHelper.create(connectionId.toString(), eglBase.eglBaseContext)
@@ -385,13 +417,16 @@ class WebRTC {
                     )
 
                 peerConnection.addTrack(videoTracks[connectionId])
-
+                optimizeVideoEncoder(peerConnection,logging)
                 videoCapturers[connectionId]?.startCapture(
                     width, // Width
                     height, // Height
                     framerate // FPS
                 ) ?: run {
-                    logging.i("Video capturer is null for peer connection ID: $connectionId","WebRTC.start")
+                    logging.i(
+                        "Video capturer is null for peer connection ID: $connectionId",
+                        "WebRTC.start"
+                    )
                 }
             }
 
@@ -405,13 +440,13 @@ class WebRTC {
 
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
-                            logging.d("Created Answer SDP: ${answer.description}","WebRTC.start")
+                            logging.d("Created Answer SDP: ${answer.description}", "WebRTC.start")
                             peerConnection.setLocalDescription(object : SdpObserver {
                                 override fun onSetSuccess() {}
                                 override fun onSetFailure(p0: String?) {}
                                 override fun onCreateSuccess(p0: SessionDescription?) {}
                                 override fun onCreateFailure(p0: String?) {}
-                            }, answer)
+                            }, SessionDescription(answer.type,preferLowestLatencyCodecInSdp(answer.description,logging)))
                         }
 
                         override fun onSetSuccess() {}
@@ -437,6 +472,94 @@ class WebRTC {
         fun closeAll() {
             peerConnections.forEach { it.value.close() }
             peerConnections.clear()
+        }
+
+        // Kotlin: preferLowestLatencyCodecInSdp(offerSdp)
+        // Returns modified SDP where m=video payloads are reordered to prefer H264 on mobile, else VP8.
+        private fun preferLowestLatencyCodecInSdp(sdp: String,logging: Logging): String {
+            try {
+                val ua = android.os.Build.MODEL ?: "" // simple device hint
+                val preferH264 =
+                    true // On Android, prefer H264 by default (hardware encoders common)
+                val lines = sdp.split("\r\n").toMutableList()
+
+                val mLineIndex = lines.indexOfFirst { it.startsWith("m=video ") }
+                if (mLineIndex == -1) return sdp
+
+                // collect payload types for codecs
+                val h264Pts = mutableListOf<String>()
+                val vp8Pts = mutableListOf<String>()
+                val vp9Pts = mutableListOf<String>()
+
+                for (line in lines) {
+                    if (line.startsWith("a=rtpmap:")) {
+                        val parts = line.substringAfter("a=rtpmap:").split(" ", limit = 2)
+                        if (parts.size >= 2) {
+                            val pt = parts[0].trim()
+                            val codec = parts[1].split("/", limit = 2)[0].trim().toLowerCase()
+                            when {
+                                codec.contains("h264") || codec.contains("h263") -> h264Pts.add(pt)
+                                codec.contains("vp8") -> vp8Pts.add(pt)
+                                codec.contains("vp9") -> vp9Pts.add(pt)
+                            }
+                        }
+                    }
+                }
+
+                // Build new order based on preference
+                val existingParts = lines[mLineIndex].split(" ").toMutableList()
+                val existingPayloads = existingParts.subList(3, existingParts.size)
+
+                val newOrder = mutableListOf<String>()
+                if (preferH264) {
+                    newOrder.addAll(h264Pts.filter { existingPayloads.contains(it) })
+                    newOrder.addAll(vp8Pts.filter { existingPayloads.contains(it) })
+                    newOrder.addAll(vp9Pts.filter { existingPayloads.contains(it) })
+                } else {
+                    newOrder.addAll(vp8Pts.filter { existingPayloads.contains(it) })
+                    newOrder.addAll(h264Pts.filter { existingPayloads.contains(it) })
+                    newOrder.addAll(vp9Pts.filter { existingPayloads.contains(it) })
+                }
+                // Append leftover payloads that weren't covered
+                for (pt in existingPayloads) {
+                    if (!newOrder.contains(pt)) newOrder.add(pt)
+                }
+
+                val newMLine = (existingParts.subList(0, 3) + newOrder).joinToString(" ")
+                lines[mLineIndex] = newMLine
+
+                val newSdp = lines.joinToString("\r\n")
+                return newSdp
+            } catch (e: Exception) {
+                // on any failure, return original sdp
+                logging.e( "preferLowestLatencyCodecInSdp failed: ${e.message}","WebRTC.preferLowestLatency")
+                return sdp
+            }
+        }
+
+
+        private fun optimizeVideoEncoder(peerConnection: PeerConnection, logging: Logging) {
+            try {
+                val videoSender = peerConnection.senders.firstOrNull {
+                    it.track()?.kind() == "video"
+                } ?: return
+
+                val params = videoSender.parameters
+                if (params.encodings.isNotEmpty()) {
+                    params.encodings.forEach { encoding ->
+                        try { encoding.scaleResolutionDownBy = 1.0 } catch (_: Exception) {}
+                        try { encoding.networkPriority = 1 } catch (_: Exception) {}
+                    }
+
+                    // Enable low latency mode in codec settings
+                    params.degradationPreference =
+                        RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
+
+                    videoSender.parameters = params
+                }
+            } catch (e: Exception) {
+                logging.e("optimizeVideoEncoder failed: ${e.message}", "WebRTC")
+            }
         }
 
     }

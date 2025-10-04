@@ -10,6 +10,7 @@ import com.google.gson.JsonSyntaxException
 import com.google.gson.annotations.SerializedName
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils.Companion.mappings
+import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MapKeyEvent
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
@@ -95,9 +96,11 @@ class RemoteSessionHandler {
             mediaCore: MediaCore,
             svc: IRootService
         ) {
-            val type = mappings[message[0].toString()]?.let { PacketType.valueOf(it) }
-            println("${message[0]} ${mappings[message[0].toString()]}")
-            if (type == null) return
+            val type = EchoNetworkUtils.processedMappings[message[0].toString()]
+            if (type == null) {
+                Logging(ctx).d("Discarding Packet - Unknown packet type: ${message[0]}", "RemoteSessionHandler")
+                return
+            }
             val content = message.substring(1)
             when (type) {
                 PacketType.RunApp -> {

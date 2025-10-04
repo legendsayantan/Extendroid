@@ -32,7 +32,8 @@ class EchoNetworkUtils {
         const val ONE_MINUTE = 60 * 1000L // 1 minute in milliseconds
         const val THIRTY_MINUTES = 30 * ONE_MINUTE // 30 minutes in milliseconds
         const val USE_PRODUCTION = true // Set to true for production
-        lateinit var mappings : Map<String, String>
+        lateinit var mappings: Map<String, String>
+        lateinit var processedMappings: Map<String, RemoteSessionHandler.Companion.PacketType>
         fun getBackendUrl(ctx: Context): String {
             return if (USE_PRODUCTION) {
                 ctx.getString(R.string.url_backend_prod)
@@ -63,7 +64,7 @@ class EchoNetworkUtils {
                     client.newCall(req)
                         .enqueue(object : okhttp3.Callback {
                             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                                logging.e(e,"trySyncBoostersWithServer")
+                                logging.e(e, "trySyncBoostersWithServer")
                             }
 
                             override fun onResponse(
@@ -94,7 +95,7 @@ class EchoNetworkUtils {
                                     // Handle the error response
                                     val errorBody =
                                         response.body?.string() ?: "Error syncing with server"
-                                    logging.e(errorBody,"trySyncBoostersWithServer")
+                                    logging.e(errorBody, "trySyncBoostersWithServer")
                                 }
                             }
                         })
@@ -173,20 +174,20 @@ class EchoNetworkUtils {
             val logging = Logging(ctx)
             client.newCall(request).enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
-                    logging.e(e,"postSignal")
+                    logging.e(e, "postSignal")
                 }
 
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                     response.use { resp ->
-                        logging.i("${resp.code}  ${resp.body?.string()}","postSignal")
+                        logging.i("${resp.code}  ${resp.body?.string()}", "postSignal")
                     }
                 }
             })
         }
 
-        fun updateMappings(ctx: Context,valueCallback: (Map<String, String>)-> Unit){
+        fun updateMappings(ctx: Context, valueCallback: (Map<String, String>) -> Unit) {
             val prefs = Prefs(ctx)
-            if(System.currentTimeMillis()-prefs.lastMappingsLoaded < 24 * 60 * 60 * 1000 && USE_PRODUCTION) {
+            if (System.currentTimeMillis() - prefs.lastMappingsLoaded < 24 * 60 * 60 * 1000 && USE_PRODUCTION) {
                 valueCallback(prefs.echoMappings)
                 return
             }
@@ -202,24 +203,27 @@ class EchoNetworkUtils {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         response.body?.string()?.let {
-                            if(it.isNotBlank()) prefs.setEchoMappings(it)
+                            if (it.isNotBlank()) prefs.setEchoMappings(it)
                         }
                     }
                     valueCallback(prefs.echoMappings)
                 }
             } catch (e: IOException) {
-                logging.e(e,"updateMappings")
+                logging.e(e, "updateMappings")
                 valueCallback(prefs.echoMappings)
             }
         }
 
-        fun prepareMappings(ctx: Context){
-            updateMappings(ctx){
+        fun prepareMappings(ctx: Context) {
+            updateMappings(ctx) {
                 mappings = it
+                processedMappings = it.map { entry ->
+                    entry.key.lowercase() to RemoteSessionHandler.Companion.PacketType.valueOf(entry.value)
+                }.toMap()
             }
         }
 
-        fun getDisclaimerText(ctx:Context,then: (String) -> Unit) {
+        fun getDisclaimerText(ctx: Context, then: (String) -> Unit) {
             // Replace with your actual disclaimer URL
             val disclaimerUrl = ctx.getString(R.string.disclaimerUrl)
             val client = OkHttpClient()
@@ -237,14 +241,14 @@ class EchoNetworkUtils {
                                     then(it)
                                 }
                             } ?: {
-                                logging.e("Empty response body","getDisclaimerText")
+                                logging.e("Empty response body", "getDisclaimerText")
                             }
                         } else {
-                            logging.e("Error: ${response.code}","getDisclaimerText")
+                            logging.e("Error: ${response.code}", "getDisclaimerText")
                         }
                     }
                 } catch (e: IOException) {
-                    logging.e(e,"getDisclaimerText" )
+                    logging.e(e, "getDisclaimerText")
                 }
             }
         }
