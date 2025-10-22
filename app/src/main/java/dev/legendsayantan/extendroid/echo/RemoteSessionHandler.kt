@@ -185,7 +185,7 @@ class RemoteSessionHandler {
                     try {
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
                             println(content)
-                            val motionEvent = createMotionEventFromJson(content)
+                            val motionEvent = createMotionEventFromJson(content,ctx)
                             svc.dispatch(motionEvent, params[0])
                         }
                     } catch (e: Exception) {
@@ -244,18 +244,17 @@ class RemoteSessionHandler {
          * @param jsonString The JSON string representing the motion event data.
          * @return A valid MotionEvent object, or null if parsing or creation fails.
          */
-        fun createMotionEventFromJson(jsonString: String): MotionEvent? {
+        fun createMotionEventFromJson(jsonString: String,ctx : Context): MotionEvent? {
             val gson = Gson()
             try {
                 val eventData = gson.fromJson(jsonString, MotionEventData::class.java)
-
                 return createMotionEventFromData(eventData)
             } catch (e: JsonSyntaxException) {
-                // Log.e("MotionEventParser", "Failed to parse JSON with Gson", e)
+                Logging(ctx).e(e,"RemoteSessionHandler")
                 return null
             }
         }
-        fun createMotionEventFromData(eventData: MotionEventData): MotionEvent{
+        fun createMotionEventFromData(eventData: MotionEventData,scale:Pair<Float,Float> = 1f to 1f): MotionEvent{
             println(eventData)
             val pointerCount = eventData.pointers.size
             val pointerProperties = Array(pointerCount) { MotionEvent.PointerProperties() }
@@ -267,8 +266,8 @@ class RemoteSessionHandler {
                     toolType = MotionEvent.TOOL_TYPE_FINGER
                 }
                 pointerCoords[index].apply {
-                    x = pointer.x
-                    y = pointer.y
+                    x = pointer.x * scale.first
+                    y = pointer.y * scale.second
                     pressure = pointer.pressure
                     size = pointer.size
                     pointer.axisValues?.forEach { (axis, value) ->

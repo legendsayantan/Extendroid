@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.InputDevice
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
@@ -32,6 +33,7 @@ import dev.legendsayantan.extendroid.Utils.Companion.isShizukuAllowed
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuSetup
 import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
+import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection

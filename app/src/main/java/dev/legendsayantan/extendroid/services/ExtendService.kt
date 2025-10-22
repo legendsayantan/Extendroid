@@ -24,6 +24,7 @@ import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
+import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.echo.WebRTC
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
