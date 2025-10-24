@@ -127,17 +127,17 @@ object MapKeyEvent {
             //action keys
             -1 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_BACK,0, metaState)
             -2 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_FORWARD,0, metaState)
-            -3 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_COPY,0, metaState)
-            -4 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_CUT,0, metaState)
+            -3 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_CUT,0, metaState)
+            -4 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_COPY,0, metaState)
             -5 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_PASTE,0, metaState)
-            -6 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MENU,0, metaState)
+            -6 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_POWER,0, metaState)
             -7 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_VOLUME_DOWN,0, metaState)
             -8 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_VOLUME_UP,0, metaState)
             -9 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_VOLUME_MUTE,0, metaState)
-            -10 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_POWER,0, metaState)
+            -10 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MENU,0, metaState)
             -11 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MEDIA_PREVIOUS,0, metaState)
-            -12 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MEDIA_NEXT,0, metaState)
-            -13 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,0, metaState)
+            -12 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,0, metaState)
+            -13 -> KeyEvent(downTime, eventTime, action,KeyEvent.KEYCODE_MEDIA_NEXT,0, metaState)
 
             else -> null // No mapping exists for this ASCII value
         }
