@@ -87,6 +87,7 @@ class RemoteSessionHandler {
             KeyEvent("KeyEvent"),
             MotionEvent("MotionEvent"),
             Unlock("Unlock"),
+            DisplayMode("DisplayMode"),
         }
 
         fun processDataMessage(
@@ -200,6 +201,16 @@ class RemoteSessionHandler {
                     }catch (e: Exception){
                         e.printStackTrace()
                         print("Error processing unlock event: ${e.message}")
+                    }
+                }
+
+                PacketType.DisplayMode -> {
+                    try {
+                        val mode = content.toIntOrNull() ?: 1
+                        svc.setBuiltInDisplayPowerMode(mode)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        print("Error processing display mode change: ${e.message}")
                     }
                 }
 

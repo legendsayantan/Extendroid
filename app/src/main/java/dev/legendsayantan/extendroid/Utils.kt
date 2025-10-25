@@ -4,6 +4,7 @@ package dev.legendsayantan.extendroid
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
@@ -336,6 +337,23 @@ class Utils {
 
         fun String.asCommonEmail():String{
             return this.trim().lowercase(Locale.ROOT).replace(Regex("\\.(?=[^@]*@)"), "")
+        }
+
+        fun isDebuggable(context: Context): Boolean {
+            var debuggable = false
+            val pm: PackageManager = context.packageManager
+
+            try {
+                val appinfo: ApplicationInfo = pm.getApplicationInfo(context.packageName, 0)
+
+                // Use a bitwise AND operator to check if the FLAG_DEBUGGABLE bit is set
+                debuggable = 0 != (appinfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)
+            } catch (e: PackageManager.NameNotFoundException) {
+                // Log or handle the exception if the package name isn't found,
+                // though this is unlikely for the current package.
+            }
+
+            return debuggable
         }
 
 

@@ -119,7 +119,7 @@ class RemoteUnlocker(val ctx: Context) {
         val uptimeMillis = SystemClock.uptimeMillis()+1000;
         val scaling = determineScaling(svc)
         Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
-        unlockData.forEach { eventData ->
+        unlockData.forEachIndexed { index, eventData ->
             val timeToRun = now + eventData.eventTime
             eventData.downTime += uptimeMillis;
             eventData.eventTime += uptimeMillis;
