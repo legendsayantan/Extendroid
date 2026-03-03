@@ -2,6 +2,11 @@ package dev.legendsayantan.extendroid.lib
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.os.Binder.clearCallingIdentity
+import android.os.Binder.restoreCallingIdentity
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -11,6 +16,7 @@ import android.view.InputDevice
 import android.view.InputEvent
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.Surface
 import java.io.BufferedInputStream
 import java.io.FileInputStream
 import java.io.IOException
@@ -28,6 +34,7 @@ class DisplayHelper {
 
         val SurfaceControlClass = Class.forName("android.view.SurfaceControl")
         var DisplayControlClass: Class<*>? = null
+        private val activeDisplays = HashMap<Int, VirtualDisplay>()
 
         init {
 
@@ -486,6 +493,108 @@ class DisplayHelper {
 
             // nothing worked
             return false
+        }
+
+
+        @SuppressLint("WrongConstant")
+        fun createVirtualDisplay(context: Context,name: String, width: Int, height: Int, dpi: Int, surface: Surface): Int {
+            val token = clearCallingIdentity()
+            try {
+                // Dynamically resolve Shell or Root UID package ("com.android.shell" usually)
+                val myUid = android.os.Process.myUid()
+                val packageName = context.packageManager.getPackagesForUid(myUid)?.firstOrNull() ?: "com.android.shell"
+
+                // Unwrap Context to get the bare ContextImpl
+                var ctxImpl = context
+                while (ctxImpl is ContextWrapper) {
+                    ctxImpl = ctxImpl.baseContext
+                }
+
+                // Access the internal fields that DisplayManager queries to validate the package
+                // In Android source, the field is actually named 'mBasePackageName', not 'mPackageName'
+                val pkgField = try {
+                    ctxImpl.javaClass.getDeclaredField("mBasePackageName")
+                } catch (e: Exception) {
+                    ctxImpl.javaClass.getDeclaredField("mPackageName")
+                }.apply { isAccessible = true }
+
+                val opPkgField = try {
+                    ctxImpl.javaClass.getDeclaredField("mOpPackageName").apply { isAccessible = true }
+                } catch (e: Exception) { null }
+
+                val origPkg = pkgField.get(ctxImpl)
+                val origOpPkg = opPkgField?.get(ctxImpl)
+
+                try {
+                    // Forcefully spoof the internal Context fields for this specific call
+                    pkgField.set(ctxImpl, packageName)
+                    opPkgField?.set(ctxImpl, packageName)
+
+                    val shellContext = context!!.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY)
+                    val dm = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+
+                    val flagFallbacks = listOf(
+                        // 1. The Ultimate Combo: User's working flags + Scrcpy optimizations
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024,
+                        // 2. User's exact working combo
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+                        // 3. Scrcpy standard
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024,
+                        // 4. Safe Public
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8,
+                        // 5. Bare minimum Public
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                        // 6. Presentation only
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8,
+                        // 7. Auto Mirror Fallback
+                        16
+                    )
+
+                    for (flags in flagFallbacks) {
+                        try {
+                            val vd = dm.createVirtualDisplay(name, width, height, dpi, surface, flags)
+                            if (vd != null) {
+                                val id = vd.display.displayId
+                                if (id == 0) {
+                                    vd.release()
+                                    continue // OEM bug: returned primary display
+                                }
+                                activeDisplays[id] = vd
+                                println("Successfully created VirtualDisplay with flags: $flags")
+                                return id
+                            }
+                        } catch (e: SecurityException) {
+                            println("SecurityException for flags $flags: ${e.message}")
+                        } catch (e: Exception) {
+                            println("Exception for flags $flags: ${e.message}")
+                        }
+                    }
+                    println("All fallbacks failed to create VirtualDisplay.")
+                    return -1 // All fallbacks failed
+                } finally {
+                    // Always restore the original values to prevent side effects
+                    pkgField.set(ctxImpl, origPkg)
+                    opPkgField?.set(ctxImpl, origOpPkg)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return -1
+            } finally {
+                restoreCallingIdentity(token)
+            }
+        }
+
+        fun resizeVirtualDisplay(displayId: Int, width: Int, height: Int, dpi: Int) {
+            activeDisplays[displayId]?.resize(width, height, dpi)
+        }
+
+        fun updateVirtualDisplaySurface(displayId: Int, surface: Surface) {
+            activeDisplays[displayId]?.surface = surface
+        }
+
+        fun destroyVirtualDisplay(displayId: Int) {
+            activeDisplays[displayId]?.release()
+            activeDisplays.remove(displayId)
         }
     }
 }

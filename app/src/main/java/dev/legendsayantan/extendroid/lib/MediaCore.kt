@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Context.MEDIA_PROJECTION_SERVICE
 import android.content.Intent
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.view.Surface
@@ -13,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.RemoteSessionRenderer
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
+import dev.legendsayantan.extendroid.services.ExtendService
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
@@ -25,8 +24,10 @@ open class MediaCore {
     var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
 
     var projection: MediaProjection? = null
-    var virtualDisplays: HashMap<String, VirtualDisplay> = hashMapOf()
-    var echoDisplays : HashMap<String,VirtualDisplay> = hashMapOf()
+    var virtualDisplayIds: HashMap<String, Int> = hashMapOf()
+
+    // Changed to store display IDs rather than VirtualDisplay objects
+    var echoDisplayIds : HashMap<String, Int> = hashMapOf()
 
     /**
      * This map is used to store the display parameters for each echo display.
@@ -71,36 +72,33 @@ open class MediaCore {
             (width * height * metrics.densityDpi * prefs.densityScale) / (metrics.heightPixels * metrics.widthPixels)
         } else (metrics.densityDpi * prefs.densityScale)
 
-        if (virtualDisplays.contains(packageName)) {
-            virtualDisplays[packageName]!!.resize(
-                width,
-                height,
-                density.toInt()
-            )
+        // Communicate with the RootService instead of using MediaProjection
+        if (virtualDisplayIds.contains(packageName)) {
+            val displayId = virtualDisplayIds[packageName]!!
+            ExtendService.svc?.resizeVirtualDisplay(displayId, width, height, density.toInt())
             updateSurface(packageName, surface)
             return
         }
-        projection?.createVirtualDisplay(
+
+        // Pass the Parcelable Surface across IPC directly into the Shizuku process
+        val displayId = ExtendService.svc?.createVirtualDisplay(
             packageName,
             width,
             height,
             density.toInt(),
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC + DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            surface,
-            null,
-            null
-        )?.let {
-            virtualDisplays[packageName] = it
-            virtualDisplayReady(
-                packageName, it.display.displayId
-            )
+            surface
+        ) ?: -1
+
+        if (displayId != -1) {
+            virtualDisplayIds[packageName] = displayId
+            virtualDisplayReady(packageName, displayId)
         }
     }
 
     fun fullScreen(packageName: String) {
-        virtualDisplays[packageName]?.let {
-            it.release()
-            virtualDisplays.remove(packageName)
+        virtualDisplayIds[packageName]?.let {
+            ExtendService.svc?.destroyVirtualDisplay(it)
+            virtualDisplayIds.remove(packageName)
         }
     }
 
@@ -110,8 +108,8 @@ open class MediaCore {
     }
 
     fun updateSurface(packageName: String, surface: Surface) {
-        virtualDisplays[packageName]?.let {
-            it.surface = surface
+        virtualDisplayIds[packageName]?.let {
+            ExtendService.svc?.updateVirtualDisplaySurface(it, surface)
         } ?: throw RuntimeException("Virtual display for $packageName not found")
     }
 
@@ -133,12 +131,12 @@ open class MediaCore {
         val capturer = RemoteSessionRenderer(
             mediaProjection = projection!!,
             mediaProjectionCallback = mediaProjectionCallback,
-            { virtualDisplay ->
-                echoDisplays[name] = virtualDisplay
-                echoDisplayParams[name] = arrayOf(virtualDisplay.display.displayId,width,height,density)
+            { displayId ->
+                echoDisplayIds[name] = displayId
+                echoDisplayParams[name] = arrayOf(displayId, width, height, density)
             },{
-                echoDisplays[name]?.release()
-                echoDisplays.remove(name)
+                // The actual destruction is now safely handled inside RemoteSessionRenderer via ExtendService.svc
+                echoDisplayIds.remove(name)
                 echoDisplayParams.remove(name)
             },
             displayName = name,

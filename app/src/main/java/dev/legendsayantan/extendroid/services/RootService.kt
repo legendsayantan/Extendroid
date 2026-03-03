@@ -1,7 +1,13 @@
 package dev.legendsayantan.extendroid.services
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.util.Log
 import android.view.MotionEvent
+import android.view.Surface
 import dev.legendsayantan.extendroid.IEventCallback
 import dev.legendsayantan.extendroid.echo.MotionEventParser
 import dev.legendsayantan.extendroid.lib.ActivityHelper
@@ -16,11 +22,15 @@ import java.io.InputStreamReader
 
 class RootService() : IRootService.Stub() {
     var context: Context? = null;
-    var inputReader : DevInputReader? = null
+    var inputReader: DevInputReader? = null
     val parser = MotionEventParser()
     private val gson = com.google.gson.Gson()
     private val callbackExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var motionJsonCallback: ((String) -> Unit)? = null
+
+    init {
+        Log.i("RootService", "Service started! PID=${android.os.Process.myPid()} UID=${android.os.Process.myUid()}")
+    }
 
     constructor(context: Context) : this() {
         this.context = context;
@@ -100,8 +110,8 @@ class RootService() : IRootService.Stub() {
         }
     }
 
-    override fun registerMotionEventListener(callback: IEventCallback): String{
-        return try{
+    override fun registerMotionEventListener(callback: IEventCallback): String {
+        return try {
 
             inputReader = DevInputReader(listener = object : InputEventListener {
                 override fun onEvent(event: InputEvent) {
@@ -113,8 +123,15 @@ class RootService() : IRootService.Stub() {
                         callbackExecutor.execute { cb.onMotionEvent(json) }
                     }
                 }
-                override fun onDeviceAdded(devicePath: String) { println("Device added: $devicePath") }
-                override fun onDeviceRemoved(devicePath: String) { println("Device removed: $devicePath") }
+
+                override fun onDeviceAdded(devicePath: String) {
+                    println("Device added: $devicePath")
+                }
+
+                override fun onDeviceRemoved(devicePath: String) {
+                    println("Device removed: $devicePath")
+                }
+
                 override fun onError(devicePath: String?, throwable: Throwable) {
                     System.err.println("Error ${devicePath ?: "scanner"}: ${throwable.message}")
                     throwable.printStackTrace()
@@ -123,18 +140,18 @@ class RootService() : IRootService.Stub() {
 
             inputReader?.start()
             return "success"
-        }catch (e: Exception) {
+        } catch (e: Exception) {
             e.stackTraceToString()
         }
     }
 
-    override fun unregisterMotionEventListener(): String{
-        return try{
+    override fun unregisterMotionEventListener(): String {
+        return try {
             inputReader?.stop()
             inputReader = null
             callbackExecutor.shutdownNow()
             "success"
-        }catch (e: Exception) {
+        } catch (e: Exception) {
             e.stackTraceToString()
         }
     }
@@ -143,11 +160,30 @@ class RootService() : IRootService.Stub() {
         return DisplayHelper.goToSleepRobust(context ?: return false)
     }
 
-    override fun isDisplayActive(): Boolean{
+    override fun isDisplayActive(): Boolean {
         return DisplayHelper.isInteractive(context ?: return false)
     }
 
     override fun wakeUp(): Boolean {
         return DisplayHelper.wakeUpRobust(context ?: return false)
     }
+
+    @SuppressLint("WrongConstant")
+    override fun createVirtualDisplay(name: String, width: Int, height: Int, dpi: Int, surface: Surface): Int {
+        return DisplayHelper.createVirtualDisplay(context!!, name, width, height, dpi, surface)
+    }
+
+    override fun resizeVirtualDisplay(displayId: Int, width: Int, height: Int, dpi: Int) {
+        DisplayHelper.resizeVirtualDisplay(displayId, width, height, dpi)
+    }
+
+    override fun updateVirtualDisplaySurface(displayId: Int, surface: Surface) {
+        DisplayHelper.updateVirtualDisplaySurface(displayId, surface)
+    }
+
+    override fun destroyVirtualDisplay(displayId: Int) {
+        DisplayHelper.destroyVirtualDisplay(displayId)
+    }
+
+    override fun dummy():Int{ return 1; }
 }

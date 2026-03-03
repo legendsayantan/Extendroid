@@ -230,7 +230,9 @@ class RemoteSessionHandler {
                 svc.exitTasks(appPackage)
             }
             mediaCore.appRemoteAccessHistory.remove(connectionId)
-            mediaCore.echoDisplays.remove(connectionId)?.release()
+            mediaCore.echoDisplayIds.remove(connectionId)?.let { displayId ->
+                svc.destroyVirtualDisplay(displayId)
+            }
             mediaCore.echoDisplayParams.remove(connectionId)
             mediaCore.sessionCapturerResizers.remove(connectionId)
         }

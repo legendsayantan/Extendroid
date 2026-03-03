@@ -17,4 +17,10 @@ interface IRootService {
     boolean goToSleep();
     boolean isDisplayActive();
     boolean wakeUp();
+    int createVirtualDisplay(String name, int width, int height, int dpi, in Surface surface);
+    void resizeVirtualDisplay(int displayId, int width, int height, int dpi);
+    void updateVirtualDisplaySurface(int displayId, in Surface surface);
+    void destroyVirtualDisplay(int displayId);
+
+    int dummy();
 }

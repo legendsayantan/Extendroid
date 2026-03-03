@@ -262,7 +262,7 @@ class ExtendService : Service() {
             val r = svc?.dispatchKey(
                 keyCode,
                 action,
-                MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1, 0
+                MediaCore.mInstance?.virtualDisplayIds?.get(pkg) ?: -1, 0
             )
             println(r)
         }
@@ -276,7 +276,7 @@ class ExtendService : Service() {
     fun sendEvent(pkg: String, event: MotionEvent): String {
         return svc?.dispatch(
             event,
-            MediaCore.mInstance?.virtualDisplays?.get(pkg)?.display?.displayId ?: -1
+            MediaCore.mInstance?.virtualDisplayIds?.get(pkg) ?: -1
         ).toString()
     }
 
