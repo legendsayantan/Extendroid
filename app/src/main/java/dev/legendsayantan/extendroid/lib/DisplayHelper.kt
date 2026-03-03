@@ -293,12 +293,29 @@ class DisplayHelper {
                 e.printStackTrace()
             }
 
-            // 3) Fallback: run shell input keyevent 26 (power). This toggles power; if screen was on, it will turn off.
+            // 3) Fallback: run shell input keyevent 223 and 26 (power). This toggles power; if screen was on, it will turn off.
             try {
-                val proc = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "26"))
-                // Wait briefly for exit; success if process exit code is 0
-                val rc = proc.waitFor()
+                // explicit wakeup key
+                var rc = -1
+                var rc2 = -1
+                try {
+                    val p1 = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "223"))
+                    rc = p1.waitFor()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                Thread.sleep(150)
                 if (rc == 0) return true
+
+                // try power key as last resort
+                try {
+                    val p2 = Runtime.getRuntime().exec(arrayOf("input", "keyevent", "26"))
+                    rc2 = p2.waitFor()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                Thread.sleep(150)
+                if (rc2 == 0) return true
             } catch (e: Exception) {
                 e.printStackTrace()
             }

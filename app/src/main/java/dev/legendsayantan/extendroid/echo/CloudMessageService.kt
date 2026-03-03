@@ -2,8 +2,6 @@ package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
 import android.os.Build
-import android.os.Handler
-import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -31,7 +29,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.*
 import kotlin.concurrent.timerTask
-import kotlin.math.log
 
 /**
  * @author legendsayantan
@@ -58,18 +55,27 @@ class CloudMessageService : FirebaseMessagingService(){
         val a = remoteMessage.data
         logging = Logging(applicationContext)
         if (a.toString().isNotBlank()) {
-            if (!Utils.isShizukuSetup() || !Utils.isShizukuAllowed()) {
-                logging.notify("Failed to start Echo!","Extendroid is not properly set up.","Echo")
-                return
-            }
-            if (svc == null || MediaCore.mInstance?.projection == null) {
-                val compName = "${applicationContext.packageName}/.${MainActivity::class.java.simpleName}"
-                Utils.startComponent(
-                    compName,
-                    action = MainActivity.ACTION_AUTOSTART,
-                    listener = object : Utils.CommandResultListener {})
-            }
             FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.addOnCompleteListener { tokenResult->
+                val idToken = tokenResult.result!!.token!!
+                if (!Utils.isShizukuSetup() || !Utils.isShizukuAllowed()) {
+                    logging.notify("Failed to start Echo!", "Extendroid is not properly set up.", "Echo")
+//                    FirebaseAuth.getInstance().currentUser?.uid?.let {
+//                        EchoNetworkUtils.postSignal(
+//                            applicationContext,
+//                            it,
+//                            idToken,
+//                            error = "App not set up properly"
+//                        )
+//                    }
+                    return@addOnCompleteListener
+                }
+                if (svc == null || MediaCore.mInstance?.projection == null) {
+                    val compName = "${applicationContext.packageName}/.${MainActivity::class.java.simpleName}"
+                    Utils.startComponent(
+                        compName,
+                        action = MainActivity.ACTION_AUTOSTART,
+                        listener = object : Utils.CommandResultListener {})
+                }
                 if (!tokenResult.isSuccessful) {
                     logging.i("Failed to get ID token: ${tokenResult.exception?.message?:"No error message"}","CloudMessageService")
                     return@addOnCompleteListener
@@ -81,7 +87,7 @@ class CloudMessageService : FirebaseMessagingService(){
                         this.cancel()
                         scheduledChecker.cancel()
                         val uid = FirebaseAuth.getInstance().currentUser?.uid?: return@timerTask
-                        val idToken = tokenResult.result!!.token!!
+
                         ExtendService.setupEchoCommand(a,uid,idToken)
 
                     }

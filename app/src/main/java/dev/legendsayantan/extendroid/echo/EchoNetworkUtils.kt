@@ -1,8 +1,6 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
-import android.os.Message
-import android.webkit.ValueCallback
 import com.google.firebase.auth.FirebaseAuth
 import dev.legendsayantan.extendroid.EchoActivity
 import dev.legendsayantan.extendroid.Prefs
@@ -10,9 +8,6 @@ import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.toJsonSanitized
 import dev.legendsayantan.extendroid.lib.Logging
-import dev.legendsayantan.extendroid.lib.MediaCore
-import dev.legendsayantan.extendroid.services.IRootService
-import dev.legendsayantan.extendroid.services.RootService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -21,8 +16,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.IOException
-import org.webrtc.DataChannel
-import kotlin.math.log
 
 /**
  * @author legendsayantan
@@ -148,12 +141,15 @@ class EchoNetworkUtils {
             ctx: Context,
             uid: String,
             token: String,
-            devicesdp: String,
-            deviceice: String
+            error: String? = null,
+            devicesdp: String = "",
+            deviceice: String = ""
         ) {
             val client = OkHttpClient()
 
-            val json = """
+
+            val json = if (error.isNullOrBlank()) {
+                """
         {
             "uid": "$uid",
             "token": "$token",
@@ -161,6 +157,7 @@ class EchoNetworkUtils {
             "deviceice": ${org.json.JSONObject.quote(deviceice)}
         }
     """.trimIndent()
+            } else { """{"uid": "$uid","token": "$token","error": ${org.json.JSONObject.quote(error)}}""" }
 
             val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
 
@@ -187,7 +184,7 @@ class EchoNetworkUtils {
 
         fun updateMappings(ctx: Context, valueCallback: (Map<String, String>) -> Unit) {
             val prefs = Prefs(ctx)
-            if (System.currentTimeMillis() - prefs.lastMappingsLoaded < 24 * 60 * 60 * 1000 && USE_PRODUCTION) {
+            if (System.currentTimeMillis() - prefs.lastMappingsLoaded < 24 * 60 * 60 * 1000 && USE_PRODUCTION && !Utils.isDebuggable(ctx)) {
                 valueCallback(prefs.echoMappings)
                 return
             }
