@@ -15,9 +15,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupMenu
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.tabs.TabLayout
+import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.Utils.Companion.dpToPx
@@ -63,6 +63,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         }
 
     val themedCtx by lazy { ContextThemeWrapper(ctx, R.style.Base_Theme_Extendroid) }
+    val prefs by lazy { Prefs(ctx) }
     val layoutInflater by lazy { LayoutInflater.from(themedCtx) }
     val root by lazy {
         layoutInflater.inflate(R.layout.layout_menu, this, true)
@@ -166,10 +167,11 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         Thread {
             installedApps = PackageManagerHelper.getLaunchableApps(ctx.packageManager)
                 .filter { it.packageName != ctx.packageName }
-            val topPkgs = getTopApps()
+            val pinned = prefs.pinnedApps
+            val topPkgs = pinned + getTopApps()
             specialApps = installedApps.filter {
                 topPkgs.contains(it.packageName) && !activePackages.contains(it.packageName)
-            }
+            }.sortedByDescending { pinned.contains(it.packageName) }
         }.start()
     }
 
@@ -220,17 +222,21 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                     })
             recyclerView.adapter = staggeredGridAdapter
 
-        } else {
+        } else if(listOf(1,2).contains(tab.position)){
             recyclerView.layoutManager =
                 androidx.recyclerview.widget.GridLayoutManager(ctx, gridColumnCount)
-            if (tab.position == 1) {
-                recyclerView.adapter = AppGridAdapter(
-                    specialApps,{ startPreviewFor(it, newLaunch = true) }
-                )
-            } else {
-                recyclerView.adapter = AppGridAdapter(
-                    installedApps.filter { !activePackages.contains(it.packageName) }, { startPreviewFor(it, newLaunch = true) }
-                )
+            recyclerView.adapter = AppGridAdapter(
+                themedCtx,
+                if (tab.position == 1) specialApps else installedApps,{ it,refresh->
+                    startPreviewFor(it, newLaunch = true)
+                },{ it,refresh->
+                    if(prefs.pinnedApps.contains(it)) prefs.pinnedApps -= it
+                    else prefs.pinnedApps += it
+                    refresh()
+                    startLoadingInBackground()
+                }
+            ).apply {
+                showPinnedAtTop = tab.position == 1
             }
         }
         setAutoHide()

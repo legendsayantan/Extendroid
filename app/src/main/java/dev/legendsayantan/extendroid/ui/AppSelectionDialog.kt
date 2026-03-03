@@ -40,13 +40,13 @@ class AppSelectionDialog(
         val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerView)
         recyclerView.apply {
             layoutManager = GridLayoutManager(context, 2) // 2-column grid
-            adapter = AppGridAdapter(allApps, { pkg ->
+            adapter = AppGridAdapter(context,allApps, { pkg, refresh ->
                 if (selectedSet.contains(pkg)) {
                     selectedSet.remove(pkg)
                 } else {
                     selectedSet.add(pkg)
                 }
-                adapter?.notifyDataSetChanged()
+                refresh()
             }).apply { preselected = selectedSet }
         }
         val btnSelectAll = view.findViewById<MaterialCardView>(R.id.btnSelectAll)

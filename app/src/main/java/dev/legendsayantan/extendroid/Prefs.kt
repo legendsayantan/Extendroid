@@ -81,6 +81,13 @@ class Prefs(val context: Context) {
             configChanged()
         }
 
+    var pinnedApps: Set<String>
+        get() = prefs.getStringSet("pinnedApps", setOf()) ?: setOf()
+        set(value) {
+            prefs.edit { putStringSet("pinnedApps", value) }
+            configChanged()
+        }
+
     var fcmSent: Boolean
         get() = echo.getBoolean("fcmSent", false)
         set(value) {
