@@ -1,8 +1,10 @@
 package dev.legendsayantan.extendroid.lib
 
 import android.annotation.SuppressLint
+import android.app.ActivityOptions
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.os.Binder.clearCallingIdentity
@@ -530,23 +532,45 @@ class DisplayHelper {
                     pkgField.set(ctxImpl, packageName)
                     opPkgField?.set(ctxImpl, packageName)
 
-                    val shellContext = context!!.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY)
+                    val shellContext = context.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY)
                     val dm = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
 
                     val flagFallbacks = listOf(
-                        // 1. The Ultimate Combo: User's working flags + Scrcpy optimizations
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024,
-                        // 2. User's exact working combo
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
-                        // 3. Scrcpy standard
+                        // 1. The Super Combo: User's working flags + Scrcpy + OWN_DISPLAY_GROUP (2048)
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024 or 2048,
+
+                        // 2. User's exact working combo + 2048
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 2048,
+
+                        // 3. Scrcpy standard + 2048
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024 or 2048,
+
+                        // 4. Original Ultimate Combo (No 2048)
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024,
+
+                        // 5. User's exact working combo (Known Good)
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+
+                        // 6. Scrcpy standard
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024,
-                        // 4. Safe Public
+
+                        // 7. Minimal Public with 2048
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 2048,
+
+                        // 8. Safe Public
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8,
-                        // 5. Bare minimum Public
+
+                        // 9. Bare minimum Public
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-                        // 6. Presentation only
+
+                        // 10. Presentation only
                         DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8,
-                        // 7. Auto Mirror Fallback
+
+                        // 11. Auto Mirror Fallback
                         16
                     )
 
@@ -561,6 +585,20 @@ class DisplayHelper {
                                 }
                                 activeDisplays[id] = vd
                                 println("Successfully created VirtualDisplay with flags: $flags")
+                                Logging(context).i("Using Display Flags: $flags", "DisplayHelper")
+                                try {
+                                    val intent = Intent(Intent.ACTION_MAIN).apply {
+                                        addCategory(Intent.CATEGORY_HOME)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    // Explicitly target the primary display (Display 0)
+                                    // Requires API 26+ (ActivityOptions)
+                                    val options = ActivityOptions.makeBasic()
+                                    options.launchDisplayId = 0
+                                    context.startActivity(intent, options.toBundle())
+                                } catch (e: Exception) {
+                                    println("Failed to yank focus: ${e.message}")
+                                }
                                 return id
                             }
                         } catch (e: SecurityException) {
@@ -570,6 +608,7 @@ class DisplayHelper {
                         }
                     }
                     println("All fallbacks failed to create VirtualDisplay.")
+                    Logging(context).e("All fallbacks failed to create VirtualDisplay.", "DisplayHelper")
                     return -1 // All fallbacks failed
                 } finally {
                     // Always restore the original values to prevent side effects

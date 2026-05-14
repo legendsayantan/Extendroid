@@ -2,20 +2,12 @@ package dev.legendsayantan.extendroid.services
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.ContextWrapper
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
 import android.util.Log
 import android.view.MotionEvent
 import android.view.Surface
 import dev.legendsayantan.extendroid.IEventCallback
 import dev.legendsayantan.extendroid.echo.MotionEventParser
-import dev.legendsayantan.extendroid.lib.ActivityHelper
-import dev.legendsayantan.extendroid.lib.DevInputReader
-import dev.legendsayantan.extendroid.lib.DisplayHelper
-import dev.legendsayantan.extendroid.lib.InputEventListener
-import dev.legendsayantan.extendroid.lib.InputEvent
-import dev.legendsayantan.extendroid.lib.PackageManagerHelper
+import dev.legendsayantan.extendroid.lib.*
 import java.io.BufferedReader
 import java.io.InputStreamReader
 

@@ -41,12 +41,12 @@ class ActivityHelper {
         }
 
         @SuppressLint("PrivateApi")
-        fun launchActivityOnDisplayID(component: ComponentName, displayId: Int): String {
+        fun launchActivityOnDisplayID(component: ComponentName, displayId: Int, extraFlags: Int = 0): String {
             try {
                 // 1) Build the Intent
                 val intent = Intent()
                 intent.setComponent(component)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or extraFlags)
 
                 // 2) Build ActivityOptions via reflection
                 val aoClass = Class.forName("android.app.ActivityOptions")

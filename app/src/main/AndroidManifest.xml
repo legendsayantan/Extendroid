@@ -28,6 +28,14 @@
             android:usesCleartextTraffic="true"
             tools:targetApi="31">
         <activity
+                android:name=".VirtualDisplayNoContentActivity"
+                android:exported="true"
+                android:taskAffinity=""
+                android:launchMode="singleTask"
+                android:excludeFromRecents="true"
+                android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        </activity>
+        <activity
                 android:name=".LogsActivity"
                 android:exported="false"/>
         <activity
@@ -44,8 +52,8 @@
         <activity
                 android:name=".MainActivity"
                 android:exported="true"
-                android:screenOrientation="portrait"
-                android:launchMode="singleInstancePerTask">
+                android:launchMode="singleInstancePerTask"
+                android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
