@@ -209,13 +209,10 @@ class WebRTC {
             val logging = Logging(ctx)
             val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
                 iceTransportsType = PeerConnection.IceTransportsType.ALL
-//                bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
-//                rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
-//                candidateNetworkPolicy = PeerConnection.CandidateNetworkPolicy.ALL
-//                keyType = PeerConnection.KeyType.ECDSA
-//
-//                enableDscp = true
-//                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+                bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
+                rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
+                sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+                enableDscp = true
             }
 
             val thisConnectionIceCandidates = mutableListOf<IceCandidate>()
@@ -415,7 +412,6 @@ class WebRTC {
                     )
 
                 peerConnection.addTrack(videoTracks[connectionId])
-                optimizeVideoEncoder(peerConnection,logging)
                 videoCapturers[connectionId]?.startCapture(
                     width, // Width
                     height, // Height
@@ -436,21 +432,31 @@ class WebRTC {
                         peerConnection.addIceCandidate(it)
                     }
 
+                    // Explicitly declare this as send-only: we don't receive audio/video
+                    val answerConstraints = MediaConstraints().apply {
+                        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "false"))
+                        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
+                    }
+
                     peerConnection.createAnswer(object : SdpObserver {
                         override fun onCreateSuccess(answer: SessionDescription) {
                             logging.d("Created Answer SDP: ${answer.description}", "WebRTC.start")
                             peerConnection.setLocalDescription(object : SdpObserver {
-                                override fun onSetSuccess() {}
+                                override fun onSetSuccess() {
+                                    // Negotiation is now complete: sender.parameters.encodings
+                                    // is populated and parameters can actually be applied.
+                                    optimizeVideoEncoder(peerConnection, logging)
+                                }
                                 override fun onSetFailure(p0: String?) {}
                                 override fun onCreateSuccess(p0: SessionDescription?) {}
                                 override fun onCreateFailure(p0: String?) {}
-                            }, SessionDescription(answer.type,preferLowestLatencyCodecInSdp(answer.description,logging)))
+                            }, SessionDescription(answer.type, preferLowestLatencyCodecInSdp(answer.description, logging)))
                         }
 
                         override fun onSetSuccess() {}
                         override fun onSetFailure(p0: String?) {}
                         override fun onCreateFailure(p0: String?) {}
-                    }, MediaConstraints())
+                    }, answerConstraints)
                 }
 
                 override fun onSetFailure(p0: String?) {}
@@ -496,7 +502,9 @@ class WebRTC {
                             val codec = parts[1].split("/", limit = 2)[0].trim()
                                 .lowercase(Locale.ROOT)
                             when {
-                                codec.contains("h264") || codec.contains("h263") -> h264Pts.add(pt)
+                                // H.263 is an unrelated legacy codec — do NOT group with H.264.
+                                // It falls through to the leftover bucket and is deprioritised.
+                                codec.contains("h264") -> h264Pts.add(pt)
                                 codec.contains("vp8") -> vp8Pts.add(pt)
                                 codec.contains("vp9") -> vp9Pts.add(pt)
                             }
@@ -546,7 +554,13 @@ class WebRTC {
                 if (params.encodings.isNotEmpty()) {
                     params.encodings.forEach { encoding ->
                         try { encoding.scaleResolutionDownBy = 1.0 } catch (_: Exception) {}
-                        try { encoding.networkPriority = 1 } catch (_: Exception) {}
+                        // Priority values: VERY_LOW=0, LOW=1, MEDIUM=2, HIGH=3.
+                        // Was incorrectly set to 1 (LOW). Use 3 for HIGH priority.
+                        try { encoding.networkPriority = 3 } catch (_: Exception) {}
+                        // Bitrate floor prevents GCC from starving the stream on transient
+                        // congestion; ceiling prevents encoder buffer build-up.
+                        try { encoding.minBitrateBps = 200_000 } catch (_: Exception) {}
+                        try { encoding.maxBitrateBps = 4_000_000 } catch (_: Exception) {}
                     }
 
                     // Enable low latency mode in codec settings
