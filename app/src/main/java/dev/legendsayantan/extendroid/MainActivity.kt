@@ -1,5 +1,6 @@
 package dev.legendsayantan.extendroid
 
+import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -222,7 +223,8 @@ class MainActivity : AppCompatActivity() {
                     stopService(svcIntent)
                 } catch (_: Exception) { }
                 onPauseTask = {
-                    exitProcess(0)
+                    finishAffinity()
+                    onDestroy()
                 }
                 Toast.makeText(
                     applicationContext,
