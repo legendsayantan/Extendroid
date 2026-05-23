@@ -2,7 +2,7 @@
 agp = "8.10.1"
 googleWebrtc = "1.0.32006"
 gson = "2.13.1"
-kotlin = "2.0.21"
+kotlin = "2.2.0"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -14,7 +14,7 @@ constraintlayout = "2.2.1"
 shizukuVersion = "13.1.5"
 hiddenApi= "6.1"
 palette = "1.0.0"
-firebaseBom = "33.15.0"
+firebaseBom = "34.13.0"
 retrofit = "3.0.0"
 okhttp = "4.12.0"
 streamWebrtcAndroid = "1.3.8"
@@ -47,4 +47,4 @@ stream-webrtc-android = { module = "io.getstream:stream-webrtc-android", version
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
-gms-googleservices = { id = "com.google.gms.google-services", version = "4.4.2" }
+gms-googleservices = { id = "com.google.gms.google-services", version = "4.4.4" }

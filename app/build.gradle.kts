@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "dev.legendsayantan.extendroid"
-    compileSdk = 35
+    compileSdk = 37
 
     buildFeatures {
         aidl = true
