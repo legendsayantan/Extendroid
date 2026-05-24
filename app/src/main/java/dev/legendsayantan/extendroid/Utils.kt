@@ -23,6 +23,10 @@ import androidx.palette.graphics.Palette
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.app.ActivityManager
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
+import com.google.android.material.textfield.TextInputEditText
 import rikka.shizuku.Shizuku
 import java.util.Locale
 import androidx.core.net.toUri
@@ -151,6 +155,37 @@ class Utils {
 
         /** Linear interpolate between a and b */
         fun lerp(a: Int, b: Int, t: Float) = (a + (b - a) * t).toInt()
+
+        fun showWorkspaceNameDialog(ctx: Context, onConfirm: (String) -> Unit) {
+            val themedCtx = ContextThemeWrapper(ctx, R.style.Theme_Extendroid)
+            val dialogView = LayoutInflater.from(themedCtx).inflate(R.layout.dialog_new_workspace, null)
+            val nameInput = dialogView.findViewById<TextInputEditText>(R.id.nameInput)
+            val doneBtn = dialogView.findViewById<MaterialButton>(R.id.doneBtn)
+
+            val defaultName = "Extendroid Workspace ${getRunningWorkspaceCount(ctx) + 1}"
+            nameInput.setText(defaultName)
+
+            val dialog = MaterialAlertDialogBuilder(themedCtx)
+                .setView(dialogView)
+                .create()
+
+            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+            doneBtn.setOnClickListener {
+                val name = nameInput.text.toString().ifBlank { defaultName }
+                onConfirm(name)
+                dialog.dismiss()
+            }
+
+            dialog.show()
+        }
+
+        fun getRunningWorkspaceCount(ctx: Context): Int {
+            val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            return am.appTasks.count {
+                it.taskInfo?.baseActivity?.className == WorkspaceActivity::class.java.name
+            }
+        }
 
         fun showInfoDialog(themedCtx: Context, title: String, content: String, then: () -> Unit) {
             lateinit var dialog: AlertDialog

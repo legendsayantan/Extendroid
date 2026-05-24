@@ -17,6 +17,11 @@ import android.widget.PopupMenu
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.tabs.TabLayout
+import android.widget.ScrollView
+import androidx.core.widget.doOnTextChanged
+import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.materialswitch.MaterialSwitch
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
@@ -39,6 +44,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     var getTopApps: () -> List<String> = { listOf() }
     var requestDisableScreen: () -> Unit = {}
     var requestStartSelf: () -> Unit = {}
+    var requestNewWorkspace: () -> Unit = {}
     var dispatchEvent:(String, MotionEvent)-> Unit = {pkg,e->}
 
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -71,7 +77,9 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     val tabLayout by lazy { root!!.findViewById<TabLayout>(R.id.tabLayout) }
     val recyclerView by lazy { root!!.findViewById<FreezableRecyclerView>(R.id.recyclerView) }
     val moreBtn by lazy { root!!.findViewById<ImageView>(R.id.moreBtn) }
+    val settingsBtn by lazy { root!!.findViewById<ImageView>(R.id.settingsBtn) }
     val closeBtn by lazy { root!!.findViewById<ImageView>(R.id.actionBtn) }
+    val settingsScroll by lazy { root!!.findViewById<ScrollView>(R.id.settingsScroll) }
 
     private var closeCallback: () -> Unit = {}
     var collapseSeconds = 30L
@@ -130,7 +138,9 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                 }
             }
 
-            override fun onTabReselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {
+                onTabSelected(tab)
+            }
 
         })
 
@@ -154,8 +164,19 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
 
         moreBtn.setOnClickListener {
-            when (tabLayout.selectedTabPosition) {
-                0 -> showDropdownMenu(it)
+            showDropdownMenu(it)
+        }
+        settingsBtn.setOnClickListener {
+            recyclerView.visibility = View.GONE
+            settingsScroll.visibility = View.VISIBLE
+            initialiseSettings()
+            for (i in 0 until tabLayout.tabCount) {
+                tabLayout.getTabAt(i)?.customView?.let {
+                    it.findViewById<ConstraintLayout>(R.id.selectedBackground).animate().alpha(0f)
+                    it.findViewById<ImageView>(R.id.tabIcon).animate().translationY(ctx.dpToPx(-7f))
+                    it.findViewById<ImageView>(R.id.tabIconTinted).animate()
+                        .translationY(ctx.dpToPx(-7f))
+                }
             }
         }
         closeBtn.setOnClickListener {
@@ -177,6 +198,8 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
     fun reloadTabContents(tab: TabLayout.Tab) {
         startLoadingInBackground()
+        recyclerView.visibility = View.VISIBLE
+        settingsScroll.visibility = View.GONE
         if (tab.position == 0) {
             recyclerView.layoutManager =
                 StaggeredGridLayoutManager(gridColumnCount, StaggeredGridLayoutManager.VERTICAL)
@@ -242,9 +265,41 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         setAutoHide()
     }
 
+    private fun initialiseSettings() {
+        val collapseSeconds = root!!.findViewById<TextInputEditText>(R.id.collapseSeconds)
+        val densityAuto = root!!.findViewById<MaterialSwitch>(R.id.densityAuto)
+        val densityScale = root!!.findViewById<Slider>(R.id.densityScale)
+        val dimAmount = root!!.findViewById<Slider>(R.id.dimAmount)
+
+        collapseSeconds.hint = prefs.collapseSeconds.toString()
+        if (collapseSeconds.text.isNullOrBlank()) {
+            collapseSeconds.setText(prefs.collapseSeconds.toString())
+        }
+        densityAuto.isChecked = prefs.densityAuto
+        densityScale.value = prefs.densityScale
+        dimAmount.value = prefs.backgroundDim
+
+        collapseSeconds.doOnTextChanged { _, _, _, _ ->
+            prefs.collapseSeconds =
+                (collapseSeconds.text.toString().toLongOrNull() ?: 30L).coerceAtLeast(1)
+        }
+        densityAuto.setOnCheckedChangeListener { _, checked ->
+            prefs.densityAuto = checked
+        }
+        densityScale.addOnChangeListener { _, value, _ ->
+            prefs.densityScale = value
+        }
+        dimAmount.addOnChangeListener { _, value, _ ->
+            prefs.backgroundDim = value
+        }
+    }
+
     fun showDropdownMenu(anchor: View) {
         PopupMenu(themedCtx, anchor).apply {
             inflate(R.menu.menu_options)
+
+            menu.findItem(R.id.action_popup_all).isVisible = tabLayout.selectedTabPosition == 0
+            menu.findItem(R.id.action_fullscreen_all).isVisible = tabLayout.selectedTabPosition == 0
 
             setOnMenuItemClickListener { item ->
                 when (item.itemId) {
@@ -286,6 +341,11 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
                     R.id.action_start_app -> {
                         requestStartSelf()
+                        hide()
+                    }
+
+                    R.id.action_new_workspace -> {
+                        requestNewWorkspace()
                         hide()
                     }
                 }

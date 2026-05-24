@@ -15,4 +15,10 @@
     </style>
 
     <style name="Theme.Extendroid" parent="Base.Theme.Extendroid" />
+
+    <style name="Theme.Extendroid.Workspace" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/theme0</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

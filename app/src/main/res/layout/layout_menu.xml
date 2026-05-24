@@ -39,6 +39,15 @@
                 android:layout_height="wrap_content"/>
             <androidx.appcompat.widget.AppCompatImageView
                 android:layout_gravity="center_vertical"
+                android:id="@+id/settingsBtn"
+                android:src="@drawable/rounded_settings_24"
+                android:layout_marginEnd="5dp"
+                android:layout_marginBottom="2dp"
+                android:layout_width="40dp"
+                android:layout_height="30dp"
+                app:tint="?attr/colorOnSecondary" />
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_gravity="center_vertical"
                 android:id="@+id/moreBtn"
                 android:src="@drawable/outline_more_vert_24"
                 android:layout_marginEnd="10dp"
@@ -55,16 +64,29 @@
                 app:tint="?attr/colorOnSecondary" />
         </LinearLayout>
 
-        <dev.legendsayantan.extendroid.ui.FreezableRecyclerView
-            android:id="@+id/recyclerView"
-            android:translationZ="100dp"
-            android:clipChildren="true"
-            android:clipToPadding="false"
-            android:layout_marginTop="5dp"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="0dp"
+            android:layout_weight="1">
 
-        </dev.legendsayantan.extendroid.ui.FreezableRecyclerView>
+            <dev.legendsayantan.extendroid.ui.FreezableRecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="5dp"
+                android:clipChildren="true"
+                android:clipToPadding="false"
+                android:translationZ="100dp" />
+
+            <ScrollView
+                android:id="@+id/settingsScroll"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <include layout="@layout/layout_settings" />
+            </ScrollView>
+        </FrameLayout>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -15,4 +15,7 @@
     <item
         android:id="@+id/action_start_app"
         android:title="Configure"/>
+    <item
+        android:id="@+id/action_new_workspace"
+        android:title="@string/new_workspace" />
 </menu>
