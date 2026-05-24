@@ -6,6 +6,8 @@ package dev.legendsayantan.extendroid.echo
 import android.content.Context
 import android.media.projection.MediaProjection
 import android.view.Surface
+import dev.legendsayantan.extendroid.Utils
+import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.services.ExtendService
 import org.webrtc.CapturerObserver
@@ -19,22 +21,19 @@ import org.webrtc.VideoSink
  * A custom VideoCapturer for screen sharing that allows the application to manage the
  * lifecycle of the VirtualDisplay.
  *
- * This capturer accepts a pre-authorized `MediaProjection` instance to manage system callbacks.
  * When `startCapture` is called, it creates a secure `VirtualDisplay` via RootService using the Surface
  * from the WebRTC-provided `SurfaceTextureHelper`.
  *
- * @param mediaProjection An active `MediaProjection` instance obtained from the Android framework.
- * @param mediaProjectionCallback A callback to listen for `MediaProjection` events, like stop.
  * @param onSessionCreated A callback invoked with the newly created display ID.
  * @param onSessionReleased A callback invoked right before the capturer destroys the display.
+ * @param onMediaProjectionStopped A callback to listen for `MediaProjection` events, like stop.
  * @param displayName The name for the created VirtualDisplay.
  * @param displayDpi The screen density for the created VirtualDisplay. Defaults to 400.
  */
 class RemoteSessionRenderer(
-    private val mediaProjection: MediaProjection,
-    private val mediaProjectionCallback: MediaProjection.Callback,
     private val onSessionCreated: (displayId: Int) -> Unit,
     private val onSessionReleased: () -> Unit,
+    private val onMediaProjectionStopped: (() -> Unit)? = null,
     private val displayName: String = "Echo_Screen",
     private val displayDpi: Int = 400
 ) : VideoCapturer, VideoSink {
@@ -42,6 +41,7 @@ class RemoteSessionRenderer(
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var capturerObserver: CapturerObserver? = null
     private var displayId: Int = -1
+    private var mediaProjectionCallback: MediaProjection.Callback? = null
 
     private var width: Int = 0
     private var height: Int = 0
@@ -78,7 +78,16 @@ class RemoteSessionRenderer(
         this.width = width
         this.height = height
 
-        mediaProjection.registerCallback(mediaProjectionCallback, surfaceTextureHelper?.handler)
+        if (Utils.USE_MEDIAPROJECTION) {
+            MediaCore.mInstance?.projection?.let { projection ->
+                mediaProjectionCallback = object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        onMediaProjectionStopped?.invoke()
+                    }
+                }
+                projection.registerCallback(mediaProjectionCallback!!, surfaceTextureHelper?.handler)
+            }
+        }
 
         createVirtualDisplay()
 
@@ -92,7 +101,12 @@ class RemoteSessionRenderer(
             surfaceTextureHelper?.stopListening()
             capturerObserver?.onCapturerStopped()
 
-            mediaProjection.unregisterCallback(mediaProjectionCallback)
+            if (Utils.USE_MEDIAPROJECTION) {
+                mediaProjectionCallback?.let {
+                    MediaCore.mInstance?.projection?.unregisterCallback(it)
+                }
+                mediaProjectionCallback = null
+            }
 
             if (displayId != -1) {
                 onSessionReleased()

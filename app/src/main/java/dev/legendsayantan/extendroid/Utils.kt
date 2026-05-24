@@ -58,6 +58,7 @@ class Utils {
         fun onCommandError(error: String) {}
     }
     companion object {
+        const val USE_MEDIAPROJECTION = false
 
         private fun isActivityContext(context: Context): Boolean {
             var ctx = context

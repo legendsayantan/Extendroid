@@ -9,6 +9,7 @@ import android.media.projection.MediaProjectionManager
 import android.view.Surface
 import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
+import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.echo.RemoteSessionRenderer
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.services.ExtendService
@@ -124,24 +125,18 @@ open class MediaCore {
         scale:Float,
         onMediaProjectionStopped: () -> Unit
     ): RemoteSessionRenderer {
-        val mediaProjectionCallback = object : MediaProjection.Callback() {
-            override fun onStop() {
-                onMediaProjectionStopped()
-            }
-        }
-
         val density = RemoteSessionHandler.computedDensity(ctx, width, height, scale)
         val capturer = RemoteSessionRenderer(
-            mediaProjection = projection!!,
-            mediaProjectionCallback = mediaProjectionCallback,
-            { displayId ->
+            onSessionCreated = { displayId ->
                 echoDisplayIds[name] = displayId
                 echoDisplayParams[name] = arrayOf(displayId, width, height, density)
-            },{
+            },
+            onSessionReleased = {
                 // The actual destruction is now safely handled inside RemoteSessionRenderer via ExtendService.svc
                 echoDisplayIds.remove(name)
                 echoDisplayParams.remove(name)
             },
+            onMediaProjectionStopped = onMediaProjectionStopped,
             displayName = name,
             displayDpi = density
         )
@@ -162,6 +157,7 @@ open class MediaCore {
         var mInstance: MediaCore? = null
         var projectionManager: MediaProjectionManager? = null
         fun onMediaProjectionResult(requestCode: Int, resultCode: Int, data: Intent?) {
+            if (!Utils.USE_MEDIAPROJECTION) return
             if (requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
                 projectionManager?.getMediaProjection(
                     resultCode, data
@@ -176,6 +172,7 @@ open class MediaCore {
         }
 
         fun AppCompatActivity.requestMediaProjection() {
+            if (!Utils.USE_MEDIAPROJECTION) return
             Thread {
                 while (!proceedWithRequest && !isDestroyed) {
                     Thread.sleep(500)

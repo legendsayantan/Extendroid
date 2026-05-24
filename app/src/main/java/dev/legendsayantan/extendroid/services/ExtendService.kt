@@ -205,13 +205,14 @@ class ExtendService : Service() {
 
 
     private fun grantOwnPerms() {
-        val r = svc?.grantPermissions(
-            arrayOf(
-                "PROJECT_MEDIA",
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
-                if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
-            ).filter { it.isNotBlank() }
+        val permissions = mutableListOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
+            if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
         )
+        if (Utils.USE_MEDIAPROJECTION) {
+            permissions.add("PROJECT_MEDIA")
+        }
+        val r = svc?.grantPermissions(permissions.filter { it.isNotBlank() })
         logging.d(r.toString(),"ExtendService")
     }
 
@@ -293,7 +294,9 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         svc?.unregisterMotionEventListener()
-        MediaCore.mInstance?.projection?.stop()
+        if (Utils.USE_MEDIAPROJECTION) {
+            MediaCore.mInstance?.projection?.stop()
+        }
         MediaCore.mInstance = null
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
         unregisterReceiver(configReceiver)
@@ -357,7 +360,12 @@ class ExtendService : Service() {
 
 
         fun Service.startAsForegroundService() {
-            startForeground(1, createNoti(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            val type = if (Utils.USE_MEDIAPROJECTION && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            } else {
+                0
+            }
+            startForeground(1, createNoti(), type)
         }
 
         fun Context.showServiceNotification(echoRemoteCount: Int) {

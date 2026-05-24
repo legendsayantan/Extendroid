@@ -244,18 +244,34 @@ class MainActivity : AppCompatActivity() {
         }
         svcIntent = Intent(applicationContext, ExtendService::class.java)
         startForegroundService(svcIntent)
-        val projectionScheduler = Timer()
-        projectionScheduler.schedule(timerTask {
-            if(ExtendService.svc!=null){
-                requestMediaProjection()
-                this.cancel()
-                projectionScheduler.cancel()
-            }
-        },500,500)
+        if (Utils.USE_MEDIAPROJECTION) {
+            val projectionScheduler = Timer()
+            projectionScheduler.schedule(timerTask {
+                if (ExtendService.svc != null) {
+                    requestMediaProjection()
+                    this.cancel()
+                    projectionScheduler.cancel()
+                }
+            }, 500, 500)
+        } else {
+            val svcScheduler = Timer()
+            svcScheduler.schedule(timerTask {
+                if (ExtendService.svc != null) {
+                    runOnUiThread {
+                        initialiseSetupMenu()
+                        handleSections()
+                        initialiseConfigure()
+                        initialiseBottomBar()
+                    }
+                    this.cancel()
+                    svcScheduler.cancel()
+                }
+            }, 500, 500)
+        }
         if (intent.action == ACTION_AUTOSTART || intent.hasExtra(EXTRA_AUTOSTART)) {
             val closeTimer = Timer()
             closeTimer.schedule(timerTask {
-                if (ExtendService.svc != null && MediaCore.mInstance?.projection != null) {
+                if (ExtendService.svc != null && (!Utils.USE_MEDIAPROJECTION || MediaCore.mInstance?.projection != null)) {
                     this.cancel()
                     closeTimer.cancel()
                     finishAffinity()
@@ -266,10 +282,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        try {
-            MediaCore.onMediaProjectionResult(requestCode, resultCode, data)
-        }catch (e: Exception){
+        if (Utils.USE_MEDIAPROJECTION) {
+            try {
+                MediaCore.onMediaProjectionResult(requestCode, resultCode, data)
+            } catch (e: Exception) {
 
+            }
         }
     }
 
