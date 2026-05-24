@@ -1,8 +1,11 @@
 package dev.legendsayantan.extendroid
 
 
+import android.app.Activity
+import android.app.ActivityManager
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -13,27 +16,27 @@ import android.os.Build
 import android.os.Handler
 import android.provider.Settings
 import android.util.TypedValue
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import androidx.core.view.setPadding
 import androidx.palette.graphics.Palette
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import android.app.ActivityManager
-import android.view.ContextThemeWrapper
-import android.view.LayoutInflater
 import com.google.android.material.textfield.TextInputEditText
-import rikka.shizuku.Shizuku
-import java.util.Locale
-import androidx.core.net.toUri
 import moe.shizuku.server.IShizukuService
+import rikka.shizuku.Shizuku
 import java.io.BufferedReader
 import java.io.FileInputStream
 import java.io.InputStreamReader
+import java.util.Locale
 
 /**
  * @author legendsayantan
@@ -55,6 +58,15 @@ class Utils {
         fun onCommandError(error: String) {}
     }
     companion object {
+
+        private fun isActivityContext(context: Context): Boolean {
+            var ctx = context
+            while (ctx is ContextWrapper) {
+                if (ctx is Activity) return true
+                ctx = ctx.baseContext
+            }
+            return false
+        }
 
         fun isShizukuSetup(): Boolean {
             return Shizuku.pingBinder()
@@ -182,6 +194,9 @@ class Utils {
                 .create()
 
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+            if (!isActivityContext(ctx)) {
+                dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+            }
 
             doneBtn.setOnClickListener {
                 val name = nameInput.text.toString().ifBlank { finalDefaultName }
@@ -238,7 +253,11 @@ class Utils {
                 })
             })
             builder.setView(container)
-            dialog = builder.show()
+            dialog = builder.create()
+            if (!isActivityContext(themedCtx)) {
+                dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+            }
+            dialog.show()
         }
 
         fun Context.launchOnDefaultBrowser(url: String) {
