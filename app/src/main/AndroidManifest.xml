@@ -50,6 +50,12 @@
         </service>
 
         <activity
+                android:name=".WorkspaceActivity"
+                android:exported="false"
+                android:documentLaunchMode="always"
+                android:theme="@style/Theme.Extendroid.Workspace" />
+
+        <activity
                 android:name=".MainActivity"
                 android:exported="true"
                 android:launchMode="singleInstancePerTask"

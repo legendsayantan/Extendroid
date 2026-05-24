@@ -23,6 +23,8 @@ import android.view.WindowManager
 import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.R
+import dev.legendsayantan.extendroid.Utils
+import dev.legendsayantan.extendroid.WorkspaceActivity
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.echo.WebRTC
@@ -250,6 +252,15 @@ class ExtendService : Service() {
         }
         menu.requestStartSelf = {
             svc?.launchAppOnDisplay(packageName, Display.DEFAULT_DISPLAY)
+        }
+        menu.requestNewWorkspace = {
+            Utils.showWorkspaceNameDialog(this) { name ->
+                val intent = Intent(this, WorkspaceActivity::class.java).apply {
+                    putExtra(WorkspaceActivity.EXTRA_WORKSPACE_NAME, name)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            }
         }
         menu.dispatchEvent = { pkg, event ->
             print("${event.x} ${event.y} ${MotionEvent.actionToString(event.action)} ${event.rawX} ${event.rawY}")

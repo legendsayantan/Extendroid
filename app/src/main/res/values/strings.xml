@@ -13,6 +13,7 @@
     <string name="zoom">Zoom</string>
     <string name="adapt_content">Adapt Content</string>
     <string name="backdrop_dim">Backdrop Dim</string>
+    <string name="setup_tasks">Setup Tasks</string>
     <string name="app_logo">App logo</string>
     <string name="tab_logo">Tab logo</string>
     <string name="signed_in_as">Currently signed in as %1$s</string>
@@ -43,4 +44,7 @@
     <string name="sign_in_failed">Sign in failed</string>
     <string name="agreed_to_tos">"Only proceed to use Echo if you have read and agree to the Terms of Service provided at</string>
     <string name="account_already_exists">Account already exists, use the Log In Button.</string>
+    <string name="new_workspace">New Workspace</string>
+    <string name="create">Create</string>
+    <string name="new_workspace_btn">Create Workspace</string>
 </resources>

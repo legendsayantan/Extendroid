@@ -1,11 +1,9 @@
 package dev.legendsayantan.extendroid
 
-import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.view.InputDevice
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
@@ -19,11 +17,8 @@ import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
-import androidx.core.widget.doOnTextChanged
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.slider.Slider
-import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.Firebase
 import com.google.firebase.appcheck.appCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
@@ -34,7 +29,6 @@ import dev.legendsayantan.extendroid.Utils.Companion.isShizukuAllowed
 import dev.legendsayantan.extendroid.Utils.Companion.isShizukuSetup
 import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
-import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
@@ -44,7 +38,6 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import java.util.*
 import kotlin.concurrent.timerTask
-import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
     val prefs by lazy { Prefs(applicationContext) }
@@ -156,33 +149,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun initialiseConfigure() {
         val floatingBall = findViewById<MaterialSwitch>(R.id.floatingBall)
-        val collapseSeconds = findViewById<TextInputEditText>(R.id.collapseSeconds)
-        val densityAuto = findViewById<MaterialSwitch>(R.id.densityAuto)
-        val densityScale = findViewById<Slider>(R.id.densityScale)
-        val dimAmount = findViewById<Slider>(R.id.dimAmount)
+        val tasksRow = findViewById<LinearLayout>(R.id.tasksRow)
+        val workspaceRow = findViewById<LinearLayout>(R.id.workspaceRow)
 
         floatingBall.isChecked = prefs.floatingBall
-        collapseSeconds.hint = prefs.collapseSeconds.toString()
-        collapseSeconds.setText(prefs.collapseSeconds.toString())
-        densityAuto.isChecked = prefs.densityAuto
-        densityScale.value = prefs.densityScale
-        dimAmount.value = prefs.backgroundDim
 
-        floatingBall.setOnCheckedChangeListener { btn, checked ->
+        floatingBall.setOnCheckedChangeListener { _, checked ->
             prefs.floatingBall = checked
         }
-        collapseSeconds.doOnTextChanged { txt, a, b, c ->
-            prefs.collapseSeconds =
-                (collapseSeconds.text.toString().toLongOrNull() ?: 30L).coerceAtLeast(1)
+        tasksRow.setOnClickListener {
+            //TODO: implement tasks
         }
-        densityAuto.setOnCheckedChangeListener { btn, checked ->
-            prefs.densityAuto = checked
-        }
-        densityScale.addOnChangeListener { slider, value, fromUser ->
-            prefs.densityScale = value
-        }
-        dimAmount.addOnChangeListener { slider, value, fromUser ->
-            prefs.backgroundDim = value
+        workspaceRow.setOnClickListener {
+            Utils.showWorkspaceNameDialog(this) { name ->
+                val intent = Intent(this, WorkspaceActivity::class.java).apply {
+                    putExtra(WorkspaceActivity.EXTRA_WORKSPACE_NAME, name)
+                }
+                startActivity(intent)
+            }
         }
     }
 
