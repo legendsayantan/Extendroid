@@ -13,7 +13,7 @@
     <string name="zoom">Zoom</string>
     <string name="adapt_content">Adapt Content</string>
     <string name="backdrop_dim">Backdrop Dim</string>
-    <string name="setup_tasks">Setup Tasks</string>
+    <string name="manage_tasks">Manage Tasks</string>
     <string name="app_logo">App logo</string>
     <string name="tab_logo">Tab logo</string>
     <string name="signed_in_as">Currently signed in as %1$s</string>
