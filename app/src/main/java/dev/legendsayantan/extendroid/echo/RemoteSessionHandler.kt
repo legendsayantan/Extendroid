@@ -17,6 +17,7 @@ import dev.legendsayantan.extendroid.lib.PackageManagerHelper
 import dev.legendsayantan.extendroid.services.IRootService
 import org.json.JSONObject
 import org.webrtc.DataChannel
+import java.util.concurrent.Executors
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.forEach
@@ -29,6 +30,7 @@ import kotlin.math.roundToInt
  */
 class RemoteSessionHandler {
     companion object {
+        private val backgroundExecutor = Executors.newSingleThreadExecutor()
 
         fun handleDataChannel(
             ctx: Context,
@@ -48,7 +50,7 @@ class RemoteSessionHandler {
 
                 DataChannel.State.OPEN -> {
                     if(!noDisplay){
-                        Thread {
+                        backgroundExecutor.execute {
                             val allAppsMap =
                                 PackageManagerHelper.getLaunchableApps(ctx.packageManager)
                                     .associate {
@@ -56,10 +58,12 @@ class RemoteSessionHandler {
                                     }
                             val blacklist = prefs.echoBlackList
                             val appListJson = Gson().toJson(allAppsMap.filterNot { blacklist.contains(it.key) })
-                            dataChannel.send(
-                                createDataChannelPacket(appListJson, PacketType.InstalledApps)
-                            )
-                        }.start()
+                            if (dataChannel.state() == DataChannel.State.OPEN) {
+                                dataChannel.send(
+                                    createDataChannelPacket(appListJson, PacketType.InstalledApps)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -226,6 +230,7 @@ class RemoteSessionHandler {
             mediaCore: MediaCore,
             svc: IRootService
         ) {
+            mediaCore.onRunningRemoteAppsUpdate = {}
             mediaCore.appRemoteAccessHistory[connectionId]?.forEach { appPackage ->
                 svc.exitTasks(appPackage)
             }

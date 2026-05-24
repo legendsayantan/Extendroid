@@ -147,6 +147,11 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
         }
     }
 
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        handler.removeCallbacks(fadeRunnable)
+    }
+
 }
 
 
