@@ -2,7 +2,7 @@
 
 Android Multi-Tasking Manager with desktop-like multi window support.
 
-> In this `master` branch, everything was re-built from scratch. Visit the `legacy` branch for the old version.
+> In this `no-mediaprojection` branch, I am experimenting with advanced APIs and features to add. Visit the `master` or `legacy` branches for the old versions.
 
 ## Requirements:
 - Android 10 or newer device
