@@ -47,4 +47,11 @@
     <string name="new_workspace">New Workspace</string>
     <string name="create">Create</string>
     <string name="new_workspace_btn">Create Workspace</string>
+    <string name="record_task">Record Task</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="tasks">Tasks</string>
+    <string name="recording_started_toast">Recording started for %1$s. Other apps will not be recorded.</string>
+    <string name="task_name">Task Name</string>
+    <string name="task_name_exists">Task name already exists!</string>
+    <string name="record">Record</string>
 </resources>
