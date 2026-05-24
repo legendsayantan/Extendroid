@@ -302,6 +302,7 @@ class ExtendService : Service() {
         svc = null
         ball.hide()
         menu.hide()
+        setupEchoCommand = { _, _, _ -> }
         super.onDestroy()
     }
 

@@ -13,13 +13,14 @@ import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.RemoteSessionRenderer
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
-import java.util.Timer
-import kotlin.concurrent.timerTask
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * @author legendsayantan
  */
 open class MediaCore {
+    private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
     var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
@@ -106,7 +107,9 @@ open class MediaCore {
 
     fun stopVirtualDisplay(packageName: String) {
         appTaskToClear(packageName)
-        Timer().schedule(timerTask { fullScreen(packageName) }, 250)
+        scheduler.schedule({
+            fullScreen(packageName)
+        }, 250, TimeUnit.MILLISECONDS)
     }
 
     fun updateSurface(packageName: String, surface: Surface) {
@@ -176,9 +179,10 @@ open class MediaCore {
 
         fun AppCompatActivity.requestMediaProjection() {
             Thread {
-                while (!proceedWithRequest) {
+                while (!proceedWithRequest && !isDestroyed) {
                     Thread.sleep(500)
                 }
+                if (isDestroyed) return@Thread
                 projectionManager =
                     getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 

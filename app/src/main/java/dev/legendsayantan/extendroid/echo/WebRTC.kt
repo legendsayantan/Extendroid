@@ -358,7 +358,7 @@ class WebRTC {
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                         if (state != null) onStateChanged(state)
                         if (listOf(FAILED, CLOSED, DISCONNECTED).contains(state)) {
-                            peerConnections.remove(connectionId)
+                            closeConnection(connectionId)
                         }
                     }
 
@@ -474,8 +474,18 @@ class WebRTC {
          * Closes and clears all created peer connections
          */
         fun closeAll() {
-            peerConnections.forEach { it.value.close() }
-            peerConnections.clear()
+            peerConnections.keys.toList().forEach { closeConnection(it) }
+        }
+
+        private fun closeConnection(connectionId: Long) {
+            videoCapturers.remove(connectionId)?.let {
+                it.stopCapture()
+                it.dispose()
+            }
+            videoTracks.remove(connectionId)?.dispose()
+            videoSources.remove(connectionId)?.dispose()
+            surfaceTextureHelpers.remove(connectionId)?.dispose()
+            peerConnections.remove(connectionId)?.dispose()
         }
 
         // Kotlin: preferLowestLatencyCodecInSdp(offerSdp)

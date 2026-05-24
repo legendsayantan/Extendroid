@@ -28,7 +28,7 @@ class AppGridAdapter(
     var showPinnedAtTop = false
     var prepinned: Set<String> = Prefs(context).pinnedApps
 
-    val refreshCallback = {
+    fun refresh() {
         prepinned = Prefs(context).pinnedApps
         notifyDataSetChanged()
     }
@@ -44,8 +44,8 @@ class AppGridAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.bind(
             packages[position],
-            { onItemClick(it,refreshCallback) },
-            { onItemLongClick(it,refreshCallback) },
+            { onItemClick(it) { refresh() } },
+            { onItemLongClick(it) { refresh() } },
             preselected.contains(packages[position].packageName),
             showPinnedAtTop && prepinned.contains(packages[position].packageName)
         )

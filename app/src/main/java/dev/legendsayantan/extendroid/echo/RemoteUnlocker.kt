@@ -20,6 +20,8 @@ import kotlin.concurrent.timerTask
 class RemoteUnlocker(val ctx: Context) {
 
     val gson = Gson()
+    private val activeTimers = mutableListOf<Timer>()
+
     var unlockData: Array<RemoteSessionHandler.MotionEventData>
         get() {
             return try {
@@ -56,6 +58,7 @@ class RemoteUnlocker(val ctx: Context) {
         val keyguardManager =
             ctx.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         val timer = Timer()
+        activeTimers.add(timer)
         var wasLocked = false
         var startDownTime = 0L
         var startEventTime = 0L
@@ -90,6 +93,7 @@ class RemoteUnlocker(val ctx: Context) {
                     } finally {
                         try {
                             timer.cancel()
+                            activeTimers.remove(timer)
                         } catch (e: Exception) {
                             System.err.println(e.stackTraceToString())
                         }
@@ -114,11 +118,13 @@ class RemoteUnlocker(val ctx: Context) {
     fun unlock(svc: IRootService){
         svc.wakeUp();
         val timer = Timer()
+        activeTimers.add(timer)
         val handler = Handler(ctx.mainLooper)
         val now = System.currentTimeMillis()+1000;
         val uptimeMillis = SystemClock.uptimeMillis()+1000;
         val scaling = determineScaling(svc)
         Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
+        val lastIndex = unlockData.size - 1
         unlockData.forEachIndexed { index, eventData ->
             val timeToRun = now + eventData.eventTime
             eventData.downTime += uptimeMillis;
@@ -126,9 +132,20 @@ class RemoteUnlocker(val ctx: Context) {
             val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scaling)
             timer.schedule(timerTask {
                 println("posting $eventData")
-                handler.post { svc.dispatch(motionEvent,0) }
+                handler.post { 
+                    svc.dispatch(motionEvent,0) 
+                    if (index == lastIndex) {
+                        timer.cancel()
+                        activeTimers.remove(timer)
+                    }
+                }
             }, Date(timeToRun))
         }
+    }
+
+    fun cleanup() {
+        activeTimers.forEach { it.cancel() }
+        activeTimers.clear()
     }
 
     companion object {

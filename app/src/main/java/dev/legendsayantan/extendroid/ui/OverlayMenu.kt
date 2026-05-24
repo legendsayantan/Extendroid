@@ -38,12 +38,14 @@ import dev.legendsayantan.extendroid.lib.TaskManager
 import dev.legendsayantan.extendroid.lib.toSerializable
 import dev.legendsayantan.extendroid.model.TaskData
 import java.lang.Exception
+import java.util.concurrent.Executors
 
 
 /**
  * @author legendsayantan
  */
 class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
+    private val backgroundExecutor = Executors.newSingleThreadExecutor()
     var openInPopup: (String, Int, Int, Int) -> Unit = { s, w, h, c -> }
     var containsPopup: (String) -> Boolean = { false }
     var minimisePopup: (String) -> Unit = {}
@@ -196,15 +198,17 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun startLoadingInBackground() {
-        Thread {
-            installedApps = PackageManagerHelper.getLaunchableApps(ctx.packageManager)
-                .filter { it.packageName != ctx.packageName }
-            val pinned = prefs.pinnedApps
-            val topPkgs = pinned + getTopApps()
-            specialApps = installedApps.filter {
-                topPkgs.contains(it.packageName) && !activePackages.contains(it.packageName)
-            }.sortedByDescending { pinned.contains(it.packageName) }
-        }.start()
+        if (!backgroundExecutor.isShutdown) {
+            backgroundExecutor.execute {
+                installedApps = PackageManagerHelper.getLaunchableApps(ctx.packageManager)
+                    .filter { it.packageName != ctx.packageName }
+                val pinned = prefs.pinnedApps
+                val topPkgs = pinned + getTopApps()
+                specialApps = installedApps.filter {
+                    topPkgs.contains(it.packageName) && !activePackages.contains(it.packageName)
+                }.sortedByDescending { pinned.contains(it.packageName) }
+            }
+        }
     }
 
     fun reloadTabContents(tab: TabLayout.Tab) {
@@ -490,6 +494,12 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                 }, 250)
             }, 250)
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        removeAutoHide()
+        backgroundExecutor.shutdownNow()
     }
 
     companion object {
