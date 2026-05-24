@@ -289,6 +289,7 @@ class EchoActivity : AppCompatActivity() {
     override fun onDestroy() {
         FirebaseAuth.getInstance().removeAuthStateListener(authStateListener)
         prefs.unregisterEchoChangeListener(echoChanged)
+        remoteUnlocker.cleanup()
         preventShowing = false
         super.onDestroy()
     }

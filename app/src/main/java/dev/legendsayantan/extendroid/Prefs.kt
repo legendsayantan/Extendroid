@@ -3,6 +3,7 @@ package dev.legendsayantan.extendroid
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import java.lang.ref.WeakReference
 import androidx.core.content.edit
 import dev.legendsayantan.extendroid.lib.Logging
 import org.json.JSONArray
@@ -16,27 +17,55 @@ class Prefs(val context: Context) {
     val echo: SharedPreferences = context.getSharedPreferences("echo", Context.MODE_PRIVATE)
 
     fun configChanged() {
-        configChangeListeners.forEach { it(context) }
+        configChangeListeners.iterator().let { iterator ->
+            while (iterator.hasNext()) {
+                val listener = iterator.next().get()
+                if (listener != null) listener(context)
+                else iterator.remove()
+            }
+        }
     }
 
     fun echoChanged() {
-        echoChangeListeners.forEach { it(context) }
+        echoChangeListeners.iterator().let { iterator ->
+            while (iterator.hasNext()) {
+                val listener = iterator.next().get()
+                if (listener != null) listener(context)
+                else iterator.remove()
+            }
+        }
     }
 
     fun registerConfigChangeListener(listener: (callingContext: Context) -> Unit) {
-        if (!configChangeListeners.contains(listener)) configChangeListeners.add(listener)
+        if (configChangeListeners.none { it.get() == listener }) {
+            configChangeListeners.add(WeakReference(listener))
+        }
     }
 
     fun unregisterConfigChangeListener(listener: (callingContext: Context) -> Unit) {
-        configChangeListeners.remove(listener)
+        val iterator = configChangeListeners.iterator()
+        while (iterator.hasNext()) {
+            val ref = iterator.next()
+            if (ref.get() == listener || ref.get() == null) {
+                iterator.remove()
+            }
+        }
     }
 
     fun registerEchoChangeListener(listener: (callingContext: Context) -> Unit) {
-        if (!echoChangeListeners.contains(listener)) echoChangeListeners.add(listener)
+        if (echoChangeListeners.none { it.get() == listener }) {
+            echoChangeListeners.add(WeakReference(listener))
+        }
     }
 
     fun unregisterEchoChangeListener(listener: (callingContext: Context) -> Unit) {
-        echoChangeListeners.remove(listener)
+        val iterator = echoChangeListeners.iterator()
+        while (iterator.hasNext()) {
+            val ref = iterator.next()
+            if (ref.get() == listener || ref.get() == null) {
+                iterator.remove()
+            }
+        }
     }
 
     var allowedMiuiPerms: Boolean
@@ -167,7 +196,7 @@ class Prefs(val context: Context) {
 
 
     companion object {
-        val configChangeListeners: ArrayList<(Context) -> Unit> = arrayListOf()
-        val echoChangeListeners: ArrayList<(Context) -> Unit> = arrayListOf()
+        val configChangeListeners: ArrayList<WeakReference<(Context) -> Unit>> = arrayListOf()
+        val echoChangeListeners: ArrayList<WeakReference<(Context) -> Unit>> = arrayListOf()
     }
 }
