@@ -156,14 +156,26 @@ class Utils {
         /** Linear interpolate between a and b */
         fun lerp(a: Int, b: Int, t: Float) = (a + (b - a) * t).toInt()
 
-        fun showWorkspaceNameDialog(ctx: Context, onConfirm: (String) -> Unit) {
+        fun showInputDialog(
+            ctx: Context,
+            title: String? = null,
+            placeholder: String? = null,
+            confirmText: String? = null,
+            defaultName: String? = null,
+            onConfirm: (String) -> Unit
+        ) {
             val themedCtx = ContextThemeWrapper(ctx, R.style.Theme_Extendroid)
             val dialogView = LayoutInflater.from(themedCtx).inflate(R.layout.dialog_new_workspace, null)
+            val heading = dialogView.findViewById<TextView>(R.id.heading)
+            val nameInputLayout = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.nameInputLayout)
             val nameInput = dialogView.findViewById<TextInputEditText>(R.id.nameInput)
             val doneBtn = dialogView.findViewById<MaterialButton>(R.id.doneBtn)
 
-            val defaultName = "Extendroid Workspace ${getRunningWorkspaceCount(ctx) + 1}"
-            nameInput.setText(defaultName)
+            title?.let { heading.text = it }
+            placeholder?.let { nameInputLayout.placeholderText = it }
+            confirmText?.let { doneBtn.text = it }
+            val finalDefaultName = defaultName ?: "Extendroid Workspace ${getRunningWorkspaceCount(ctx) + 1}"
+            nameInput.setText(finalDefaultName)
 
             val dialog = MaterialAlertDialogBuilder(themedCtx)
                 .setView(dialogView)
@@ -172,12 +184,17 @@ class Utils {
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
             doneBtn.setOnClickListener {
-                val name = nameInput.text.toString().ifBlank { defaultName }
+                val name = nameInput.text.toString().ifBlank { finalDefaultName }
                 onConfirm(name)
                 dialog.dismiss()
             }
 
             dialog.show()
+        }
+
+        @Deprecated("Use showInputDialog instead", ReplaceWith("showInputDialog(ctx, onConfirm = onConfirm)"))
+        fun showWorkspaceNameDialog(ctx: Context, onConfirm: (String) -> Unit) {
+            showInputDialog(ctx, onConfirm = onConfirm)
         }
 
         fun getRunningWorkspaceCount(ctx: Context): Int {

@@ -32,6 +32,12 @@ import dev.legendsayantan.extendroid.model.AppItem
 import dev.legendsayantan.extendroid.model.WindowData
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.PackageManagerHelper
+import android.widget.Toast
+import com.google.android.material.button.MaterialButton
+import dev.legendsayantan.extendroid.lib.TaskManager
+import dev.legendsayantan.extendroid.lib.toSerializable
+import dev.legendsayantan.extendroid.model.TaskData
+import java.lang.Exception
 
 
 /**
@@ -113,6 +119,11 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     var installedApps = listOf<AppItem>()
     var specialApps = listOf<AppItem>()
 
+
+    var isRecording = false
+    private var recordingStartTime = 0L
+    private var recordingTask: TaskData? = null
+    private var pendingTaskName: String? = null
 
     lateinit var staggeredGridAdapter: StaggeredGridAdapter
 
@@ -230,9 +241,32 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                             hide()
                         }
                     },
-                    onTouchEvent = { pkg,event->
+                    onTouchEvent = { pkg, event ->
                         setAutoHide()
-                        dispatchEvent(pkg,event)
+                        if (isRecording) {
+                            if (recordingTask == null) {
+                                val window = activeWindowsData.find { it.packageName == pkg }
+                                recordingTask = TaskData(
+                                    taskKey = pendingTaskName ?: System.currentTimeMillis().toString(),
+                                    pkgName = pkg,
+                                    zoom = prefs.densityScale,
+                                    ratio = window?.ratio ?: 1f,
+                                    touches = hashMapOf()
+                                )
+                                Toast.makeText(
+                                    ctx,
+                                    ctx.getString(R.string.recording_started_toast, pkg),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            if (recordingTask?.pkgName == pkg) {
+                                recordingTask?.touches?.put(
+                                    System.currentTimeMillis() - recordingStartTime,
+                                    event.toSerializable()
+                                )
+                            }
+                        }
+                        dispatchEvent(pkg, event)
                     },
                     onSurfaceAvailable = { pkg, textureView, width, height ->
                         MediaCore.mInstance?.setupVirtualDisplay(
@@ -270,6 +304,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         val densityAuto = root!!.findViewById<MaterialSwitch>(R.id.densityAuto)
         val densityScale = root!!.findViewById<Slider>(R.id.densityScale)
         val dimAmount = root!!.findViewById<Slider>(R.id.dimAmount)
+        val recordTask = root!!.findViewById<MaterialButton>(R.id.recordTask)
 
         collapseSeconds.hint = prefs.collapseSeconds.toString()
         if (collapseSeconds.text.isNullOrBlank()) {
@@ -292,7 +327,38 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         dimAmount.addOnChangeListener { _, value, _ ->
             prefs.backgroundDim = value
         }
+        recordTask.setOnClickListener {
+            if (!isRecording) {
+                Utils.showInputDialog(
+                    ctx,
+                    title = ctx.getString(R.string.record_task),
+                    placeholder = ctx.getString(R.string.task_name),
+                    confirmText = ctx.getString(R.string.record),
+                    defaultName = "task_${System.currentTimeMillis()}"
+                ) { name ->
+                    if (TaskManager.taskExists(ctx, name)) {
+                        Toast.makeText(ctx, R.string.task_name_exists, Toast.LENGTH_SHORT).show()
+                    } else {
+                        isRecording = true
+                        pendingTaskName = name
+                        recordTask.text = ctx.getString(R.string.stop_recording)
+                        recordingStartTime = System.currentTimeMillis()
+                        recordingTask = null
+                        tabLayout.getTabAt(0)?.select()
+                        settingsScroll.visibility = View.GONE
+                        recyclerView.visibility = View.VISIBLE
+                    }
+                }
+            } else {
+                isRecording = false
+                recordTask.text = ctx.getString(R.string.record_task)
+                recordingTask?.let { TaskManager.saveTask(ctx, it) }
+                recordingTask = null
+                pendingTaskName = null
+            }
+        }
     }
+
 
     fun showDropdownMenu(anchor: View) {
         PopupMenu(themedCtx, anchor).apply {
@@ -405,6 +471,13 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun hide() {
+        if (isRecording) {
+            isRecording = false
+            recordingTask?.let { TaskManager.saveTask(ctx, it) }
+            recordingTask = null
+            pendingTaskName = null
+            root!!.findViewById<MaterialButton>(R.id.recordTask).text = ctx.getString(R.string.record_task)
+        }
         if (parent != null && isShowing) {
             isShowing = false
             animate().scaleY(0f).setDuration(250).start()
