@@ -80,6 +80,19 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         instance = this
 
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
+                val intent = Intent(this, FocusYankActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                }
+                val options = android.app.ActivityOptions.makeBasic()
+                options.launchDisplayId = 0
+                startActivity(intent, options.toBundle())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }, 500)
+
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -365,18 +378,4 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
         return (this * resources.displayMetrics.density).toInt()
     }
 
-    override fun onResume() {
-        super.onResume()
-        try {
-            val intent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val options = ActivityOptions.makeBasic()
-            options.launchDisplayId = 0
-            startActivity(intent, options.toBundle())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
 }

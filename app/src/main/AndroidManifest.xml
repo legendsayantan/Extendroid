@@ -46,6 +46,11 @@
         <activity
                 android:name=".EchoActivity"
                 android:exported="false"/>
+        <activity
+                android:name=".FocusYankActivity"
+                android:exported="false"
+                android:excludeFromRecents="true"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
         <service
                 android:name=".services.ExtendService"
