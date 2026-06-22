@@ -31,7 +31,6 @@ import dev.legendsayantan.extendroid.Utils.Companion.miuiRequirements
 import dev.legendsayantan.extendroid.echo.EchoNetworkUtils
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
-import dev.legendsayantan.extendroid.lib.MediaCore.Companion.requestMediaProjection
 import dev.legendsayantan.extendroid.services.ExtendService
 import dev.legendsayantan.extendroid.services.ExtendService.Companion.svcIntent
 import org.lsposed.hiddenapibypass.HiddenApiBypass
@@ -244,50 +243,28 @@ class MainActivity : AppCompatActivity() {
         }
         svcIntent = Intent(applicationContext, ExtendService::class.java)
         startForegroundService(svcIntent)
-        if (Utils.USE_MEDIAPROJECTION) {
-            val projectionScheduler = Timer()
-            projectionScheduler.schedule(timerTask {
-                if (ExtendService.svc != null) {
-                    requestMediaProjection()
-                    this.cancel()
-                    projectionScheduler.cancel()
+        val svcScheduler = Timer()
+        svcScheduler.schedule(timerTask {
+            if (ExtendService.svc != null) {
+                runOnUiThread {
+                    initialiseSetupMenu()
+                    handleSections()
+                    initialiseConfigure()
+                    initialiseBottomBar()
                 }
-            }, 500, 500)
-        } else {
-            val svcScheduler = Timer()
-            svcScheduler.schedule(timerTask {
-                if (ExtendService.svc != null) {
-                    runOnUiThread {
-                        initialiseSetupMenu()
-                        handleSections()
-                        initialiseConfigure()
-                        initialiseBottomBar()
-                    }
-                    this.cancel()
-                    svcScheduler.cancel()
-                }
-            }, 500, 500)
-        }
+                this.cancel()
+                svcScheduler.cancel()
+            }
+        }, 500, 500)
         if (intent.action == ACTION_AUTOSTART || intent.hasExtra(EXTRA_AUTOSTART)) {
             val closeTimer = Timer()
             closeTimer.schedule(timerTask {
-                if (ExtendService.svc != null && (!Utils.USE_MEDIAPROJECTION || MediaCore.mInstance?.projection != null)) {
+                if (ExtendService.svc != null) {
                     this.cancel()
                     closeTimer.cancel()
                     finishAffinity()
                 }
             }, 500, 500)
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (Utils.USE_MEDIAPROJECTION) {
-            try {
-                MediaCore.onMediaProjectionResult(requestCode, resultCode, data)
-            } catch (e: Exception) {
-
-            }
         }
     }
 

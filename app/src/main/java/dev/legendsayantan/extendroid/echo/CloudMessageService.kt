@@ -59,30 +59,30 @@ class CloudMessageService : FirebaseMessagingService(){
                 val idToken = tokenResult.result!!.token!!
                 if (!Utils.isShizukuSetup() || !Utils.isShizukuAllowed()) {
                     logging.notify("Failed to start Echo!", "Extendroid is not properly set up.", "Echo")
-//                    FirebaseAuth.getInstance().currentUser?.uid?.let {
-//                        EchoNetworkUtils.postSignal(
-//                            applicationContext,
-//                            it,
-//                            idToken,
-//                            error = "App not set up properly"
-//                        )
-//                    }
+                    FirebaseAuth.getInstance().currentUser?.uid?.let {
+                        EchoNetworkUtils.postSignal(
+                            applicationContext,
+                            it,
+                            idToken,
+                            error = "App not set up properly"
+                        )
+                    }
                     return@addOnCompleteListener
-                }
-                if (svc == null || MediaCore.mInstance?.projection == null) {
-                    val compName = "${applicationContext.packageName}/.${MainActivity::class.java.simpleName}"
-                    Utils.startComponent(
-                        compName,
-                        action = MainActivity.ACTION_AUTOSTART,
-                        listener = object : Utils.CommandResultListener {})
                 }
                 if (!tokenResult.isSuccessful) {
                     logging.i("Failed to get ID token: ${tokenResult.exception?.message?:"No error message"}","CloudMessageService")
                     return@addOnCompleteListener
                 }
+                if (svc == null) {
+                    val compName = "${applicationContext.packageName}/${dev.legendsayantan.extendroid.services.ExtendService::class.java.name}"
+                    Utils.startComponent(
+                        component = compName,
+                        isService = true,
+                        listener = object : Utils.CommandResultListener {})
+                }
                 val scheduledChecker = Timer()
                 scheduledChecker.schedule(timerTask {
-                    if(svc != null && MediaCore.mInstance?.projection != null){
+                    if(svc != null){
                         //we can start!
                         this.cancel()
                         scheduledChecker.cancel()

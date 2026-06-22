@@ -2,19 +2,16 @@ package dev.legendsayantan.extendroid.lib
 
 import android.app.Activity
 import android.content.Context
-import android.content.Context.MEDIA_PROJECTION_SERVICE
-import android.content.Intent
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
 import android.view.Surface
-import androidx.appcompat.app.AppCompatActivity
 import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.Utils
+import dev.legendsayantan.extendroid.VirtualDisplayNoContentActivity
 import dev.legendsayantan.extendroid.echo.RemoteSessionRenderer
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.services.ExtendService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+
 
 /**
  * @author legendsayantan
@@ -25,7 +22,6 @@ open class MediaCore {
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
     var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
 
-    var projection: MediaProjection? = null
     var virtualDisplayIds: HashMap<String, Int> = hashMapOf()
 
     // Changed to store display IDs rather than VirtualDisplay objects
@@ -53,13 +49,6 @@ open class MediaCore {
             return x;
         }
     }
-    private fun init(mediaProjection: MediaProjection) {
-        projection = mediaProjection
-        mediaProjectionReady()
-    }
-
-    open fun mediaProjectionReady() {}
-
     fun setupVirtualDisplay(
         context: Context,
         packageName: String,
@@ -99,6 +88,7 @@ open class MediaCore {
 
     fun fullScreen(packageName: String) {
         virtualDisplayIds[packageName]?.let {
+            VirtualDisplayNoContentActivity.instance?.finish()
             ExtendService.svc?.destroyVirtualDisplay(it)
             virtualDisplayIds.remove(packageName)
         }
@@ -123,20 +113,20 @@ open class MediaCore {
         width: Int,
         height: Int,
         scale:Float,
-        onMediaProjectionStopped: () -> Unit
+        onDisplayReady: (Int) -> Unit = {}
     ): RemoteSessionRenderer {
         val density = RemoteSessionHandler.computedDensity(ctx, width, height, scale)
         val capturer = RemoteSessionRenderer(
             onSessionCreated = { displayId ->
                 echoDisplayIds[name] = displayId
                 echoDisplayParams[name] = arrayOf(displayId, width, height, density)
+                onDisplayReady(displayId)
             },
             onSessionReleased = {
                 // The actual destruction is now safely handled inside RemoteSessionRenderer via ExtendService.svc
                 echoDisplayIds.remove(name)
                 echoDisplayParams.remove(name)
             },
-            onMediaProjectionStopped = onMediaProjectionStopped,
             displayName = name,
             displayDpi = density
         )
@@ -152,39 +142,8 @@ open class MediaCore {
     open fun appTaskToClear(packageName: String) {}
 
     companion object {
-        const val REQUEST_CODE = 23
         var proceedWithRequest = false
         var mInstance: MediaCore? = null
-        var projectionManager: MediaProjectionManager? = null
-        fun onMediaProjectionResult(requestCode: Int, resultCode: Int, data: Intent?) {
-            if (!Utils.USE_MEDIAPROJECTION) return
-            if (requestCode == REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
-                projectionManager?.getMediaProjection(
-                    resultCode, data
-                )?.let {
-                    mInstance?.init(
-                        it
-                    )
-                }
-            } else {
-                throw RuntimeException("Permission denied")
-            }
-        }
-
-        fun AppCompatActivity.requestMediaProjection() {
-            if (!Utils.USE_MEDIAPROJECTION) return
-            Thread {
-                while (!proceedWithRequest && !isDestroyed) {
-                    Thread.sleep(500)
-                }
-                if (isDestroyed) return@Thread
-                projectionManager =
-                    getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-
-                val captureIntent = projectionManager!!.createScreenCaptureIntent()
-                startActivityForResult(captureIntent, REQUEST_CODE)
-            }.start()
-        }
     }
 
 

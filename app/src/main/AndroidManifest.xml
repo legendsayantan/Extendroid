@@ -14,7 +14,12 @@
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
     <application
             android:allowBackup="true"
@@ -33,7 +38,7 @@
                 android:taskAffinity=""
                 android:launchMode="singleTask"
                 android:excludeFromRecents="true"
-                android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                android:theme="@style/Theme.Extendroid.NoContent">
         </activity>
         <activity
                 android:name=".LogsActivity"
@@ -46,7 +51,7 @@
                 android:name=".services.ExtendService"
                 android:enabled="true"
                 android:exported="true"
-                android:foregroundServiceType="mediaProjection">
+                android:foregroundServiceType="specialUse">
         </service>
 
         <activity

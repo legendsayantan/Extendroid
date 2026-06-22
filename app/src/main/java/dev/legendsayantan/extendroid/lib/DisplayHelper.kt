@@ -1,10 +1,8 @@
 package dev.legendsayantan.extendroid.lib
 
 import android.annotation.SuppressLint
-import android.app.ActivityOptions
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.os.Binder.clearCallingIdentity
@@ -586,19 +584,6 @@ class DisplayHelper {
                                 activeDisplays[id] = vd
                                 println("Successfully created VirtualDisplay with flags: $flags")
                                 Logging(context).i("Using Display Flags: $flags", "DisplayHelper")
-                                try {
-                                    val intent = Intent(Intent.ACTION_MAIN).apply {
-                                        addCategory(Intent.CATEGORY_HOME)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    // Explicitly target the primary display (Display 0)
-                                    // Requires API 26+ (ActivityOptions)
-                                    val options = ActivityOptions.makeBasic()
-                                    options.launchDisplayId = 0
-                                    context.startActivity(intent, options.toBundle())
-                                } catch (e: Exception) {
-                                    println("Failed to yank focus: ${e.message}")
-                                }
                                 return id
                             }
                         } catch (e: SecurityException) {

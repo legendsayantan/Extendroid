@@ -58,7 +58,6 @@ class Utils {
         fun onCommandError(error: String) {}
     }
     companion object {
-        const val USE_MEDIAPROJECTION = false
 
         private fun isActivityContext(context: Context): Boolean {
             var ctx = context
@@ -352,7 +351,8 @@ class Utils {
             user: String? = null,                      // e.g. "0" or "all"
             stopApp: Boolean = false,                  // -S : force-stop before start
             listener: CommandResultListener,
-            lineBundle: Int = 50
+            lineBundle: Int = 50,
+            isService: Boolean = false
         ) {
             // POSIX-safe single-quote wrapper: handles embedded single quotes safely
             fun shellQuote(s: String): String {
@@ -365,9 +365,9 @@ class Utils {
             }
 
             // Build the command
-            val cmd = StringBuilder("am start")
+            val cmd = StringBuilder(if (isService) "am start-foreground-service" else "am start")
 
-            if (stopApp) cmd.append(" -S")
+            if (stopApp && !isService) cmd.append(" -S")
             action?.let { cmd.append(" -a ").append(shellQuote(it)) }
             data?.let { cmd.append(" -d ").append(shellQuote(it)) }
             mimeType?.let { cmd.append(" -t ").append(shellQuote(it)) }

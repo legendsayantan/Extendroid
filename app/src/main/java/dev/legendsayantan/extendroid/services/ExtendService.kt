@@ -1,6 +1,7 @@
 package dev.legendsayantan.extendroid.services
 
 import android.Manifest
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -22,6 +23,7 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import dev.legendsayantan.extendroid.MainActivity
 import dev.legendsayantan.extendroid.Prefs
+import dev.legendsayantan.extendroid.VirtualDisplayNoContentActivity
 import dev.legendsayantan.extendroid.R
 import dev.legendsayantan.extendroid.Utils
 import dev.legendsayantan.extendroid.WorkspaceActivity
@@ -51,10 +53,6 @@ class ExtendService : Service() {
 
     init {
         MediaCore.mInstance = object : MediaCore() {
-            override fun mediaProjectionReady() {
-                prefs.registerConfigChangeListener(prefsChangedListener)
-            }
-
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
                 svc?.launchAppOnDisplay(packageName, displayID)
             }
@@ -86,9 +84,26 @@ class ExtendService : Service() {
                         width,
                         height,
                         scale,
-                        {
-                            logging.i("Projection was stopped.","ExtendService")
-                        })
+                        onDisplayReady = { displayId ->
+                            Handler(mainLooper).postDelayed({
+                                try {
+                                    val intent = Intent(
+                                        applicationContext,
+                                        VirtualDisplayNoContentActivity::class.java
+                                    ).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    val options = ActivityOptions.makeBasic().apply {
+                                        launchDisplayId = displayId
+                                    }
+                                    applicationContext.startActivity(intent, options.toBundle())
+                                    logging.i("Launched NoContentActivity on display $displayId", "ExtendService")
+                                } catch (e: Exception) {
+                                    logging.e(e, "ExtendService")
+                                }
+                            }, 300)
+                        }
+                    )
             }
 
             WebRTC.checkAndStart(
@@ -185,6 +200,8 @@ class ExtendService : Service() {
             registerReceiver(menuOpenReceiver, IntentFilter(ACTION_MENU_OPEN))
         }
 
+        prefs.registerConfigChangeListener(prefsChangedListener)
+
         bindPrivilegedService()
     }
 
@@ -207,11 +224,13 @@ class ExtendService : Service() {
     private fun grantOwnPerms() {
         val permissions = mutableListOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else "",
-            if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else ""
+            if (!Settings.canDrawOverlays(applicationContext)) Manifest.permission.SYSTEM_ALERT_WINDOW else "",
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_WIFI_STATE,
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.READ_PHONE_STATE
         )
-        if (Utils.USE_MEDIAPROJECTION) {
-            permissions.add("PROJECT_MEDIA")
-        }
         val r = svc?.grantPermissions(permissions.filter { it.isNotBlank() })
         logging.d(r.toString(),"ExtendService")
     }
@@ -294,9 +313,6 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         svc?.unregisterMotionEventListener()
-        if (Utils.USE_MEDIAPROJECTION) {
-            MediaCore.mInstance?.projection?.stop()
-        }
         MediaCore.mInstance = null
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
         unregisterReceiver(configReceiver)
@@ -360,8 +376,8 @@ class ExtendService : Service() {
 
 
         fun Service.startAsForegroundService() {
-            val type = if (Utils.USE_MEDIAPROJECTION && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             } else {
                 0
             }

@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "dev.legendsayantan.extendroid"
-    compileSdk = 37
+    compileSdk = 36
 
     buildFeatures {
         aidl = true
@@ -21,7 +21,7 @@ android {
     defaultConfig {
         applicationId = "dev.legendsayantan.extendroid"
         minSdk = 29
-        targetSdk = 33
+        targetSdk = 36
         versionCode = 6
         versionName = "1.0.5"
 

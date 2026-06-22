@@ -4,9 +4,8 @@ package dev.legendsayantan.extendroid.echo
  * @author legendsayantan
  */
 import android.content.Context
-import android.media.projection.MediaProjection
 import android.view.Surface
-import dev.legendsayantan.extendroid.Utils
+import dev.legendsayantan.extendroid.VirtualDisplayNoContentActivity
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.services.ExtendService
@@ -33,7 +32,6 @@ import org.webrtc.VideoSink
 class RemoteSessionRenderer(
     private val onSessionCreated: (displayId: Int) -> Unit,
     private val onSessionReleased: () -> Unit,
-    private val onMediaProjectionStopped: (() -> Unit)? = null,
     private val displayName: String = "Echo_Screen",
     private val displayDpi: Int = 400
 ) : VideoCapturer, VideoSink {
@@ -41,7 +39,6 @@ class RemoteSessionRenderer(
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var capturerObserver: CapturerObserver? = null
     private var displayId: Int = -1
-    private var mediaProjectionCallback: MediaProjection.Callback? = null
 
     private var width: Int = 0
     private var height: Int = 0
@@ -78,17 +75,6 @@ class RemoteSessionRenderer(
         this.width = width
         this.height = height
 
-        if (Utils.USE_MEDIAPROJECTION) {
-            MediaCore.mInstance?.projection?.let { projection ->
-                mediaProjectionCallback = object : MediaProjection.Callback() {
-                    override fun onStop() {
-                        onMediaProjectionStopped?.invoke()
-                    }
-                }
-                projection.registerCallback(mediaProjectionCallback!!, surfaceTextureHelper?.handler)
-            }
-        }
-
         createVirtualDisplay()
 
         capturerObserver?.onCapturerStarted(true)
@@ -101,15 +87,11 @@ class RemoteSessionRenderer(
             surfaceTextureHelper?.stopListening()
             capturerObserver?.onCapturerStopped()
 
-            if (Utils.USE_MEDIAPROJECTION) {
-                mediaProjectionCallback?.let {
-                    MediaCore.mInstance?.projection?.unregisterCallback(it)
-                }
-                mediaProjectionCallback = null
-            }
+
 
             if (displayId != -1) {
                 onSessionReleased()
+                VirtualDisplayNoContentActivity.instance?.finish()
                 ExtendService.svc?.destroyVirtualDisplay(displayId)
                 displayId = -1
             }
@@ -128,6 +110,7 @@ class RemoteSessionRenderer(
 
         ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
             onSessionReleased()
+            VirtualDisplayNoContentActivity.instance?.finish()
             ExtendService.svc?.destroyVirtualDisplay(displayId)
             displayId = -1
 

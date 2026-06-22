@@ -21,4 +21,10 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <style name="Theme.Extendroid.NoContent" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/theme5</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>
