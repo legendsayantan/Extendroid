@@ -49,6 +49,7 @@
         <activity
                 android:name=".FocusYankActivity"
                 android:exported="false"
+                android:taskAffinity="dev.legendsayantan.extendroid.focusyank"
                 android:excludeFromRecents="true"
                 android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 

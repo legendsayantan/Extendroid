@@ -224,8 +224,8 @@ class WebRTC {
 
                     // --- per-connection state for the countdown logic ---
                     private val gatherLock = Any()
-                    private var gatherTimer: Timer? = null
-                    private var gatherTimerTask: TimerTask? = null
+                    private var gatherHandler: android.os.Handler? = android.os.Handler(android.os.Looper.getMainLooper())
+                    private var gatherRunnable: Runnable? = null
                     private val candidateTimestamps = mutableListOf<Long>()
                     private var gatheringFinalized = false
 
@@ -234,8 +234,7 @@ class WebRTC {
                         synchronized(gatherLock) {
                             if (gatheringFinalized) return
                             gatheringFinalized = true
-                            gatherTimerTask?.cancel()
-                            gatherTimer?.cancel()
+                            gatherRunnable?.let { gatherHandler?.removeCallbacks(it) }
                         }
 
                         peerConnection.localDescription?.let { localSdp ->
@@ -269,8 +268,7 @@ class WebRTC {
 
                             // cancel previous timer/task
                             try {
-                                gatherTimerTask?.cancel()
-                                gatherTimer?.cancel()
+                                gatherRunnable?.let { gatherHandler?.removeCallbacks(it) }
                             } catch (_: Exception) { /* ignore */
                             }
 
@@ -305,13 +303,12 @@ class WebRTC {
                             )
 
                             // schedule new timer task
-                            gatherTimer = Timer(true)
-                            gatherTimerTask = timerTask {
+                            gatherRunnable = Runnable {
                                 // when countdown finishes, send SDP+ICE (only once)
                                 postLocalSdpAndCandidates()
                             }
                             // schedule
-                            gatherTimer?.schedule(gatherTimerTask, countdownMs)
+                            gatherHandler?.postDelayed(gatherRunnable!!, countdownMs)
                         }
                     }
 
@@ -477,7 +474,7 @@ class WebRTC {
             peerConnections.keys.toList().forEach { closeConnection(it) }
         }
 
-        private fun closeConnection(connectionId: Long) {
+        fun closeConnection(connectionId: Long) {
             videoCapturers.remove(connectionId)?.let {
                 it.stopCapture()
                 it.dispose()

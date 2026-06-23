@@ -31,8 +31,10 @@ import com.google.android.material.card.MaterialCardView
 class VirtualDisplayNoContentActivity : AppCompatActivity() {
 
     companion object {
-        var instance: VirtualDisplayNoContentActivity? = null
+        val instances = mutableMapOf<Int, VirtualDisplayNoContentActivity>()
     }
+    
+    private var currentDisplayId: Int = -1
 
     private lateinit var batteryIcon: ImageView
     private lateinit var batteryValueText: TextView
@@ -64,6 +66,14 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
         }
     }
 
+    private val wifiReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == WifiManager.RSSI_CHANGED_ACTION) {
+                updateNetworkStatus()
+            }
+        }
+    }
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             runOnUiThread { updateNetworkStatus() }
@@ -78,7 +88,16 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        instance = this
+        
+        currentDisplayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.displayId ?: -1
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.displayId
+        }
+        if (currentDisplayId != -1) {
+            instances[currentDisplayId] = this
+        }
 
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             try {
@@ -197,14 +216,21 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
         setContentView(rootLayout)
 
         // Register Receivers
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryIntent = registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        batteryIntent?.let { batteryReceiver.onReceive(this, it) }
+        
         registerReceiver(ringerReceiver, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION))
+        registerReceiver(wifiReceiver, IntentFilter(WifiManager.RSSI_CHANGED_ACTION))
 
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            connectivityManager.registerDefaultNetworkCallback(networkCallback)
+        } else {
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+        }
 
         registerTelephonyCallback()
         updateRingerStatus()
@@ -350,10 +376,13 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (instance == this) instance = null
+        if (currentDisplayId != -1 && instances[currentDisplayId] == this) {
+            instances.remove(currentDisplayId)
+        }
         try {
             unregisterReceiver(batteryReceiver)
             unregisterReceiver(ringerReceiver)
+            unregisterReceiver(wifiReceiver)
         } catch (e: Exception) {}
 
         try {

@@ -139,15 +139,11 @@ class RemoteSessionHandler {
                     //content is json hashmap of width, height, scale
                     val dimensions = jsonToHashMap(content)
                     if (dimensions.isNotEmpty()) {
-                        println(dimensions)
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
                             val width = dimensions["width"]?.toIntOrNull() ?: params[1]
                             val height = dimensions["height"]?.toIntOrNull() ?: params[2]
                             val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
                             val density = computedDensity(ctx, width, height, scale)
-                            println(
-                                "Scale : $scale, params3: ${params[3]}, Density: $density"
-                            )
                             mediaCore.echoDisplayParams[connectionId] = arrayOf(
                                 params[0], width, height, density
                             )
@@ -189,7 +185,6 @@ class RemoteSessionHandler {
                 PacketType.MotionEvent -> {
                     try {
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
-                            println(content)
                             val motionEvent = createMotionEventFromJson(content,ctx)
                             svc.dispatch(motionEvent, params[0])
                         }
@@ -219,7 +214,7 @@ class RemoteSessionHandler {
                 }
 
                 else -> {
-                    println(content)
+                    // Do nothing for unknown packets or unhandled ones
                 }
             }
 
@@ -273,7 +268,6 @@ class RemoteSessionHandler {
             }
         }
         fun createMotionEventFromData(eventData: MotionEventData,scale:Pair<Float,Float> = 1f to 1f): MotionEvent{
-            println(eventData)
             val pointerCount = eventData.pointers.size
             val pointerProperties = Array(pointerCount) { MotionEvent.PointerProperties() }
             val pointerCoords = Array(pointerCount) { MotionEvent.PointerCoords() }
@@ -289,7 +283,6 @@ class RemoteSessionHandler {
                     pressure = pointer.pressure
                     size = pointer.size
                     pointer.axisValues?.forEach { (axis, value) ->
-                        println("Axis values $axis $value")
                         setAxisValue(axis.toInt(), value)
                     }
                 }

@@ -91,7 +91,7 @@ class RemoteSessionRenderer(
 
             if (displayId != -1) {
                 onSessionReleased()
-                VirtualDisplayNoContentActivity.instance?.finish()
+                VirtualDisplayNoContentActivity.instances[displayId]?.finish()
                 ExtendService.svc?.destroyVirtualDisplay(displayId)
                 displayId = -1
             }
@@ -110,7 +110,7 @@ class RemoteSessionRenderer(
 
         ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
             onSessionReleased()
-            VirtualDisplayNoContentActivity.instance?.finish()
+            VirtualDisplayNoContentActivity.instances[displayId]?.finish()
             ExtendService.svc?.destroyVirtualDisplay(displayId)
             displayId = -1
 

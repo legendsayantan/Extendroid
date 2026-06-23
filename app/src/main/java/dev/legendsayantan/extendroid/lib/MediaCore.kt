@@ -88,7 +88,7 @@ open class MediaCore {
 
     fun fullScreen(packageName: String) {
         virtualDisplayIds[packageName]?.let {
-            VirtualDisplayNoContentActivity.instance?.finish()
+            VirtualDisplayNoContentActivity.instances[it]?.finish()
             ExtendService.svc?.destroyVirtualDisplay(it)
             virtualDisplayIds.remove(packageName)
         }

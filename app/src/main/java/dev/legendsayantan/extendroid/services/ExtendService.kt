@@ -283,23 +283,20 @@ class ExtendService : Service() {
             }
         }
         menu.dispatchEvent = { pkg, event ->
-            print("${event.x} ${event.y} ${MotionEvent.actionToString(event.action)} ${event.rawX} ${event.rawY}")
-            println(sendEvent(pkg, event))
+            sendEvent(pkg, event)
         }
         popupManager.onPopupMinimize = { pkg, ratio ->
             menu.startPreviewFor(pkg, ratio)
         }
         popupManager.onKeyEvent = { pkg, keyCode, action ->
-            val r = svc?.dispatchKey(
+            svc?.dispatchKey(
                 keyCode,
                 action,
                 MediaCore.mInstance?.virtualDisplayIds?.get(pkg) ?: -1, 0
             )
-            println(r)
         }
         popupManager.onMotionEvent = { pkg, event ->
-            print("${event.x} ${event.y} ${event.action} ${event.rawX} ${event.rawY}")
-            println(sendEvent(pkg, event))
+            sendEvent(pkg, event)
         }
 
     }
@@ -313,6 +310,16 @@ class ExtendService : Service() {
 
     override fun onDestroy() {
         svc?.unregisterMotionEventListener()
+        
+        MediaCore.mInstance?.let { core ->
+            svc?.let { rootSvc ->
+                core.echoDisplayIds.keys.toList().forEach { connectionId ->
+                    RemoteSessionHandler.shutDownRemoteSession(connectionId, core, rootSvc)
+                }
+            }
+        }
+        WebRTC.closeAll()
+
         MediaCore.mInstance = null
         Shizuku.unbindUserService(svcArgs, svcConnection, true)
         unregisterReceiver(configReceiver)
