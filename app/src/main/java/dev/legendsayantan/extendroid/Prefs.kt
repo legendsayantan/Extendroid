@@ -155,9 +155,10 @@ class Prefs(val context: Context) {
              * "2": "RunApp"
              * }
              */
-            val jsonString = echo.getString("mappings", "[]") ?: "[]"
+            val defaultMappings = "{\"0\":\"InstalledApps\",\"1\":\"RunningApps\",\"2\":\"RunApp\",\"3\":\"StopApp\",\"4\":\"Resize\",\"5\":\"KeyEvent\",\"6\":\"MotionEvent\",\"7\":\"Unlock\",\"8\":\"DisplayMode\",\"9\":\"TaskList\",\"a\":\"RunTask\",\"b\":\"TaskStatus\"}"
+            val jsonString = echo.getString("mappings", defaultMappings) ?: defaultMappings
             return try {
-                val jsonObject = JSONObject(jsonString)
+                val jsonObject = org.json.JSONObject(jsonString)
                 jsonObject.keys().asSequence().associateWith { jsonObject.getString(it) }
             } catch (e: Exception) {
                 Logging(context).e(e,"Prefs")

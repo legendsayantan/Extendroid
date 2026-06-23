@@ -211,7 +211,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 Toast.makeText(
                     applicationContext,
-                    "Stopping services, press back to restart the app.",
+                    "Stopping services, press back to fully stop the app.",
                     Toast.LENGTH_LONG
                 ).show()
                 initialiseSetupMenu()

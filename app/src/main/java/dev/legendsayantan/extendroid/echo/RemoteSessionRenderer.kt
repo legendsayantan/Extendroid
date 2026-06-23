@@ -91,9 +91,14 @@ class RemoteSessionRenderer(
 
             if (displayId != -1) {
                 onSessionReleased()
-                VirtualDisplayNoContentActivity.instances[displayId]?.finish()
-                ExtendService.svc?.destroyVirtualDisplay(displayId)
+                val savedDisplayId = displayId
+                VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
+                }, 1000)
                 displayId = -1
+                currentSurface?.release()
+                currentSurface = null
             }
         }
     }
@@ -110,9 +115,14 @@ class RemoteSessionRenderer(
 
         ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
             onSessionReleased()
-            VirtualDisplayNoContentActivity.instances[displayId]?.finish()
-            ExtendService.svc?.destroyVirtualDisplay(displayId)
+            val savedDisplayId = displayId
+            VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
+            }, 500)
             displayId = -1
+            currentSurface?.release()
+            currentSurface = null
 
             createVirtualDisplay()
         }
@@ -142,10 +152,12 @@ class RemoteSessionRenderer(
     override fun onFrame(frame: VideoFrame) {
         capturerObserver?.onFrameCaptured(frame)
     }
+    private var currentSurface: Surface? = null
 
     private fun createVirtualDisplay() {
         surfaceTextureHelper?.setTextureSize(width, height)
         val surface = Surface(surfaceTextureHelper?.surfaceTexture)
+        currentSurface = surface
 
         displayId = ExtendService.svc?.createVirtualDisplay(
             displayName,

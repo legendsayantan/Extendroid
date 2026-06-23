@@ -36,7 +36,7 @@
                 android:name=".VirtualDisplayNoContentActivity"
                 android:exported="true"
                 android:taskAffinity=""
-                android:launchMode="singleTask"
+                android:launchMode="singleInstancePerTask"
                 android:excludeFromRecents="true"
                 android:theme="@style/Theme.Extendroid.NoContent">
         </activity>

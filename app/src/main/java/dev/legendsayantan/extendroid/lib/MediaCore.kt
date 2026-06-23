@@ -19,8 +19,21 @@ import java.util.concurrent.TimeUnit
 open class MediaCore {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
+    val lockedTaskDisplays = HashSet<Int>()
+    val originalDisplayParams = HashMap<Int, Array<Int>>() // [width, height, density]
+
+    class DisplayRequests {
+        var resizeWidth: Int? = null
+        var resizeHeight: Int? = null
+        var scale: Float? = null
+        var launchAppPkg: String? = null
+    }
+    var onNeedNewTab: ((String) -> Unit)? = null
+    val queuedDisplayRequests = HashMap<Int, DisplayRequests>()
+
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
     var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
+    var echoDataChannels: java.util.concurrent.ConcurrentHashMap<String, org.webrtc.DataChannel> = java.util.concurrent.ConcurrentHashMap()
 
     var virtualDisplayIds: HashMap<String, Int> = hashMapOf()
 
@@ -88,8 +101,11 @@ open class MediaCore {
 
     fun fullScreen(packageName: String) {
         virtualDisplayIds[packageName]?.let {
-            VirtualDisplayNoContentActivity.instances[it]?.finish()
-            ExtendService.svc?.destroyVirtualDisplay(it)
+            val savedDisplayId = it
+            VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
+            }, 500)
             virtualDisplayIds.remove(packageName)
         }
     }

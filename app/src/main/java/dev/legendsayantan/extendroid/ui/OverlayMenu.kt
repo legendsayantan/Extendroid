@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupMenu
+import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.tabs.TabLayout
@@ -54,6 +55,11 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     var requestStartSelf: () -> Unit = {}
     var requestNewWorkspace: () -> Unit = {}
     var dispatchEvent:(String, MotionEvent)-> Unit = {pkg,e->}
+    var startKeyEventRecording: (onKey: (action: Int, keyCode: Int, metaState: Int, relTime: Long) -> Unit) -> Unit = {}
+    var stopKeyEventRecording: () -> Unit = {}
+    var runTask: (TaskData) -> Unit = {}
+    var deleteTask: (TaskData) -> Unit = {}
+    var updateTask: (TaskData) -> Unit = {}
 
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -123,7 +129,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
 
     var isRecording = false
-    private var recordingStartTime = 0L
+    var recordingStartTime = 0L
     private var recordingTask: TaskData? = null
     private var pendingTaskName: String? = null
 
@@ -250,11 +256,21 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                         if (isRecording) {
                             if (recordingTask == null) {
                                 val window = activeWindowsData.find { it.packageName == pkg }
+                                val w = staggeredGridAdapter.columnWidth
+                                val h = (w * (window?.ratio ?: 1f)).toInt()
+                                val metrics = ctx.resources.displayMetrics
+                                val density = if (prefs.densityAuto) {
+                                    (w * h * metrics.densityDpi * prefs.densityScale) / (metrics.heightPixels * metrics.widthPixels)
+                                } else (metrics.densityDpi * prefs.densityScale)
+                                
                                 recordingTask = TaskData(
                                     taskKey = pendingTaskName ?: System.currentTimeMillis().toString(),
                                     pkgName = pkg,
                                     zoom = prefs.densityScale,
                                     ratio = window?.ratio ?: 1f,
+                                    displayWidth = w,
+                                    displayHeight = h,
+                                    displayDpi = density.toInt(),
                                     touches = hashMapOf()
                                 )
                                 Toast.makeText(
@@ -351,15 +367,44 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                         tabLayout.getTabAt(0)?.select()
                         settingsScroll.visibility = View.GONE
                         recyclerView.visibility = View.VISIBLE
+                        startKeyEventRecording { action, keyCode, metaState, relTime ->
+                            recordingTask?.keyEvents?.put(relTime, dev.legendsayantan.extendroid.lib.SerializableKeyEvent(action, keyCode, metaState))
+                        }
                     }
                 }
             } else {
                 isRecording = false
+                stopKeyEventRecording()
                 recordTask.text = ctx.getString(R.string.record_task)
                 recordingTask?.let { TaskManager.saveTask(ctx, it) }
                 recordingTask = null
                 pendingTaskName = null
+                reloadTaskList()
             }
+        }
+        reloadTaskList()
+    }
+
+    private fun reloadTaskList() {
+        val taskList = root!!.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.taskList)
+        val noTasksLabel = root!!.findViewById<TextView>(R.id.noTasksLabel)
+        val tasks = TaskManager.loadAllTasks(ctx).toMutableList()
+        if (tasks.isEmpty()) {
+            taskList.visibility = View.GONE
+            noTasksLabel.visibility = View.VISIBLE
+        } else {
+            taskList.visibility = View.VISIBLE
+            noTasksLabel.visibility = View.GONE
+            val appNames = installedApps.associate { it.packageName to it.appName }
+            val appIcons = installedApps.associate { it.packageName to it.image }
+            taskList.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(ctx)
+            taskList.adapter = dev.legendsayantan.extendroid.adapters.TasksAdapter(
+                themedCtx, tasks, appIcons, appNames,
+                onRun = { runTask(it) },
+                onDelete = { deleteTask(it); reloadTaskList() },
+                onEdit = { updateTask(it) }
+            )
+            taskList.isNestedScrollingEnabled = false
         }
     }
 

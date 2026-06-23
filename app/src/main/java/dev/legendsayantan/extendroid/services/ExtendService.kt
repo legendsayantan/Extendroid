@@ -30,6 +30,7 @@ import dev.legendsayantan.extendroid.WorkspaceActivity
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler
 import dev.legendsayantan.extendroid.echo.RemoteUnlocker
 import dev.legendsayantan.extendroid.echo.WebRTC
+import dev.legendsayantan.extendroid.lib.ActivityHelper
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.lib.MediaCore
 import dev.legendsayantan.extendroid.ui.FloatingBall
@@ -43,7 +44,7 @@ import rikka.shizuku.Shizuku
 class ExtendService : Service() {
     val prefs by lazy { Prefs(applicationContext) }
     val ball by lazy { FloatingBall(this) }
-    val menu by lazy { OverlayMenu(this) }
+    val menu by lazy { OverlayMenu(android.view.ContextThemeWrapper(this, R.style.Theme_Extendroid)) }
     val popupManager by lazy { PopupManager(this) }
     val prefsChangedListener = { ctx: Context ->
         setupPrefsRelated()
@@ -55,6 +56,14 @@ class ExtendService : Service() {
         MediaCore.mInstance = object : MediaCore() {
             override fun virtualDisplayReady(packageName: String, displayID: Int) {
                 svc?.launchAppOnDisplay(packageName, displayID)
+            }
+
+            init {
+                this.onNeedNewTab = { pkg ->
+                    Utils.whenSafeForUI(this@ExtendService) {
+                        menu.startPreviewFor(pkg, 1.5f, true)
+                    }
+                }
             }
 
             override fun appTaskToClear(packageName: String) {
@@ -87,17 +96,9 @@ class ExtendService : Service() {
                         onDisplayReady = { displayId ->
                             Handler(mainLooper).postDelayed({
                                 try {
-                                    val intent = Intent(
-                                        applicationContext,
-                                        VirtualDisplayNoContentActivity::class.java
-                                    ).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    val options = ActivityOptions.makeBasic().apply {
-                                        launchDisplayId = displayId
-                                    }
-                                    applicationContext.startActivity(intent, options.toBundle())
-                                    logging.i("Launched NoContentActivity on display $displayId", "ExtendService")
+                                    val componentName = ComponentName(this@ExtendService, VirtualDisplayNoContentActivity::class.java)
+                                    svc?.launchComponentOnDisplay(componentName, displayId, Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+                                    logging.i("Launched NoContentActivity via svc on display $displayId", "ExtendService")
                                 } catch (e: Exception) {
                                     logging.e(e, "ExtendService")
                                 }
@@ -128,6 +129,7 @@ class ExtendService : Service() {
                 }, {
                     RemoteSessionHandler.handleDataChannel(
                         applicationContext,
+                        connectionId.toString(),
                         MediaCore.mInstance!!,
                         it,
                         width == 0 && height == 0
@@ -298,6 +300,36 @@ class ExtendService : Service() {
         popupManager.onMotionEvent = { pkg, event ->
             sendEvent(pkg, event)
         }
+
+        val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(applicationContext)
+        menu.runTask = { task ->
+            taskRunner.run(task, svc!!,
+                onNeedNewTab = { pkg ->
+                    Utils.whenSafeForUI(this) {
+                        menu.startPreviewFor(pkg, task.displayWidth.toFloat() / task.displayHeight, true)
+                    }
+                },
+                onStarted = { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_started_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } },
+                onDone    = { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_done_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } },
+                onError   = { msg -> Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_error_toast, task.taskKey, msg), android.widget.Toast.LENGTH_LONG).show() } }
+            )
+        }
+        menu.deleteTask = { task ->
+            dev.legendsayantan.extendroid.lib.TaskManager.deleteTask(applicationContext, task.pkgName, task.taskKey)
+        }
+        menu.updateTask = { task ->
+            dev.legendsayantan.extendroid.lib.TaskManager.updateTask(applicationContext, task)
+        }
+        menu.startKeyEventRecording = { cb ->
+            svc?.registerKeyEventListener(object : dev.legendsayantan.extendroid.IKeyEventCallback.Stub() {
+                override fun onKeyEvent(json: String) {
+                    val obj = org.json.JSONObject(json)
+                    cb(obj.getInt("action"), obj.getInt("keyCode"), obj.getInt("metaState"),
+                       System.currentTimeMillis() - menu.recordingStartTime)
+                }
+            })
+        }
+        menu.stopKeyEventRecording = { svc?.unregisterKeyEventListener() }
 
     }
 

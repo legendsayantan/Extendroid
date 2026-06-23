@@ -117,4 +117,29 @@
         android:text="@string/record_task"
         app:icon="@drawable/rounded_stop_circle_24" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/saved_tasks"
+        android:textColor="?attr/colorOnSecondary"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/taskList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:nestedScrollingEnabled="false" />
+
+    <TextView
+        android:id="@+id/noTasksLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/no_tasks_recorded"
+        android:gravity="center"
+        android:textColor="?attr/colorOnSecondary"
+        android:layout_margin="16dp" />
+
 </LinearLayout>

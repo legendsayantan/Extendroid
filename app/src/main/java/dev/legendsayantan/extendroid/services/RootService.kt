@@ -1,11 +1,13 @@
 package dev.legendsayantan.extendroid.services
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import android.view.MotionEvent
 import android.view.Surface
 import dev.legendsayantan.extendroid.IEventCallback
+import dev.legendsayantan.extendroid.IKeyEventCallback
 import dev.legendsayantan.extendroid.echo.MotionEventParser
 import dev.legendsayantan.extendroid.lib.*
 import java.io.BufferedReader
@@ -15,6 +17,7 @@ import java.io.InputStreamReader
 class RootService() : IRootService.Stub() {
     var context: Context? = null;
     var inputReader: DevInputReader? = null
+    var keyEventReader: DevInputReader? = null
     val parser = MotionEventParser()
     private val gson = com.google.gson.Gson()
     private val callbackExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -26,6 +29,21 @@ class RootService() : IRootService.Stub() {
 
     constructor(context: Context) : this() {
         this.context = context;
+        val startTime = System.currentTimeMillis()
+        Thread {
+            while (true) {
+                try {
+                    Thread.sleep(3000)
+                    val pi = context.packageManager.getPackageInfo("dev.legendsayantan.extendroid", 0)
+                    if (pi.lastUpdateTime > startTime) {
+                        Log.e("RootService", "Zombie detected! Package was updated at ${pi.lastUpdateTime}, but service started at $startTime. Self-destructing.")
+                        System.exit(0)
+                    }
+                } catch (e: Exception) {
+                    // Ignore errors during check
+                }
+            }
+        }.start()
     }
 
     private val TAG = this::class.simpleName
@@ -54,6 +72,10 @@ class RootService() : IRootService.Stub() {
         val cmpNm = ActivityHelper.getLauncherActivityComponentName(context!!, packageName)
         return if (cmpNm != null) ActivityHelper.launchActivityOnDisplayID(cmpNm, displayId)
         else "Error: No launcher activity found for package $packageName"
+    }
+
+    override fun launchComponentOnDisplay(component: ComponentName, displayId: Int, extraFlags: Int): String {
+        return ActivityHelper.launchActivityOnDisplayID(component, displayId, extraFlags)
     }
 
     override fun grantPermissions(perms: List<String>): String {
@@ -141,11 +163,51 @@ class RootService() : IRootService.Stub() {
         return try {
             inputReader?.stop()
             inputReader = null
-            callbackExecutor.shutdownNow()
+            // We should NOT shutdown the executor here because it might be used by the key event reader.
             "success"
         } catch (e: Exception) {
             e.stackTraceToString()
         }
+    }
+
+    override fun registerKeyEventListener(callback: IKeyEventCallback): String {
+        return try {
+            keyEventReader = DevInputReader(listener = object : InputEventListener {
+                override fun onEvent(event: InputEvent) {
+                    if (event.type != 1 /*EV_KEY*/) return
+                    if (event.value == 2) return          // skip key-repeat events
+                    if (event.code == 330) return         // skip BTN_TOUCH
+                    val action = if (event.value == 1) 0 /*ACTION_DOWN*/ else 1 /*ACTION_UP*/
+                    val keyCode = scanCodeToAndroidKeyCode(event.code.toInt())
+                    if (keyCode == android.view.KeyEvent.KEYCODE_UNKNOWN) return
+                    val json = """{"action":$action,"keyCode":$keyCode,"metaState":0}"""
+                    callbackExecutor.execute { callback.onKeyEvent(json) }
+                }
+                override fun onDeviceAdded(devicePath: String) {}
+                override fun onDeviceRemoved(devicePath: String) {}
+                override fun onError(devicePath: String?, throwable: Throwable) {}
+            })
+            keyEventReader?.start()
+            "success"
+        } catch (e: Exception) {
+            e.stackTraceToString()
+        }
+    }
+
+    override fun unregisterKeyEventListener(): String {
+        return try {
+            keyEventReader?.stop()
+            keyEventReader = null
+            "success"
+        } catch (e: Exception) {
+            e.stackTraceToString()
+        }
+    }
+
+    private fun scanCodeToAndroidKeyCode(scanCode: Int): Int {
+        // Fallback since precise scan-code to key-code conversion isn't easily available in standard SDK.
+        // It's mostly passed to UI for debugging/recording. The exact key code can be intercepted from framework if needed.
+        return android.view.KeyEvent.KEYCODE_UNKNOWN
     }
 
     override fun goToSleep(): Boolean {
@@ -177,5 +239,27 @@ class RootService() : IRootService.Stub() {
         DisplayHelper.destroyVirtualDisplay(displayId)
     }
 
-    override fun dummy():Int{ return 1; }
+    override fun getTopAppOnDisplay(displayId: Int): String? {
+        val out = executeCommand("dumpsys activity activities")
+        var currentDisplay = -1
+        out?.lines()?.forEach { line ->
+            val dispMatch = Regex("Display #(\\d+)").find(line)
+            if (dispMatch != null) {
+                currentDisplay = dispMatch.groupValues[1].toInt()
+            }
+            if (currentDisplay == displayId) {
+                if (line.contains("mResumedActivity:") || line.contains("topResumedActivity=")) {
+                    val pkgMatch = Regex("u\\d+ ([a-zA-Z0-9._]+)/").find(line)
+                    if (pkgMatch != null) {
+                        return pkgMatch.groupValues[1]
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    override fun dummy(): Int {
+        return 0
+    }
 }

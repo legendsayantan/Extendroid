@@ -498,114 +498,84 @@ class DisplayHelper {
 
         @SuppressLint("WrongConstant")
         fun createVirtualDisplay(context: Context,name: String, width: Int, height: Int, dpi: Int, surface: Surface): Int {
+            android.util.Log.e("ExtendroidDebug", "createVirtualDisplay called with name=$name")
             val token = clearCallingIdentity()
             try {
-                // Dynamically resolve Shell or Root UID package ("com.android.shell" usually)
-                val myUid = android.os.Process.myUid()
-                val packageName = context.packageManager.getPackagesForUid(myUid)?.firstOrNull() ?: "com.android.shell"
+                // Instantiate DisplayManager using FakeContext
+                val fakeContext = FakeContext.get()
+                val dmClass = android.hardware.display.DisplayManager::class.java
+                val ctor = dmClass.getDeclaredConstructor(Context::class.java)
+                ctor.isAccessible = true
+                val dm = ctor.newInstance(fakeContext)
 
-                // Unwrap Context to get the bare ContextImpl
-                var ctxImpl = context
-                while (ctxImpl is ContextWrapper) {
-                    ctxImpl = ctxImpl.baseContext
-                }
+                val flagFallbacks = listOf(
+                    // 1. The Super Combo: User's working flags + Scrcpy + OWN_DISPLAY_GROUP (2048)
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024 or 2048,
 
-                // Access the internal fields that DisplayManager queries to validate the package
-                // In Android source, the field is actually named 'mBasePackageName', not 'mPackageName'
-                val pkgField = try {
-                    ctxImpl.javaClass.getDeclaredField("mBasePackageName")
-                } catch (e: Exception) {
-                    ctxImpl.javaClass.getDeclaredField("mPackageName")
-                }.apply { isAccessible = true }
+                    // 2. User's exact working combo + 2048
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 2048,
 
-                val opPkgField = try {
-                    ctxImpl.javaClass.getDeclaredField("mOpPackageName").apply { isAccessible = true }
-                } catch (e: Exception) { null }
+                    // 3. Scrcpy standard + 2048
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024 or 2048,
 
-                val origPkg = pkgField.get(ctxImpl)
-                val origOpPkg = opPkgField?.get(ctxImpl)
+                    // 4. Original Ultimate Combo (No 2048)
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024,
 
-                try {
-                    // Forcefully spoof the internal Context fields for this specific call
-                    pkgField.set(ctxImpl, packageName)
-                    opPkgField?.set(ctxImpl, packageName)
+                    // 5. User's exact working combo (Known Good)
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
 
-                    val shellContext = context.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY)
-                    val dm = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                    // 6. Scrcpy standard
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024,
 
-                    val flagFallbacks = listOf(
-                        // 1. The Super Combo: User's working flags + Scrcpy + OWN_DISPLAY_GROUP (2048)
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024 or 2048,
+                    // 7. Minimal Public with 2048
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 2048,
 
-                        // 2. User's exact working combo + 2048
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 2048,
+                    // 8. Safe Public
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8,
 
-                        // 3. Scrcpy standard + 2048
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024 or 2048,
+                    // 9. Bare minimum Public
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
 
-                        // 4. Original Ultimate Combo (No 2048)
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8 or 512 or 1024,
+                    // 10. Presentation only
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8,
 
-                        // 5. User's exact working combo (Known Good)
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+                    // 11. Auto Mirror Fallback
+                    16
+                )
 
-                        // 6. Scrcpy standard
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8 or 512 or 1024,
-
-                        // 7. Minimal Public with 2048
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 2048,
-
-                        // 8. Safe Public
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or 8,
-
-                        // 9. Bare minimum Public
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-
-                        // 10. Presentation only
-                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or 8,
-
-                        // 11. Auto Mirror Fallback
-                        16
-                    )
-
-                    for (flags in flagFallbacks) {
-                        try {
-                            val vd = dm.createVirtualDisplay(name, width, height, dpi, surface, flags)
-                            if (vd != null) {
-                                val id = vd.display.displayId
-                                if (id == 0) {
-                                    vd.release()
-                                    continue // OEM bug: returned primary display
-                                }
-                                activeDisplays[id] = vd
-                                println("Successfully created VirtualDisplay with flags: $flags")
-                                Logging(context).i("Using Display Flags: $flags", "DisplayHelper")
-                                return id
+                for (flags in flagFallbacks) {
+                    try {
+                        val vd = dm.createVirtualDisplay(name, width, height, dpi, surface, flags)
+                        if (vd != null) {
+                            val id = vd.display.displayId
+                            if (id == 0) {
+                                vd.release()
+                                continue // OEM bug: returned primary display
                             }
-                        } catch (e: SecurityException) {
-                            println("SecurityException for flags $flags: ${e.message}")
-                        } catch (e: Exception) {
-                            println("Exception for flags $flags: ${e.message}")
+                            activeDisplays[id] = vd
+                            android.util.Log.e("ExtendroidDebug", "Successfully created VirtualDisplay with flags: $flags")
+                            return id
                         }
+                    } catch (e: SecurityException) {
+                        android.util.Log.e("ExtendroidDebug", "SecurityException for flags $flags: ${e.message}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("ExtendroidDebug", "Exception for flags $flags: ${e.message}")
                     }
-                    println("All fallbacks failed to create VirtualDisplay.")
-                    Logging(context).e("All fallbacks failed to create VirtualDisplay.", "DisplayHelper")
-                    return -1 // All fallbacks failed
-                } finally {
-                    // Always restore the original values to prevent side effects
-                    pkgField.set(ctxImpl, origPkg)
-                    opPkgField?.set(ctxImpl, origOpPkg)
                 }
-            } catch (e: Exception) {
+                android.util.Log.e("ExtendroidDebug", "All fallbacks failed to create VirtualDisplay.")
+                return -1 // All fallbacks failed
+            } catch (e: Throwable) {
                 e.printStackTrace()
-                return -1
+                android.util.Log.e("ExtendroidDebug", "Fatal throwable in createVirtualDisplay: ${e.stackTraceToString()}")
             } finally {
                 restoreCallingIdentity(token)
             }
+            android.util.Log.e("ExtendroidDebug", "Returning -1 from createVirtualDisplay")
+            return -1
         }
 
         fun resizeVirtualDisplay(displayId: Int, width: Int, height: Int, dpi: Int) {

@@ -67,4 +67,17 @@
     <string name="task_name">Task Name</string>
     <string name="task_name_exists">Task name already exists!</string>
     <string name="record">Record</string>
+    <string name="saved_tasks">Saved Tasks</string>
+    <string name="run_task">Run</string>
+    <string name="delete_task">Delete</string>
+    <string name="edit_task">Edit Task</string>
+    <string name="stop_after_task">Stop app after task</string>
+    <string name="launch_delay_label">Launch delay (ms)</string>
+    <string name="task_running">Running…</string>
+    <string name="task_done">Done ✓</string>
+    <string name="task_error">Error</string>
+    <string name="no_tasks_recorded">No tasks recorded yet</string>
+    <string name="task_started_toast">Task \"%s\" started</string>
+    <string name="task_done_toast">Task \"%s\" completed</string>
+    <string name="task_error_toast">Task \"%s\" failed: %s</string>
 </resources>

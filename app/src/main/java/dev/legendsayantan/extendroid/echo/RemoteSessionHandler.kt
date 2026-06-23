@@ -34,6 +34,7 @@ class RemoteSessionHandler {
 
         fun handleDataChannel(
             ctx: Context,
+            connectionId: String,
             mediaCore: MediaCore,
             dataChannel: DataChannel,
             noDisplay: Boolean
@@ -49,6 +50,7 @@ class RemoteSessionHandler {
                 }
 
                 DataChannel.State.OPEN -> {
+                    mediaCore.echoDataChannels[connectionId] = dataChannel
                     if(!noDisplay){
                         backgroundExecutor.execute {
                             val allAppsMap =
@@ -92,6 +94,9 @@ class RemoteSessionHandler {
             MotionEvent("MotionEvent"),
             Unlock("Unlock"),
             DisplayMode("DisplayMode"),
+            TaskList("TaskList"),
+            RunTask("RunTask"),
+            TaskStatus("TaskStatus")
         }
 
         fun processDataMessage(
@@ -111,13 +116,21 @@ class RemoteSessionHandler {
                 PacketType.RunApp -> {
                     //content is packageName here
                     mediaCore.echoDisplayParams[connectionId]?.let { params ->
-                        svc.launchAppOnDisplay(content, params[0])
-                        mediaCore.appRemoteAccessHistory[connectionId]?.let {
-                            if (!it.contains(content)) {
-                                mediaCore.appRemoteAccessHistory[connectionId] = it + content
+                        val displayId = params[0]
+                        if (mediaCore.lockedTaskDisplays.contains(displayId)) {
+                            // Buffer it
+                            val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
+                            requests.launchAppPkg = content
+                            dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered RunApp request for $content", "RemoteSessionHandler")
+                        } else {
+                            svc.launchAppOnDisplay(content, displayId)
+                            mediaCore.appRemoteAccessHistory[connectionId]?.let {
+                                if (!it.contains(content)) {
+                                    mediaCore.appRemoteAccessHistory[connectionId] = it + content
+                                }
+                            } ?: run {
+                                mediaCore.appRemoteAccessHistory[connectionId] = listOf(content)
                             }
-                        } ?: run {
-                            mediaCore.appRemoteAccessHistory[connectionId] = listOf(content)
                         }
                     }
                 }
@@ -140,18 +153,29 @@ class RemoteSessionHandler {
                     val dimensions = jsonToHashMap(content)
                     if (dimensions.isNotEmpty()) {
                         mediaCore.echoDisplayParams[connectionId]?.let { params ->
+                            val displayId = params[0]
                             val width = dimensions["width"]?.toIntOrNull() ?: params[1]
                             val height = dimensions["height"]?.toIntOrNull() ?: params[2]
                             val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
                             val density = computedDensity(ctx, width, height, scale)
-                            mediaCore.echoDisplayParams[connectionId] = arrayOf(
-                                params[0], width, height, density
-                            )
-                            mediaCore.sessionCapturerResizers[connectionId]?.invoke(
-                                width,
-                                height,
-                                density
-                            )
+                            
+                            if (mediaCore.lockedTaskDisplays.contains(displayId)) {
+                                // Buffer it
+                                val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
+                                requests.resizeWidth = width
+                                requests.resizeHeight = height
+                                requests.scale = scale
+                                dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered Resize request: $width x $height x $scale", "RemoteSessionHandler")
+                            } else {
+                                mediaCore.echoDisplayParams[connectionId] = arrayOf(
+                                    displayId, width, height, density
+                                )
+                                mediaCore.sessionCapturerResizers[connectionId]?.invoke(
+                                    width,
+                                    height,
+                                    density
+                                )
+                            }
                         }
                     }
                 }
@@ -212,6 +236,44 @@ class RemoteSessionHandler {
                         print("Error processing display mode change: ${e.message}")
                     }
                 }
+                
+                PacketType.TaskList -> {
+                    // Send task list to client
+                    backgroundExecutor.execute {
+                        try {
+                            val tasks = dev.legendsayantan.extendroid.lib.TaskManager.loadAllTasks(ctx)
+                            val json = Gson().toJson(tasks)
+                            mediaCore.echoDataChannels[connectionId]?.let { channel ->
+                                if (channel.state() == DataChannel.State.OPEN) {
+                                    channel.send(createDataChannelPacket(json, PacketType.TaskList))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                PacketType.RunTask -> {
+                    // Content is taskKey
+                    val tasks = dev.legendsayantan.extendroid.lib.TaskManager.loadAllTasks(ctx)
+                    val task = tasks.find { it.taskKey == content }
+                    if (task != null) {
+                        val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(ctx)
+                        taskRunner.run(task, svc,
+                            onNeedNewTab = { pkg -> mediaCore.onNeedNewTab?.invoke(pkg) },
+                            onStarted = {
+                                mediaCore.echoDataChannels[connectionId]?.send(createDataChannelPacket("{\"taskKey\":\"${task.taskKey}\",\"status\":\"started\"}", PacketType.TaskStatus))
+                            },
+                            onDone = {
+                                mediaCore.echoDataChannels[connectionId]?.send(createDataChannelPacket("{\"taskKey\":\"${task.taskKey}\",\"status\":\"done\"}", PacketType.TaskStatus))
+                            },
+                            onError = { err ->
+                                mediaCore.echoDataChannels[connectionId]?.send(createDataChannelPacket("{\"taskKey\":\"${task.taskKey}\",\"status\":\"error\",\"message\":\"$err\"}", PacketType.TaskStatus))
+                            }
+                        )
+                    }
+                }
 
                 else -> {
                     // Do nothing for unknown packets or unhandled ones
@@ -230,6 +292,7 @@ class RemoteSessionHandler {
                 svc.exitTasks(appPackage)
             }
             mediaCore.appRemoteAccessHistory.remove(connectionId)
+            mediaCore.echoDataChannels.remove(connectionId)
             mediaCore.echoDisplayIds.remove(connectionId)?.let { displayId ->
                 svc.destroyVirtualDisplay(displayId)
             }

@@ -42,6 +42,7 @@ class ActivityHelper {
 
         @SuppressLint("PrivateApi")
         fun launchActivityOnDisplayID(component: ComponentName, displayId: Int, extraFlags: Int = 0): String {
+            val token = android.os.Binder.clearCallingIdentity()
             try {
                 // 1) Build the Intent
                 val intent = Intent()
@@ -126,6 +127,8 @@ class ActivityHelper {
                 return "Launched on display $displayId"
             } catch (e: Exception) {
                 return e.stackTraceToString()
+            } finally {
+                android.os.Binder.restoreCallingIdentity(token)
             }
         }
 
