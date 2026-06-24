@@ -5,6 +5,7 @@ import android.graphics.PixelFormat
 import android.media.ImageReader
 import android.os.SystemClock
 import android.view.MotionEvent
+import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.model.TaskData
 import dev.legendsayantan.extendroid.services.IRootService
 import java.util.Timer
@@ -17,7 +18,6 @@ import kotlin.concurrent.timerTask
  * @author legendsayantan
  */
 class TaskRunner(val ctx: Context) {
-    private val activeTimers = mutableListOf<Timer>()
     private var isCancelled = false
     private var runnerThread: Thread? = null
     private var displayId = -1
@@ -75,7 +75,7 @@ class TaskRunner(val ctx: Context) {
 
                     // Wait for the virtual display to become available
                     var waitCount = 0
-                    while (waitCount < 50) {
+                    while (waitCount < 50 && !isCancelled) {
                         val dId = dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.virtualDisplayIds?.get(task.pkgName)
                         if (dId != null && dId != -1) {
                             displayId = dId
@@ -86,9 +86,29 @@ class TaskRunner(val ctx: Context) {
                     }
 
                     if (displayId == -1) {
-                        cleanup(task, svc)
-                        onError("Failed to create preview tab for virtual display")
-                        return@Thread
+                        // Fallback: Create a headless display if UI tab failed
+                        val metrics = ctx.resources.displayMetrics
+                        val prefs = Prefs(ctx)
+                        val density = if (prefs.densityAuto) {
+                            (task.displayWidth * task.displayHeight * metrics.densityDpi * prefs.densityScale) / (metrics.heightPixels * metrics.widthPixels)
+                        } else (metrics.densityDpi * prefs.densityScale)
+                        
+                        dummyReader = android.media.ImageReader.newInstance(task.displayWidth, task.displayHeight, android.graphics.PixelFormat.RGBA_8888, 1)
+                        displayId = svc.createVirtualDisplay(
+                            task.pkgName,
+                            task.displayWidth,
+                            task.displayHeight,
+                            density.toInt(),
+                            dummyReader!!.surface
+                        )
+                        if (displayId != -1) {
+                            dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.virtualDisplayIds?.put(task.pkgName, displayId)
+                            dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.virtualDisplayReady(task.pkgName, displayId)
+                        } else {
+                            cleanup(task, svc)
+                            onError("Failed to create preview tab for virtual display")
+                            return@Thread
+                        }
                     }
 
                     // Resize to match the task dimensions precisely for local displays
@@ -158,6 +178,8 @@ class TaskRunner(val ctx: Context) {
                 onDone()
             }
 
+        } catch (e: InterruptedException) {
+            // Silently swallow interruption caused by cancel()
         } catch (e: Exception) {
             e.printStackTrace()
             cancel(task, svc)
@@ -215,7 +237,9 @@ class TaskRunner(val ctx: Context) {
             
         } else {
             if (task.stopAfter && !wasAlreadyRunning) {
-                onCloseTab(task.pkgName)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    onCloseTab(task.pkgName)
+                }
             }
             // Do not destroy the virtual display manually here, let MediaCore manage its lifecycle
             dummyReader?.close()
@@ -226,8 +250,6 @@ class TaskRunner(val ctx: Context) {
 
     fun cancel(task: TaskData? = null, svc: IRootService? = null) {
         isCancelled = true
-        activeTimers.forEach { it.cancel() }
-        activeTimers.clear()
         runnerThread?.interrupt()
         runnerThread = null
         if (task != null && svc != null) {

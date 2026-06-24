@@ -29,6 +29,7 @@ open class MediaCore {
         var launchAppPkg: String? = null
     }
     var onNeedNewTab: ((String) -> Unit)? = null
+    var onCloseTab: ((String) -> Unit)? = null
     val queuedDisplayRequests = HashMap<Int, DisplayRequests>()
 
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }

@@ -74,6 +74,11 @@ class ExtendService : Service() {
                         menu.startPreviewFor(pkg, 1.5f, true)
                     }
                 }
+                this.onCloseTab = { pkg ->
+                    Utils.whenSafeForUI(this@ExtendService) {
+                        menu.closePreviewFor(pkg)
+                    }
+                }
             }
 
             override fun appTaskToClear(packageName: String) {
@@ -311,16 +316,16 @@ class ExtendService : Service() {
             sendEvent(pkg, event)
         }
 
-        val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(applicationContext)
         val mainHandler = Handler(mainLooper)
-        taskRunner.onCloseTab = { pkg ->
-            mainHandler.post {
-                Utils.whenSafeForUI(this) {
-                    menu.closePreviewFor(pkg)
+        menu.runTask = { task ->
+            val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(applicationContext)
+            taskRunner.onCloseTab = { pkg ->
+                mainHandler.post {
+                    Utils.whenSafeForUI(this) {
+                        menu.closePreviewFor(pkg)
+                    }
                 }
             }
-        }
-        menu.runTask = { task ->
             taskRunner.run(task, svc!!,
                 onNeedNewTab = { pkg ->
                     mainHandler.post {

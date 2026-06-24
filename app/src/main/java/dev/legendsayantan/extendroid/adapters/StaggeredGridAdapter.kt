@@ -36,7 +36,8 @@ class StaggeredGridAdapter(
     private val onClick: (String, Int, Int) -> Unit,
     private val onLongClick: (String) -> Unit,
     private val onTouchEvent: (String, MotionEvent) -> Unit,
-    private val onSurfaceAvailable: (String, TextureView, Int, Int) -> Unit
+    private val onSurfaceAvailable: (String, TextureView, Int, Int) -> Unit,
+    private val onSurfaceDestroyed: (String) -> Unit = {}
 ) :
     RecyclerView.Adapter<StaggeredGridAdapter.ViewHolder>() {
 
@@ -66,7 +67,8 @@ class StaggeredGridAdapter(
             onClick,
             onLongClick,
             onTouchEvent,
-            onSurfaceAvailable
+            onSurfaceAvailable,
+            onSurfaceDestroyed
         )
     }
 
@@ -91,7 +93,8 @@ class StaggeredGridAdapter(
         val onClick: (String, Int, Int) -> Unit,
         val onLongClick: (String) -> Unit,
         val onTouchEvent: (String, MotionEvent) -> Unit,
-        val onItemAttached: (String, TextureView, Int, Int) -> Unit
+        val onItemAttached: (String, TextureView, Int, Int) -> Unit,
+        val onItemDetached: (String) -> Unit = {}
     ) : RecyclerView.ViewHolder(itemView) {
         var packageName = ""
         var height = 0
@@ -140,6 +143,7 @@ class StaggeredGridAdapter(
                 }
 
                 override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                    onItemDetached(packageName)
                     return true
                 }
 

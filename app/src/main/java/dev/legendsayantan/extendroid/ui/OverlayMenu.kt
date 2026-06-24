@@ -39,6 +39,7 @@ import com.google.android.material.button.MaterialButton
 import dev.legendsayantan.extendroid.lib.TaskManager
 import dev.legendsayantan.extendroid.lib.toSerializable
 import dev.legendsayantan.extendroid.model.TaskData
+import dev.legendsayantan.extendroid.services.ExtendService
 import java.lang.Exception
 import java.util.concurrent.Executors
 
@@ -297,6 +298,11 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                             width,
                             height
                         )
+                    },
+                    onSurfaceDestroyed = { pkg ->
+                        MediaCore.mInstance?.virtualDisplayIds?.get(pkg)?.let {
+                            ExtendService.svc?.updateVirtualDisplaySurface(it, Surface(android.graphics.SurfaceTexture(0)))
+                        }
                     })
             recyclerView.adapter = staggeredGridAdapter
 
@@ -481,12 +487,15 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     fun closePreviewFor(packageName: String) {
-        activeWindowsData.removeIf { it.packageName == packageName }
-        dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.stopVirtualDisplay(packageName)
-        val tab = tabLayout.getTabAt(tabLayout.selectedTabPosition)
-        if (tab?.position == 0) {
-            reloadTabContents(tab)
+        val index = activeWindowsData.indexOfFirst { it.packageName == packageName }
+        if (index != -1) {
+            activeWindowsData.removeAt(index)
+            val tab = tabLayout.getTabAt(tabLayout.selectedTabPosition)
+            if (tab?.position == 0 && ::staggeredGridAdapter.isInitialized) {
+                staggeredGridAdapter.notifyItemRemoved(index)
+            }
         }
+        dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.stopVirtualDisplay(packageName)
     }
 
     fun startPreviewFor(packageName: String, ratio: Float = 1.5f, newLaunch: Boolean = false) {

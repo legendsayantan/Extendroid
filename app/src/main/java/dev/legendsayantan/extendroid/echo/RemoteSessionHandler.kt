@@ -273,6 +273,7 @@ class RemoteSessionHandler {
                     val task = tasks.find { it.taskKey == content }
                     if (task != null) {
                         val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(ctx)
+                        taskRunner.onCloseTab = { pkg -> mediaCore.onCloseTab?.invoke(pkg) }
                         taskRunner.run(task, svc,
                             onNeedNewTab = { pkg -> mediaCore.onNeedNewTab?.invoke(pkg) },
                             onStarted = {
