@@ -78,20 +78,40 @@ class TasksAdapter(
         slider.value = (task.launchDelayMs / 1000f).coerceIn(0.5f, 10f)
         stopSwitch.isChecked = task.stopAfter
 
-        MaterialAlertDialogBuilder(ctx)
-            .setTitle(R.string.edit_task)
+        val dialog = MaterialAlertDialogBuilder(ctx)
             .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
-                val updatedTask = task.copy(
-                    launchDelayMs = (slider.value * 1000).toLong(),
-                    stopAfter = stopSwitch.isChecked
-                )
-                tasks[position] = updatedTask
-                notifyItemChanged(position)
-                onEdit(updatedTask)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialogView.findViewById<MaterialButton>(R.id.saveBtn).setOnClickListener {
+            val updatedTask = task.copy(
+                launchDelayMs = (slider.value * 1000).toLong(),
+                stopAfter = stopSwitch.isChecked
+            )
+            tasks[position] = updatedTask
+            notifyItemChanged(position)
+            onEdit(updatedTask)
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<MaterialButton>(R.id.cancelBtn).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        var isActivity = false
+        var unwrappedCtx = ctx
+        while (unwrappedCtx is android.content.ContextWrapper) {
+            if (unwrappedCtx is android.app.Activity) {
+                isActivity = true
+                break
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            unwrappedCtx = unwrappedCtx.baseContext
+        }
+        if (!isActivity) {
+            dialog.window?.setType(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        }
+        dialog.show()
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {

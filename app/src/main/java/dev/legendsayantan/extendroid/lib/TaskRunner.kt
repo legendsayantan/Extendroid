@@ -19,9 +19,12 @@ import kotlin.concurrent.timerTask
 class TaskRunner(val ctx: Context) {
     private val activeTimers = mutableListOf<Timer>()
     private var isCancelled = false
+    private var runnerThread: Thread? = null
     private var displayId = -1
     private var isHijacked = false
+    private var wasAlreadyRunning = false
     private var dummyReader: ImageReader? = null
+    var onCloseTab: (String) -> Unit = {}
     
     fun run(
         task: TaskData,
@@ -31,7 +34,15 @@ class TaskRunner(val ctx: Context) {
         onDone: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        Thread {
+        if (!activeTasks.add(task.taskKey)) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(ctx, "Task ${task.taskKey} is already running!", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            onError("Task is already running")
+            return
+        }
+
+        runnerThread = Thread {
             try {
                 // Try to find an existing active display showing the app
                 val mediaCore = dev.legendsayantan.extendroid.lib.MediaCore.mInstance
@@ -54,8 +65,13 @@ class TaskRunner(val ctx: Context) {
                 }
 
                 if (!isHijacked) {
+                    val mediaCore = dev.legendsayantan.extendroid.lib.MediaCore.mInstance
+                    wasAlreadyRunning = mediaCore?.virtualDisplayIds?.containsKey(task.pkgName) == true
+
                     // Tell OverlayMenu to create a new preview tab
-                    onNeedNewTab(task.pkgName)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        onNeedNewTab(task.pkgName)
+                    }
 
                     // Wait for the virtual display to become available
                     var waitCount = 0
@@ -74,70 +90,81 @@ class TaskRunner(val ctx: Context) {
                         onError("Failed to create preview tab for virtual display")
                         return@Thread
                     }
+
+                    // Resize to match the task dimensions precisely for local displays
+                    svc.resizeVirtualDisplay(displayId, task.displayWidth, task.displayHeight, task.displayDpi)
                 }
                 onStarted()
 
                 // 4. Merge timeline
                 val timeline = TreeMap<Long, Any>()
-            timeline.putAll(task.touches)
-            timeline.putAll(task.keyEvents)
+                if (task.touches != null) timeline.putAll(task.touches)
+                if (task.keyEvents != null) timeline.putAll(task.keyEvents)
 
             val baseUptime = SystemClock.uptimeMillis() + task.launchDelayMs
             val downTimeMap = mutableMapOf<Long, Long>()
 
-            // 5. Schedule all events
+            // 5. Run all events sequentially
             for ((relTime, eventObj) in timeline) {
+                if (isCancelled) break
                 val execTime = baseUptime + relTime
                 val delay = execTime - SystemClock.uptimeMillis()
                 
-                val timer = Timer()
-                activeTimers.add(timer)
-                timer.schedule(timerTask {
-                    if (isCancelled) return@timerTask
+                if (delay > 0) {
                     try {
-                        when (eventObj) {
-                            is SerializableMotionEvent -> {
-                                val recordedDownTime = eventObj.downTime
-                                if (!downTimeMap.containsKey(recordedDownTime)) {
-                                    downTimeMap[recordedDownTime] = execTime
-                                }
-                                val rebasedDownTime = downTimeMap[recordedDownTime]!!
-                                val motionEvent = eventObj.copy(
-                                    downTime = rebasedDownTime, 
-                                    eventTime = execTime
-                                ).toMotionEvent()
-                                
-                                svc.dispatch(motionEvent, displayId)
-                                motionEvent.recycle()
+                        Thread.sleep(delay)
+                    } catch (e: InterruptedException) {
+                        break
+                    }
+                }
+                if (isCancelled) break
+                
+                try {
+                    when (eventObj) {
+                        is SerializableMotionEvent -> {
+                            val recordedDownTime = eventObj.downTime
+                            if (!downTimeMap.containsKey(recordedDownTime)) {
+                                downTimeMap[recordedDownTime] = execTime
                             }
-                            is SerializableKeyEvent -> {
+                            val rebasedDownTime = downTimeMap[recordedDownTime]!!
+                            val motionEvent = eventObj.copy(
+                                downTime = rebasedDownTime, 
+                                eventTime = execTime
+                            ).toMotionEvent()
+                            
+                            svc.dispatch(motionEvent, displayId)
+                            motionEvent.recycle()
+                        }
+                        is SerializableKeyEvent -> {
+                            if (eventObj.keyCode != 0) {
                                 svc.dispatchKey(eventObj.keyCode, eventObj.action, displayId, eventObj.metaState)
                             }
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
-                }, maxOf(0L, delay))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
 
             // 6. Post-task cleanup
-            val lastEventTime = if (timeline.isEmpty()) 0L else timeline.lastKey()
-            val finishDelay = task.launchDelayMs + lastEventTime + 300L
+            if (!isCancelled) {
+                try {
+                    Thread.sleep(300L)
+                } catch (e: InterruptedException) {}
+            }
             
-            val finishTimer = Timer()
-            activeTimers.add(finishTimer)
-            finishTimer.schedule(timerTask {
-                if (isCancelled) return@timerTask
+            if (!isCancelled) {
                 cleanup(task, svc)
                 onDone()
-            }, finishDelay)
+            }
 
         } catch (e: Exception) {
             e.printStackTrace()
             cancel(task, svc)
             onError(e.message ?: "Unknown error")
         }
-        }.start()
+        }
+        runnerThread?.start()
     }
 
     private fun cleanup(task: TaskData, svc: IRootService) {
@@ -187,27 +214,31 @@ class TaskRunner(val ctx: Context) {
             mediaCore.queuedDisplayRequests.remove(displayId)
             
         } else {
-            if (task.stopAfter) {
-                svc.exitTasks(task.pkgName)
+            if (task.stopAfter && !wasAlreadyRunning) {
+                onCloseTab(task.pkgName)
             }
-            if (displayId != -1) {
-                svc.destroyVirtualDisplay(displayId)
-                displayId = -1
-            }
+            // Do not destroy the virtual display manually here, let MediaCore manage its lifecycle
             dummyReader?.close()
             dummyReader = null
         }
+        activeTasks.remove(task.taskKey)
     }
 
     fun cancel(task: TaskData? = null, svc: IRootService? = null) {
         isCancelled = true
         activeTimers.forEach { it.cancel() }
         activeTimers.clear()
+        runnerThread?.interrupt()
+        runnerThread = null
         if (task != null && svc != null) {
             cleanup(task, svc)
         } else {
             dummyReader?.close()
             dummyReader = null
         }
+    }
+
+    companion object {
+        val activeTasks = java.util.concurrent.CopyOnWriteArraySet<String>()
     }
 }

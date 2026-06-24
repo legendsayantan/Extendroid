@@ -242,7 +242,20 @@ class RemoteSessionHandler {
                     backgroundExecutor.execute {
                         try {
                             val tasks = dev.legendsayantan.extendroid.lib.TaskManager.loadAllTasks(ctx)
-                            val json = Gson().toJson(tasks)
+                            val simplifiedTasks = tasks.map {
+                                mapOf(
+                                    "taskKey" to it.taskKey,
+                                    "pkgName" to it.pkgName,
+                                    "displayWidth" to it.displayWidth,
+                                    "displayHeight" to it.displayHeight,
+                                    "ratio" to it.ratio,
+                                    "stopAfter" to it.stopAfter,
+                                    "launchDelayMs" to it.launchDelayMs,
+                                    "version" to it.version,
+                                    "eventCount" to ((it.touches?.size ?: 0) + (it.keyEvents?.size ?: 0))
+                                )
+                            }
+                            val json = com.google.gson.GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(simplifiedTasks)
                             mediaCore.echoDataChannels[connectionId]?.let { channel ->
                                 if (channel.state() == DataChannel.State.OPEN) {
                                     channel.send(createDataChannelPacket(json, PacketType.TaskList))

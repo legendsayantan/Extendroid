@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.util.DisplayMetrics
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -119,7 +120,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     }
 
     val gridColumnCount
-        get() = if (ctx.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) 2 else 3
+        get() = if (screenWidth < screenHeight) 2 else 3
 
     val activeWindowsData: ArrayList<WindowData> = arrayListOf()
     val activePackages
@@ -376,7 +377,16 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
                 isRecording = false
                 stopKeyEventRecording()
                 recordTask.text = ctx.getString(R.string.record_task)
-                recordingTask?.let { TaskManager.saveTask(ctx, it) }
+                recordingTask?.let {
+                    // Inject a padding event to extend the recording duration until the exact moment "stop" was pressed
+                    val endTime = System.currentTimeMillis() - recordingStartTime
+                    it.keyEvents[endTime] = dev.legendsayantan.extendroid.lib.SerializableKeyEvent(
+                        android.view.KeyEvent.ACTION_DOWN, 
+                        0, 
+                        0
+                    )
+                    TaskManager.saveTask(ctx, it) 
+                }
                 recordingTask = null
                 pendingTaskName = null
                 reloadTaskList()
@@ -470,19 +480,30 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         }
     }
 
+    fun closePreviewFor(packageName: String) {
+        activeWindowsData.removeIf { it.packageName == packageName }
+        dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.stopVirtualDisplay(packageName)
+        val tab = tabLayout.getTabAt(tabLayout.selectedTabPosition)
+        if (tab?.position == 0) {
+            reloadTabContents(tab)
+        }
+    }
+
     fun startPreviewFor(packageName: String, ratio: Float = 1.5f, newLaunch: Boolean = false) {
         Utils.whenSafeForUI(ctx) {
             if (newLaunch && containsPopup(packageName)) {
                 minimisePopup(packageName)
                 return@whenSafeForUI
             }
-            activeWindowsData.add(
-                WindowData(
-                    installedApps.firstOrNull { it.packageName == packageName }?.appName ?: "",
-                    packageName,
-                    ratio
+            if (activeWindowsData.none { it.packageName == packageName }) {
+                activeWindowsData.add(
+                    WindowData(
+                        installedApps.firstOrNull { it.packageName == packageName }?.appName ?: "",
+                        packageName,
+                        ratio
+                    )
                 )
-            )
+            }
             tabLayout.getTabAt(0)?.select()
             setAutoHide()
         }

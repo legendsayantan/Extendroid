@@ -43,9 +43,19 @@ import rikka.shizuku.Shizuku
 
 class ExtendService : Service() {
     val prefs by lazy { Prefs(applicationContext) }
-    val ball by lazy { FloatingBall(this) }
-    val menu by lazy { OverlayMenu(android.view.ContextThemeWrapper(this, R.style.Theme_Extendroid)) }
-    val popupManager by lazy { PopupManager(this) }
+    val overlayContext: Context by lazy {
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        val primaryDisplay = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val displayContext = createDisplayContext(primaryDisplay!!)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            displayContext.createWindowContext(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+        } else {
+            displayContext
+        }
+    }
+    val ball by lazy { FloatingBall(overlayContext) }
+    val menu by lazy { OverlayMenu(android.view.ContextThemeWrapper(overlayContext, R.style.Theme_Extendroid)) }
+    val popupManager by lazy { PopupManager(overlayContext) }
     val prefsChangedListener = { ctx: Context ->
         setupPrefsRelated()
     }
@@ -302,16 +312,26 @@ class ExtendService : Service() {
         }
 
         val taskRunner = dev.legendsayantan.extendroid.lib.TaskRunner(applicationContext)
+        val mainHandler = Handler(mainLooper)
+        taskRunner.onCloseTab = { pkg ->
+            mainHandler.post {
+                Utils.whenSafeForUI(this) {
+                    menu.closePreviewFor(pkg)
+                }
+            }
+        }
         menu.runTask = { task ->
             taskRunner.run(task, svc!!,
                 onNeedNewTab = { pkg ->
-                    Utils.whenSafeForUI(this) {
-                        menu.startPreviewFor(pkg, task.displayWidth.toFloat() / task.displayHeight, true)
+                    mainHandler.post {
+                        Utils.whenSafeForUI(this) {
+                            menu.startPreviewFor(pkg, task.displayHeight.toFloat() / task.displayWidth, true)
+                        }
                     }
                 },
-                onStarted = { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_started_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } },
-                onDone    = { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_done_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } },
-                onError   = { msg -> Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_error_toast, task.taskKey, msg), android.widget.Toast.LENGTH_LONG).show() } }
+                onStarted = { mainHandler.post { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_started_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } } },
+                onDone    = { mainHandler.post { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_done_toast, task.taskKey), android.widget.Toast.LENGTH_SHORT).show() } } },
+                onError   = { msg -> mainHandler.post { Utils.whenSafeForUI(this) { android.widget.Toast.makeText(this, getString(R.string.task_error_toast, task.taskKey, msg), android.widget.Toast.LENGTH_LONG).show() } } }
             )
         }
         menu.deleteTask = { task ->

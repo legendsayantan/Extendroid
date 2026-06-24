@@ -71,8 +71,8 @@
     <string name="run_task">Run</string>
     <string name="delete_task">Delete</string>
     <string name="edit_task">Edit Task</string>
-    <string name="stop_after_task">Stop app after task</string>
-    <string name="launch_delay_label">Launch delay (ms)</string>
+    <string name="stop_after_task">Stop if opened by task</string>
+    <string name="launch_delay_label">Launch delay (s)</string>
     <string name="task_running">Running…</string>
     <string name="task_done">Done ✓</string>
     <string name="task_error">Error</string>

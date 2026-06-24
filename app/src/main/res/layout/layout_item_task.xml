@@ -67,6 +67,7 @@
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/outline_more_vert_24"
+            android:tint="?attr/colorOnSecondary"
             app:tint="?attr/colorOnSecondary" />
 
     </LinearLayout>
