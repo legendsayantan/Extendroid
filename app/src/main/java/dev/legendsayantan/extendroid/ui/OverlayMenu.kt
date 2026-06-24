@@ -72,13 +72,14 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     private val screenHeight
         get() = displayMetrics.heightPixels
 
-    private val layoutParams
+    private val defaultLayoutParams
         get() = WindowManager.LayoutParams().apply {
             width = (if (screenWidth > screenHeight) screenWidth * 0.9 else screenWidth).toInt()
             height = (screenHeight * 0.9).toInt()
             type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_DIM_BEHIND
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_DIM_BEHIND
             dimAmount = 0.25f
             format = PixelFormat.TRANSLUCENT
             gravity = Gravity.CENTER
@@ -90,6 +91,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     val root by lazy {
         layoutInflater.inflate(R.layout.layout_menu, this, true)
     }
+    val cardView by lazy { getChildAt(0) }
     val tabLayout by lazy { root!!.findViewById<TabLayout>(R.id.tabLayout) }
     val recyclerView by lazy { root!!.findViewById<FreezableRecyclerView>(R.id.recyclerView) }
     val moreBtn by lazy { root!!.findViewById<ImageView>(R.id.moreBtn) }
@@ -136,6 +138,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
     private var pendingTaskName: String? = null
 
     lateinit var staggeredGridAdapter: StaggeredGridAdapter
+    private var keyboardTracker: KeyboardTracker? = null
 
     init {
         recyclerView.isNestedScrollingEnabled = true
@@ -524,7 +527,7 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
 
     fun onOrientationChanged() {
         if (parent != null) {
-            wm.updateViewLayout(this, layoutParams)
+            wm.updateViewLayout(this, defaultLayoutParams)
             tabLayout.getTabAt(tabLayout.selectedTabPosition)?.let { reloadTabContents(it) }
         }
     }
@@ -534,11 +537,17 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
             if (parent == null) {
                 try {
                     scaleY = 0f
-                    wm.addView(this, layoutParams)
+                    wm.addView(this, defaultLayoutParams)
                     isShowing = true
                     animate().scaleY(1f).setDuration(250).start()
                     setAutoHide()
                     tabLayout.getTabAt(tabLayout.selectedTabPosition)?.let { reloadTabContents(it) }
+                    if (keyboardTracker == null) {
+                        keyboardTracker = KeyboardTracker(ctx) { keyboardHeight ->
+                            // Keyboard detection logic kept, but layout change logic removed as requested.
+                        }
+                        keyboardTracker?.start()
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -575,6 +584,8 @@ class OverlayMenu(val ctx: Context) : FrameLayout(ctx) {
         super.onDetachedFromWindow()
         removeAutoHide()
         backgroundExecutor.shutdownNow()
+        keyboardTracker?.stop()
+        keyboardTracker = null
     }
 
     companion object {

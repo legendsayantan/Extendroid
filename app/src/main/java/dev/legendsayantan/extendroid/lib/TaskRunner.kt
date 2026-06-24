@@ -102,8 +102,8 @@ class TaskRunner(val ctx: Context) {
                             dummyReader!!.surface
                         )
                         if (displayId != -1) {
-                            dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.virtualDisplayIds?.put(task.pkgName, displayId)
-                            dev.legendsayantan.extendroid.lib.MediaCore.mInstance?.virtualDisplayReady(task.pkgName, displayId)
+                            MediaCore.mInstance?.virtualDisplayIds?.put(task.pkgName, displayId)
+                            MediaCore.mInstance?.virtualDisplayReady(task.pkgName, displayId)
                         } else {
                             cleanup(task, svc)
                             onError("Failed to create preview tab for virtual display")

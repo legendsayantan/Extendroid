@@ -223,14 +223,7 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
         registerReceiver(wifiReceiver, IntentFilter(WifiManager.RSSI_CHANGED_ACTION))
 
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            connectivityManager.registerDefaultNetworkCallback(networkCallback)
-        } else {
-            val networkRequest = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-            connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-        }
+        connectivityManager.registerDefaultNetworkCallback(networkCallback)
 
         registerTelephonyCallback()
         updateRingerStatus()
