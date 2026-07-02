@@ -1,0 +1,134 @@
+= Hijacking the Android Framework: Headless App Execution, Remote Rendering, and Synthetic Event Replay
+:toc: macro
+:toc-title: Architecture Overview
+:tags: Android Internals, Privilege Escalation, Event Replay, WebRTC, IPC
+
+== Abstract
+
+This case study breaks down the internal architecture of Extendroid. It details how the system chains rootless privilege escalation (via Shizuku), context forgery, undocumented API reflection, and raw telemetry interception to deceive the Android System Server. By spoofing hardware states and execution lifecycles, Extendroid allows standard Android applications to execute headlessly and render remotely without triggering OS memory constraints, concurrent display limits, or power restrictions.
+
+toc::[]
+
+== The Architectural Challenge: Android's Hostile Sandbox
+
+Android is fundamentally designed to tightly couple application lifecycles to physical hardware states. The OS relies on a strict state machine managed by the `ActivityManager`, `DisplayManager`, and `PowerManager`.
+
+If the physical screen is off, rendering is halted. If an application is not in the foreground, it is aggressively targeted by the Out-Of-Memory (OOM) killer and Doze mode restrictions. To achieve sovereign, remote application execution while the host device remains locked or engaged in other tasks, the system cannot simply "run in the background." It must actively gaslight the framework.
+
+Extendroid achieves this by feeding the OS forged telemetry—solving one framework restriction at a time, chronologically, throughout the execution lifecycle.
+
+== Step 1: The Privilege Vector (Escaping the Sandbox)
+
+The very first problem is authorization. A standard Android application cannot gaslight system managers.
+
+**The Solution:** Extendroid relies on Shizuku for rootless privilege escalation. Shizuku is a framework that allows standard applications to route API calls through a background process running with elevated ADB shell privileges (UID 2000) or pure root. By binding a custom `RootService` to the Shizuku host, Extendroid inherits this shell-level authority. This allows the system to escape the standard app sandbox, interact directly with restricted system managers, and invoke hidden APIs without requiring a fully unlocked bootloader.
+
+_We now have the necessary privileges, but we still have a major problem to solve: how do we create an isolated environment to run apps without disrupting the host device's physical screen?_
+
+== Step 2: Sub-Surface Execution (Creating the Environment)
+
+To run applications off-screen without degrading the host device's experience, Extendroid must decouple the execution environment from the physical device display. 
+
+Early architectural iterations relied on the public `MediaProjection` API. However, this introduced two critical bottlenecks: Global State Leakage (triggering a "Recording" flag that masked UI elements on the physical screen) and the Concurrency Sandbox (Android limits apps to a single `MediaProjection` session).
+
+**The Solution:** Context Forgery and Undocumented Flag Fuzzing.
+To circumvent these limits, Extendroid abandons public APIs entirely and drops directly to the `DisplayManager` layer. Instead of politely requesting a display, Extendroid forces the framework to generate one by spoofing the request's origin:
+
+1. **Identity Manipulation:** The system calls `clearCallingIdentity()`, ensuring the display creation request runs purely under the privileged `RootService` context.
+2. **Context Forgery (`FakeContext`):** Using Reflection, Extendroid bypasses visibility modifiers on the `DisplayManager` constructor. It instantiates the manager using a forged context (`FakeContext.get()`), completely severing the new display's ties to the host application's restricted lifecycle.
+3. **Flag Fallback Matrix:** Because OEM skins aggressively filter raw virtual display requests, Extendroid brute-forces a prioritized array of bitwise display flags—combining public flags with undocumented, hidden system flags (like `OWN_DISPLAY_GROUP (2048)`, `8`, `512`, and `1024`) until the OS accepts the payload.
+
+_We have successfully spawned a hidden, untracked virtual display. But we still have another problem to solve: Android's power management forces virtual displays into a suspended, non-rendering state when the primary physical display turns off._
+
+== Step 3: Power Mode Controlling (Keeping the Environment Alive)
+
+Android aggressively defends its power state machine to prevent rogue background processes from keeping the screen on or forcing it off. If the physical screen sleeps, our headless apps will freeze.
+
+**The Solution:** Robust Wake/Sleep Overrides (`DisplayHelper.kt`).
+Extendroid overrides this via a multi-tiered fallback matrix that pierces restricted Android framework boundaries via Reflection, forcing the virtual display to stay awake and render even when the host device is asleep.
+
+* **Tier 1 (IPC Reflection):** Extendroid hooks directly into the `android.os.IPowerManager$Stub` via the `ServiceManager`. It invokes hidden methods like `goToSleep(time, reason, flags)` or `wakeUp(time, reason, details)` dynamically, mapping across multiple OEM-specific signature variations.
+* **Tier 2 (Direct Reflection):** If IPC fails, it falls back to reflective invocation on the local `PowerManager` instance.
+* **Tier 3 (Flag Exploitation & Shell Fallbacks):** For Wakeup, Extendroid attempts to acquire a `WakeLock` using hidden/deprecated flags (`FULL_WAKE_LOCK` combined with `ACQUIRE_CAUSES_WAKEUP`), which forces a screen-on event. For Sleep, the ultimate fallback injects raw hardware KeyEvents (`223` for wake, `26` for power toggle) via the shell input binary.
+
+Because the virtual display is kept alive, the `ActivityManager` registers any applications running within it as active, foreground processes. 
+
+_Our environment is now alive, hidden, and immune to Doze constraints. But how do we actually get an app to launch inside it instead of popping up on the user's physical screen?_
+
+== Step 4: Remote App Launching (Populating the Environment)
+
+Normally, relying on public Intents would launch the app on the default display or be blocked entirely by background execution limits.
+
+**The Solution:** Display Targeted Execution (`ActivityHelper.kt`).
+Extendroid utilizes advanced context spoofing to launch applications directly into the headless virtual display.
+
+It builds a custom `ActivityOptions` bundle via reflection, specifically setting the `launchDisplayId` to the headless virtual display. Crucially, it executes this launch by invoking `startActivityAsUser` directly on the `IActivityManager` binder interface. Before invocation, it explicitly spoofs the `callingPackage` as `com.android.shell`. This grants the launch request elevated system privileges, bypassing `INTERNAL_SYSTEM_WINDOW` permission checks and allowing any app to be spawned invisibly off-screen.
+
+_The app is now running and rendering invisibly. But a headless app is useless without a way to view and control it remotely. We need to connect the user._
+
+== Step 5: Video Pipelining (Local Popups & Remote Streams)
+
+Once the app is running in the headless virtual display, its output buffer (managed by `SurfaceFlinger`) must be routed to a destination. Extendroid dynamically pipes these hardware frames either to local app-specific popups or over the network via WebRTC.
+
+* **Local App-Specific Popups (TextureView Routing):** For local multitasking, Extendroid utilizes Android's `TextureView`. It listens for the `onSurfaceTextureAvailable` callback within the UI's grid adapter (e.g., `StaggeredGridAdapter.kt`). Once available, it wraps the `SurfaceTexture` in a native `Surface` and dynamically passes it to the `VirtualDisplay` via the `RootService`. The OS's `SurfaceFlinger` then composites the headless app's frames directly onto the local `TextureView` in real-time, creating a seamless, floating app window without heavy CPU copying.
+* **Remote WebRTC Streaming (Custom Capturer):** For remote access, Extendroid bypasses traditional screen-scraping by implementing a custom WebRTC `VideoCapturer` (`RemoteSessionRenderer.kt`). It binds to WebRTC's `SurfaceTextureHelper`, which provides an EGL-backed `SurfaceTexture`. Extendroid injects this generated `Surface` directly into the `VirtualDisplay`. As `SurfaceFlinger` renders frames, the `SurfaceTextureHelper` intercepts them at the GPU level, converts them into WebRTC `VideoFrame` objects, and pushes them down the WebRTC video sink pipeline. If the remote client resizes their browser window, Extendroid dynamically updates the `TextureSize` and swaps the `Surface` on the fly.
+
+_Now that we have successfully piped the video output to our destinations, we encounter another fundamental limitation: Android applications are inherently designed for fixed mobile screens. What happens when the user resizes their remote browser window or drags a local popup?_
+
+== Step 6: Dynamic Resizability & Scalability (Native DPI Interpolation)
+
+Simply stretching the video stream would result in blurry, distorted pixels and broken UI interactions. To achieve true, desktop-like window management, Extendroid forces the Android OS to natively recalculate the application's layout.
+
+**The Solution:** Native Display Manipulation (`VirtualDisplay.resize`).
+When a resize event occurs on the React web client (detected via a `ResizeObserver`) or a local popup is dragged, the new dimensions and a calculated scale factor are pushed via WebRTC Data Channels to the host device.
+
+Extendroid intercepts these dimensions and invokes `VirtualDisplay.resize(width, height, dpi)` directly on the active headless display instance. Because the virtual display is a first-class OS citizen, invoking this API triggers Android's internal `WindowManager` and `DisplayManager` to perform an immediate configuration change. 
+
+The framework natively recalculates layout passes, reflows text, and interpolates DPI dynamically—exactly as if the physical hardware screen suddenly changed its physical dimensions. This ensures the app UI remains perfectly crisp, responsive, and geometrically accurate, providing a flawless desktop windowing experience without any pixel stretching.
+
+_With the environment fully scalable and the video piped securely, we need to handle the network signaling required to connect a remote user._
+
+== Step 7: Distributed Edge Signaling (Connecting the User)
+
+This is achieved through a triad architecture: the Android host node, a Serverless Edge signaling broker, and a React-based remote client. However, maintaining a persistent WebSocket connection to a server would drain the Android host's battery.
+
+**The Solution:** Serverless Edge Signaling and FCM Wakeups.
+* **Bidirectional Wakeups via FCM:** To ensure the remote client can spin up the headless environment on-demand—even from deep sleep—Extendroid tunnels its bidirectional Command & Control (C2) wakeup calls through Firebase Cloud Messaging (FCM). When the Cloudflare Worker receives a connection request, it forwards WebRTC SDP payloads as FCM data messages. This grants the OS network execution time, bypassing battery restrictions, and allowing Extendroid to instantly spin up the WebRTC pipeline from a completely cold state.
+* **Serverless Edge Signaling (Cloudflare Workers):** Session states (SDP and ICE candidates) are managed dynamically via Cloudflare Durable Objects (`SignalDO`). This allows the signaling infrastructure to spin up on-demand without maintaining dedicated node servers.
+* **Bidirectional Data Channels:** Alongside the video pipeline, WebRTC Bidirectional Data Channels maintain a real-time state sync (Installed Apps, Running Processes, Tasks) between the Android OS and the React client.
+
+_We can now see the remote app and its state on our web client. However, we still have two final problems to solve: we cannot interact with it yet, and if the host device is locked, we are stuck looking at the Keyguard._
+
+== Step 8: Synthetic Event Replay & Keyguard Evasion (Controlling the Environment)
+
+Android strictly prohibits background services from injecting touch events and defends the Keyguard (lock screen) from programmatic bypasses using aggressive security heuristics.
+
+**The Solution:** Raw Telemetry Interception and Zero-Latency Translation.
+
+* **Zero-Latency Input Translation:** The React web client acts as the controller. It intercepts raw DOM events (Mouse, Touch, Wheel) across the video player, maps the browser coordinate matrices to the remote device's dynamically scaled resolution, and translates them into low-level Android Input commands (`ACTION_DOWN`, `ACTION_SCROLL`). These are injected back over the WebRTC data channel.
+* **Local Replay Injection:** When the Android host receives these JSON payloads, it parses them and translates them back into synthetic `MotionEvent` objects, injecting them directly into the OS's `InputService`.
+* **Remote Unlock (Telemetry Training & Replay):** To bypass the lock screen entirely, Extendroid uses a mechanical "Training and Replay" system (`RemoteUnlocker.kt`). The user manually unlocks the device once while Extendroid taps into the raw `/dev/input` stream to record the precise sequence of `MotionEventData` (X/Y coordinates, pressure, delta timings). When a remote unlock is requested, Extendroid shifts the recorded delta timings relative to the current `SystemClock.uptimeMillis()` and replays them. The Android framework perceives this synthetic injection as genuine hardware digitizer input, seamlessly bypassing the lock screen without ever touching restricted Keyguard APIs.
+
+== Technical Hurdles & Micro-Workarounds
+
+While the macro-architecture handles the core functionality, the system relies on several micro-workarounds to solve edge cases and strict OS/Network limitations.
+
+=== The 4KB FCM Payload Limit (Dynamic SDP Routing)
+**Problem:** To wake the Android device from a cold state, the WebRTC Session Description Protocol (SDP) and ICE candidates must be sent via a Firebase Cloud Messaging (FCM) data payload. However, FCM enforces a strict 4096-byte (4KB) payload limit. WebRTC SDPs frequently exceed this limit, which would cause FCM to silently drop the wakeup command.
+**Workaround:** The Cloudflare Worker (`signal.ts`) dynamically calculates the byte-size of the serialized SDP payload. If it is under 4096 bytes, it passes the data natively through FCM for a zero-latency, single-roundtrip wakeup. If the payload is larger, the Worker temporarily stores the SDP in its `SignalDO` Durable Object and sends an FCM push containing a simple `{ fetchsdp: true }` flag. The Android device wakes up, reads the flag, and executes a secure HTTPS callback to retrieve the full payload.
+
+=== OEM API Fragmentation (The Signature Matrix)
+**Problem:** Because Android is heavily fragmented across OEMs (Samsung, Xiaomi, etc.), system services like `IPowerManager` have non-standard, shifting method signatures across different skins and OS versions. Calling a hidden API that exists on a Pixel device will instantly crash the service on a Samsung device.
+**Workaround:** Instead of hardcoding one method signature, the Android host (`DisplayHelper.kt`) employs a brute-force Signature Fallback Matrix. It uses Java Reflection to loop through arrays of potential method signatures (e.g., `wakeUp` taking `[long, int, String]`, then `[long, boolean]`, then `[long]`). It catches `NoSuchMethodException` sequentially until it successfully hooks into the exact OEM-specific framework.
+
+=== Temporal Shifting for Event Replay
+**Problem:** Recorded unlock gestures (`MotionEventData`) are stored with absolute `downTime` and `eventTime` timestamps based on the device's uptime when they were recorded. If the device reboots, these absolute timestamps become invalid. During a subsequent remote unlock attempt, the Android framework would instantly drop the injected replay events as "stale."
+**Workaround:** During the training phase (`RemoteUnlocker.kt`), the Android node calculates and stores *delta* timings relative to the very first touch event. During replay, it reads the current `SystemClock.uptimeMillis()` and adds it to the deltas. This ensures the injected events always possess perfectly valid, real-time timestamps, completely decoupling the recorded gesture from the device's uptime state.
+
+=== React "Ghost Clicks" and Passive Listeners
+**Problem:** On the React web client, building a draggable overlay panel for mobile browsers resulted in severe UI glitches. Touch events naturally trigger simulated mouse events ("ghost clicks") after a 300ms delay, which would immediately close the panel right after it was dragged open. Furthermore, modern browsers default touch listeners to `passive`, preventing developers from intercepting these ghost clicks.
+**Workaround:** In `Echo.jsx`, the touch event listeners (`touchstart` and `touchmove`) are explicitly registered manually against the DOM with `{ passive: false }`. This overriding configuration allows the React client to forcibly execute `e.preventDefault()` mid-drag, aggressively swallowing the ghost clicks and ensuring a flawless, native-feeling interaction loop.
+
+== Conclusion
+
+Extendroid is an exercise in architectural circumvention and distributed system design. By treating the Android Framework not as a strict set of rules, but as a state machine vulnerable to spoofed telemetry and context forgery, it successfully abstracts the localized mobile OS into a decoupled, distributed compute node. Paired with a serverless edge signaling broker and a zero-latency WebRTC client, it achieves sovereign remote application execution without compromising host constraints.
