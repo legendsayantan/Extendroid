@@ -3,6 +3,9 @@
 :toc-title: Architecture Overview
 :tags: Android Internals, Privilege Escalation, Event Replay, WebRTC, IPC, AIDL
 
+*See it in action:* https://extendroid.pages.dev +
+*Source Code:* https://github.com/legendsayantan/Extendroid
+
 == Abstract
 
 This case study breaks down the internal architecture of Extendroid. It details how the system chains its rootless privilege, a custom IPC bridge, context forgery, undocumented API reflection, and raw telemetry interception to deceive the Android System Server.
@@ -32,9 +35,6 @@ skinparam {
     cloud {
         BackgroundColor #FAFAFA
     }
-    database {
-        BackgroundColor #EFEFEF
-    }
 }
 
 actor "Remote User" as User
@@ -43,24 +43,37 @@ cloud "Browser" {
   node "React Client" as WebApp
 }
 
-cloud "Cloud Infrastructure" {
-    node "Cloudflare Worker\n(Signaling)" as Worker
-    node "FCM\n(Wakeup)" as FCM
+cloud "Signaling Layer" {
+    node "Cloudflare Worker\n(Durable Objects)" as Worker
+    node "FCM\n(Firebase Cloud Messaging)" as FCM
 }
 
 rectangle "Android Host Device" {
-    package "App Sandbox" {
-        node "Main App UI" as AppUI
+    package "App Sandbox (User UID)" {
+        node "MainActivity" as UI
+        node "ExtendService\n(Orchestrator)" as ExtSvc
+        node "CloudMessageService\n(FCM Listener)" as FCMListener
+
+        package "UI Components" {
+            node "Floating Ball" as Ball
+            node "Overlay Menu" as Menu
+            node "Popup Manager" as PopupMgr
+            node "Popup Window\n(SurfaceView)" as PopupWin
+        }
+
+        package "Core Libraries" {
+            node "MediaCore" as Media
+            node "WebRTC Stack" as RtcStack
+        }
     }
 
-    package "Privileged Context (Root)" {
-        node "Shizuku\nDaemon" as Shizuku
+    package "Privileged Context (Root/ADB)" {
+        node "Shizuku Daemon" as Shizuku
         node "RootService" {
             rectangle "AIDL Interface" as Aidl
-            rectangle "Display Mgr" as DispMgr
-            rectangle "Power Mgr" as PwrMgr
-            rectangle "Input Mgr" as InputMgr
-            rectangle "WebRTC\nCapturer" as RtcCapturer
+            rectangle "Display Manager Proxy" as DispMgr
+            rectangle "Input Injection Proxy" as InputMgr
+            rectangle "DevInputReader" as RawInput
         }
     }
 
@@ -68,40 +81,50 @@ rectangle "Android Host Device" {
         node "Virtual Display" as VDisplay
         node "Target App" as TargetApp
     }
-
-    database "/dev/input" as DevInput
 }
 
 ' --- Relationships ---
-User -down-> WebApp
-AppUI -> Shizuku : "Binds to"
-Shizuku -up-> RootService : "Starts"
+
+' Setup & Orchestration
+UI -down-> ExtSvc : "Starts"
+ExtSvc -right-> Shizuku : "Binds to (via AIDL)"
+Shizuku -down-> Aidl : "Hosts"
+ExtSvc -down-> Media : "Uses"
+Media -down-> Aidl : "Privileged Ops"
+
+' UI Control
+ExtSvc -down-> Ball
+ExtSvc -down-> Menu
+ExtSvc -down-> PopupMgr
+PopupMgr -down-> PopupWin
 
 ' Signaling Flow
-WebApp <.up.> Worker : "1. Signaling (WebSocket)"
-Worker .> FCM : "2. Wakeup"
-FCM .> AppUI : "3. Push"
+WebApp <.down.> Worker : "Signaling"
+Worker -down-> FCM
+FCM -down-> FCMListener : "Wakeup / SDP"
+FCMListener -up-> ExtSvc : "Initialize Echo"
 
-' On-Device Control Flow
-AppUI <-down-> Aidl : "4. IPC"
+' Media Flow
 Aidl -down-> DispMgr
-Aidl -down-> PwrMgr
-Aidl -down-> InputMgr
-
 DispMgr -down-> VDisplay : "Manages"
-InputMgr -down-> TargetApp : "Injects Input"
+TargetApp .right.> VDisplay : "Renders"
 
-' Rendering and Streaming Flow
-TargetApp .> VDisplay : "Renders to"
-VDisplay .> RtcCapturer : "Provides Frames"
-WebApp <.left.> RtcCapturer : "8. WebRTC Video Stream"
+' Local Rendering
+VDisplay .up.> PopupWin : "Pipes Frames (Surface)"
 
-' WebRTC Data Channel for Input
-WebApp .> Aidl : "7. Input Events\n(via WebRTC Data Channel)"
+' Remote Rendering
+VDisplay .left.> RtcStack : "Captures (Surface)"
+RtcStack -left-> WebApp : "WebRTC Video Stream"
 
-' Gesture Training Flow (One-time)
-DevInput .> InputMgr : "Gesture Training\n(Raw Event Capture)"
+' Input Path
+WebApp -right-> RtcStack : "Input Events (Data Channel)"
+RtcStack -up-> ExtSvc : "Forward Input"
+ExtSvc -down-> Aidl : "dispatchMotionEvent"
+Aidl -down-> InputMgr
+InputMgr -down-> TargetApp : "Injects"
 
+' Gesture Training
+RawInput -up-> Aidl : "Raw Event Stream"
 
 @enduml
 ....
