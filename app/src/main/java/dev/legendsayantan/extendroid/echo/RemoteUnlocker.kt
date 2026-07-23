@@ -120,12 +120,14 @@ class RemoteUnlocker(val ctx: Context) {
         val timer = Timer()
         activeTimers.add(timer)
         val handler = Handler(ctx.mainLooper)
+        val scaling = determineScaling(svc) // This can take 500ms-1500ms to run shell commands
         val now = System.currentTimeMillis()+1000;
         val uptimeMillis = SystemClock.uptimeMillis()+1000;
-        val scaling = determineScaling(svc)
         Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
-        val lastIndex = unlockData.size - 1
-        unlockData.forEachIndexed { index, eventData ->
+        
+        val data = unlockData
+        val lastIndex = data.size - 1
+        data.forEachIndexed { index, eventData ->
             val timeToRun = now + eventData.eventTime
             eventData.downTime += uptimeMillis;
             eventData.eventTime += uptimeMillis;

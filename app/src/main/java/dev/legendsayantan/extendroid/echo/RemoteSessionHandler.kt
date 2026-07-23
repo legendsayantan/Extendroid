@@ -223,12 +223,14 @@ class RemoteSessionHandler {
                 }
 
                 PacketType.Unlock -> {
-                    try {
-                        RemoteUnlocker(ctx).unlock(svc)
-                    }catch (e: Exception){
-                        e.printStackTrace()
-                        print("Error processing unlock event: ${e.message}")
-                    }
+                    Thread {
+                        try {
+                            RemoteUnlocker(ctx).unlock(svc)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            print("Error processing unlock event: ${e.message}")
+                        }
+                    }.start()
                 }
 
                 PacketType.DisplayMode -> {
