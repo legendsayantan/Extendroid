@@ -131,19 +131,39 @@ class FloatingBall(val ctx: Context) : FrameLayout(ctx) {
         clickCallback = block
     }
 
+    companion object {
+        @SuppressLint("StaticFieldLeak")
+        var activeInstance: FloatingBall? = null
+    }
+
     fun show() {
         Utils.whenSafeForUI(ctx) {
+            if (activeInstance != null && activeInstance != this) {
+                try { activeInstance?.hide() } catch (e: Exception) {}
+            }
+            activeInstance = this
             if (parent == null) {
-                wm.addView(this, layoutParams)
-                handler.postDelayed(fadeRunnable, fadeDelay)
+                try {
+                    wm.addView(this, layoutParams)
+                    handler.postDelayed(fadeRunnable, fadeDelay)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
 
     fun hide() {
         if (parent != null) {
-            wm.removeView(this)
+            try {
+                wm.removeView(this)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             handler.removeCallbacks(fadeRunnable)
+        }
+        if (activeInstance == this) {
+            activeInstance = null
         }
     }
 
