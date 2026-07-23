@@ -212,7 +212,7 @@ class WebRTC {
                 bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
                 rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-                enableDscp = true
+                enableDscp = false
             }
 
             val thisConnectionIceCandidates = mutableListOf<IceCandidate>()

@@ -96,7 +96,8 @@ class RemoteSessionHandler {
             DisplayMode("DisplayMode"),
             TaskList("TaskList"),
             RunTask("RunTask"),
-            TaskStatus("TaskStatus")
+            TaskStatus("TaskStatus"),
+            Ping("Ping")
         }
 
         fun processDataMessage(
@@ -113,6 +114,9 @@ class RemoteSessionHandler {
             }
             val content = message.substring(1)
             when (type) {
+                PacketType.Ping -> {
+                    // Do nothing. This is just a keep-alive packet to prevent NAT timeouts on zero frame rate.
+                }
                 PacketType.RunApp -> {
                     //content is packageName here
                     mediaCore.echoDisplayParams[connectionId]?.let { params ->
