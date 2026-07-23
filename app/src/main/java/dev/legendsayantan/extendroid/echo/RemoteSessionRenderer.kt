@@ -133,10 +133,8 @@ class RemoteSessionRenderer(
         this.width = width
         this.height = height
         surfaceTextureHelper?.setTextureSize( width, height)
-        val surface = Surface(surfaceTextureHelper?.surfaceTexture)
 
         if (displayId != -1) {
-            ExtendService.svc?.updateVirtualDisplaySurface(displayId, surface)
             ExtendService.svc?.resizeVirtualDisplay(displayId, width, height, density)
         }
     }

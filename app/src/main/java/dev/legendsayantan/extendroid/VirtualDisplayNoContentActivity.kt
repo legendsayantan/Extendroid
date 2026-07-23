@@ -99,6 +99,12 @@ class VirtualDisplayNoContentActivity : AppCompatActivity() {
             instances[currentDisplayId] = this
         }
 
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
+
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             try {
                 val intent = Intent(this, FocusYankActivity::class.java).apply {

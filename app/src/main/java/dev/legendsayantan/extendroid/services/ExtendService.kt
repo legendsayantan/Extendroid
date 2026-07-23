@@ -404,6 +404,8 @@ class ExtendService : Service() {
                 // Default implementation does nothing
             }
 
+        var partialWakeLock: android.os.PowerManager.WakeLock? = null
+
         fun Context.createNoti(echoRemoteCount: Int = 0): Notification {
             val pendingIntent = PendingIntent.getBroadcast(
                 this,
@@ -452,6 +454,23 @@ class ExtendService : Service() {
             val n = createNoti(echoRemoteCount)
             val notiMan = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             notiMan.notify(1,n)
+            
+            try {
+                if (echoRemoteCount > 0) {
+                    if (partialWakeLock == null) {
+                        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                        partialWakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Extendroid::RemoteSession")
+                        partialWakeLock?.acquire()
+                    }
+                } else {
+                    if (partialWakeLock?.isHeld == true) {
+                        partialWakeLock?.release()
+                    }
+                    partialWakeLock = null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }

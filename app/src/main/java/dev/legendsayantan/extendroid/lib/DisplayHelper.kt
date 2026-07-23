@@ -203,6 +203,20 @@ class DisplayHelper {
 
         // helper to check if screen is on
         fun isInteractive(ctx: Context): Boolean {
+            try {
+                val svcMgrClass = Class.forName("android.os.ServiceManager")
+                val getService = svcMgrClass.getMethod("getService", String::class.java)
+                val powerBinder = getService.invoke(null, "power") as IBinder
+                val ipmStub = Class.forName("android.os.IPowerManager\$Stub")
+                val asInterface = ipmStub.getMethod("asInterface", IBinder::class.java)
+                val ipm = asInterface.invoke(null, powerBinder)
+                if (ipm != null) {
+                    val method = ipm.javaClass.getMethod("isInteractive")
+                    return method.invoke(ipm) as Boolean
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             return try {
                 val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
                 pm?.isInteractive ?: false
