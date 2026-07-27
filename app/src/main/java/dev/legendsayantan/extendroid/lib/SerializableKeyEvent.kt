@@ -12,4 +12,8 @@ data class SerializableKeyEvent(
     val action: Int,     // KeyEvent.ACTION_DOWN = 0 / ACTION_UP = 1
     val keyCode: Int,    // Android KEYCODE_*
     val metaState: Int
-) : Serializable
+) : Serializable {
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
+}

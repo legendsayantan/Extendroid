@@ -167,6 +167,23 @@ class ExtendService : Service() {
             .processNameSuffix("rootsvc")
             .debuggable(true)
             .daemon(true)
+            // daemon(true) means Shizuku deliberately keeps this process alive and reuses it
+            // across binds instead of respawning it every time - including across app updates.
+            // Without a version tag, a root process spawned before this build (e.g. before the
+            // authenticate() AIDL method existed) keeps running, and the new client stub ends up
+            // talking to a server stub with a completely different interface shape at the same
+            // transaction codes. Tagging with the installed versionCode tells Shizuku to kill and
+            // respawn the daemon whenever that code has actually changed.
+            .version(appVersionCode())
+    }
+
+    @Suppress("DEPRECATION")
+    private fun appVersionCode(): Int {
+        return try {
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        } catch (e: Exception) {
+            1
+        }
     }
     var svcConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -174,7 +191,6 @@ class ExtendService : Service() {
             svc = IRootService.Stub.asInterface(binder)
             grantOwnPerms()
             Handler(mainLooper).postDelayed({
-                startAsForegroundService()
                 setupUI()
                 MediaCore.proceedWithRequest = true
             }, 500)
@@ -203,6 +219,15 @@ class ExtendService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Must happen immediately: Android requires startForeground() to be called shortly
+        // after startForegroundService() starts this service, or the OS kills the process with
+        // ForegroundServiceDidNotStartInTimeException. It used to be deferred until after the
+        // whole async Shizuku bind + authenticate() handshake completed (plus a hardcoded 500ms
+        // delay) - that round trip has no upper bound on latency and can easily blow past the
+        // enforced window. createNoti()/startAsForegroundService() don't depend on that
+        // connection at all, so there's no reason to wait for it.
+        startAsForegroundService()
 
         registerReceiver(configReceiver, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
 

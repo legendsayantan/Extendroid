@@ -69,10 +69,12 @@ class EchoNetworkUtils {
                                     if (body != null) {
                                         //get individual fields from the response body
                                         val txt = body.string()
-                                        prefs.balance =
-                                            txt.substringAfter("\"balance\":")
-                                                .substringBefore("}").substringBefore(",")
-                                                .toFloatOrNull() ?: 0.0f
+                                        prefs.balance = try {
+                                            org.json.JSONObject(txt).optDouble("balance", 0.0).toFloat()
+                                        } catch (e: Exception) {
+                                            logging.e(e, "trySyncBoostersWithServer")
+                                            0.0f
+                                        }
                                         prefs.nextSyncTime =
                                             System.currentTimeMillis() + EchoActivity.hourMinuteForBoosters(
                                                 prefs.balance
@@ -214,9 +216,18 @@ class EchoNetworkUtils {
         fun prepareMappings(ctx: Context) {
             updateMappings(ctx) {
                 mappings = it
-                processedMappings = it.map { entry ->
-                    entry.key.lowercase() to RemoteSessionHandler.Companion.PacketType.valueOf(entry.value)
-                }.toMap()
+                // Built per-entry: an unrecognized/typo'd PacketType name (stale APK vs. newer
+                // mappings.json, or a corrupted CDN response) should drop just that entry, not
+                // throw away the whole mapping and break session setup.
+                val safeMappings = mutableMapOf<String, RemoteSessionHandler.Companion.PacketType>()
+                it.forEach { entry ->
+                    try {
+                        safeMappings[entry.key.lowercase()] = RemoteSessionHandler.Companion.PacketType.valueOf(entry.value)
+                    } catch (e: IllegalArgumentException) {
+                        Logging(ctx).e(e, "prepareMappings")
+                    }
+                }
+                processedMappings = safeMappings
             }
         }
 

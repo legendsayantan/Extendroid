@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit
 open class MediaCore {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
-    val lockedTaskDisplays = HashSet<Int>()
-    val originalDisplayParams = HashMap<Int, Array<Int>>() // [width, height, density]
+    val lockedTaskDisplays: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    val originalDisplayParams = java.util.concurrent.ConcurrentHashMap<Int, Array<Int>>() // [width, height, density]
 
     class DisplayRequests {
         var resizeWidth: Int? = null
@@ -30,16 +30,16 @@ open class MediaCore {
     }
     var onNeedNewTab: ((String) -> Unit)? = null
     var onCloseTab: ((String) -> Unit)? = null
-    val queuedDisplayRequests = HashMap<Int, DisplayRequests>()
+    val queuedDisplayRequests = java.util.concurrent.ConcurrentHashMap<Int, DisplayRequests>()
 
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
-    var sessionCapturerResizers : HashMap<String,(Int, Int, Int) -> Unit> = hashMapOf()
+    var sessionCapturerResizers : java.util.concurrent.ConcurrentHashMap<String,(Int, Int, Int) -> Unit> = java.util.concurrent.ConcurrentHashMap()
     var echoDataChannels: java.util.concurrent.ConcurrentHashMap<String, org.webrtc.DataChannel> = java.util.concurrent.ConcurrentHashMap()
 
-    var virtualDisplayIds: HashMap<String, Int> = hashMapOf()
+    var virtualDisplayIds: java.util.concurrent.ConcurrentHashMap<String, Int> = java.util.concurrent.ConcurrentHashMap()
 
     // Changed to store display IDs rather than VirtualDisplay objects
-    var echoDisplayIds : HashMap<String, Int> = hashMapOf()
+    var echoDisplayIds : java.util.concurrent.ConcurrentHashMap<String, Int> = java.util.concurrent.ConcurrentHashMap()
 
     /**
      * This map is used to store the display parameters for each echo display.
@@ -49,8 +49,8 @@ open class MediaCore {
      * 2: Height
      * 3: density
      */
-    var echoDisplayParams : HashMap<String, Array<Int>> = hashMapOf()
-    var appRemoteAccessHistory = object : HashMap<String,List<String>>() {
+    var echoDisplayParams : java.util.concurrent.ConcurrentHashMap<String, Array<Int>> = java.util.concurrent.ConcurrentHashMap()
+    var appRemoteAccessHistory = object : java.util.concurrent.ConcurrentHashMap<String,List<String>>() {
         override fun put(key: String, value: List<String>): List<String>? {
             val x = super.put(key, value)
             onRunningRemoteAppsUpdate(key)

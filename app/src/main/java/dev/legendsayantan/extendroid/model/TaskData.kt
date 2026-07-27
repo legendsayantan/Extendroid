@@ -20,4 +20,12 @@ data class TaskData(
     val touches: HashMap<Long, SerializableMotionEvent>,
     val keyEvents: HashMap<Long, SerializableKeyEvent> = hashMapOf(),
     val version: Int = 2              // bumped; stale v1 files auto-discarded
-) : Serializable
+) : Serializable {
+    companion object {
+        // Pinned explicitly so an ordinary code change (e.g. a future field addition) doesn't
+        // silently change the JVM's auto-computed UID and invalidate every already-saved task -
+        // Java deserialization treats that the same as genuine corruption and the file gets
+        // discarded (see TaskManager.loadTask/loadAllTasks).
+        private const val serialVersionUID: Long = 1L
+    }
+}

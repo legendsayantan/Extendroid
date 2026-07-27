@@ -34,7 +34,11 @@ data class SerializableMotionEvent(
     data class SerializablePointerProperties(
         val id: Int,
         val toolType: Int
-    ) : Serializable
+    ) : Serializable {
+        companion object {
+            private const val serialVersionUID: Long = 1L
+        }
+    }
 
     data class SerializablePointerCoords(
         val x: Float,
@@ -46,7 +50,11 @@ data class SerializableMotionEvent(
         val toolMajor: Float,
         val toolMinor: Float,
         val orientation: Float
-    ) : Serializable
+    ) : Serializable {
+        companion object {
+            private const val serialVersionUID: Long = 1L
+        }
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -88,6 +96,10 @@ data class SerializableMotionEvent(
         result = 31 * result + source
         result = 31 * result + flags
         return result
+    }
+
+    companion object {
+        private const val serialVersionUID: Long = 1L
     }
 }
 

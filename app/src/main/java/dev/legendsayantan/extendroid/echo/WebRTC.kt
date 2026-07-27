@@ -15,6 +15,15 @@ import java.util.TimerTask
 class WebRTC {
     companion object {
 
+        // How long to wait, after the most recent ICE candidate, before finalizing gathering
+        // and sending what we have - and the absolute cap on total gathering time regardless of
+        // how many candidates keep trickling in. Replaces a previous "30 / candidateCount
+        // seconds" heuristic whose wait time swung wildly depending on how many candidates a
+        // given network happened to produce (could cut gathering short on sparse networks or
+        // wait needlessly long on fast ones).
+        private const val ICE_GATHER_DEBOUNCE_MS = 1500L
+        private const val ICE_GATHER_MAX_TOTAL_MS = 5000L
+
         // ICE DISCONNECTED is frequently transient (brief NAT rebind, network handover) and the
         // ICE agent keeps retrying connectivity checks on its own. Tearing the session down the
         // instant it happens made the connection far more fragile than the underlying network
@@ -67,7 +76,7 @@ class WebRTC {
                 EchoNetworkUtils.getSignalWithCallback(ctx, uid, token) { str, ex ->
                     if (str != null && ex == null) {
                         try {
-                            println(str)
+                            // Not logging the raw body: it carries TURN credentials + SDP/ICE.
                             val obj = org.json.JSONObject(str)
 
                             // --- TURN / STUN servers ---
@@ -134,7 +143,7 @@ class WebRTC {
                 }
             } else {
                 try {
-                    println(data)
+                    // Not logging the raw payload: it carries TURN credentials + SDP/ICE.
                     // --- TURN / STUN servers ---
                     val turnJson = data["turncreds"]!!
                     val turnObj = org.json.JSONObject(turnJson)
@@ -287,33 +296,18 @@ class WebRTC {
                             } catch (_: Exception) { /* ignore */
                             }
 
-                            val now = System.currentTimeMillis()
                             // candidateTimestamps already updated by caller (onIceCandidate)
-                            val count =
-                                candidateTimestamps.size.coerceAtLeast(1) // avoid division by zero
-
-                            // compute max inter-arrival (ms)
-                            val maxInterArrivalMs = if (candidateTimestamps.size >= 2) {
-                                var maxDiff = 0L
-                                for (i in 1 until candidateTimestamps.size) {
-                                    val diff = candidateTimestamps[i] - candidateTimestamps[i - 1]
-                                    if (diff > maxDiff) maxDiff = diff
-                                }
-                                // If somehow negative or zero, allow small minimum
-                                maxDiff.coerceAtLeast(50L)
-                            } else {
-                                0L
-                            }
-
-                            // compute alternative: 30 / count seconds -> millis
-                            val altMillis = ((30.0 / count) * 1000.0).toLong()
-
-                            // countdown is the maximum of the two
-                            val countdownMs = maxOf(maxInterArrivalMs, altMillis)
+                            // Bounded debounce: wait a short quiet period after the most recent
+                            // candidate, but never past an absolute cap measured from the first
+                            // candidate, so gathering always terminates in predictable time.
+                            val firstCandidateAt = candidateTimestamps.firstOrNull() ?: System.currentTimeMillis()
+                            val elapsedSinceFirst = System.currentTimeMillis() - firstCandidateAt
+                            val remainingUntilCap = (ICE_GATHER_MAX_TOTAL_MS - elapsedSinceFirst).coerceAtLeast(0L)
+                            val countdownMs = minOf(ICE_GATHER_DEBOUNCE_MS, remainingUntilCap)
 
                             // Debug/log
                             logging.d(
-                                "resetGatheringCountdown -> count=$count, maxInterArrivalMs=$maxInterArrivalMs, altMillis=$altMillis, countdownMs=$countdownMs",
+                                "resetGatheringCountdown -> candidates=${candidateTimestamps.size}, countdownMs=$countdownMs",
                                 "WebRTC.start"
                             )
 
@@ -528,12 +522,23 @@ class WebRTC {
             peerConnections.remove(connectionId)?.dispose()
         }
 
+        // Whether this device's hardware encoder actually accelerates H264, rather than assuming
+        // every Android device does - some only have hardware VP8/VP9 and would silently fall
+        // back to a slow software H264 encoder if we forced that preference blindly.
+        private fun deviceSupportsHardwareH264(): Boolean {
+            return try {
+                HardwareVideoEncoderFactory(eglBase.eglBaseContext, true, true)
+                    .supportedCodecs.any { it.name.equals("H264", ignoreCase = true) }
+            } catch (e: Exception) {
+                false
+            }
+        }
+
         // Kotlin: preferLowestLatencyCodecInSdp(offerSdp)
         // Returns modified SDP where m=video payloads are reordered to prefer H264 on mobile, else VP8.
         private fun preferLowestLatencyCodecInSdp(sdp: String,logging: Logging): String {
             try {
-                val preferH264 =
-                    true // On Android, prefer H264 by default (hardware encoders common)
+                val preferH264 = deviceSupportsHardwareH264()
                 val lines = sdp.split("\r\n").toMutableList()
 
                 val mLineIndex = lines.indexOfFirst { it.startsWith("m=video ") }
@@ -603,14 +608,22 @@ class WebRTC {
                 val params = videoSender.parameters
                 if (params.encodings.isNotEmpty()) {
                     params.encodings.forEach { encoding ->
-                        try { encoding.scaleResolutionDownBy = 1.0 } catch (_: Exception) {}
+                        try { encoding.scaleResolutionDownBy = 1.0 } catch (e: Exception) {
+                            logging.e(e, "WebRTC.optimizeVideoEncoder.scaleResolutionDownBy")
+                        }
                         // Priority values: VERY_LOW=0, LOW=1, MEDIUM=2, HIGH=3.
                         // Was incorrectly set to 1 (LOW). Use 3 for HIGH priority.
-                        try { encoding.networkPriority = 3 } catch (_: Exception) {}
+                        try { encoding.networkPriority = 3 } catch (e: Exception) {
+                            logging.e(e, "WebRTC.optimizeVideoEncoder.networkPriority")
+                        }
                         // Bitrate floor prevents GCC from starving the stream on transient
                         // congestion; ceiling prevents encoder buffer build-up.
-                        try { encoding.minBitrateBps = 200_000 } catch (_: Exception) {}
-                        try { encoding.maxBitrateBps = 4_000_000 } catch (_: Exception) {}
+                        try { encoding.minBitrateBps = 200_000 } catch (e: Exception) {
+                            logging.e(e, "WebRTC.optimizeVideoEncoder.minBitrateBps")
+                        }
+                        try { encoding.maxBitrateBps = 4_000_000 } catch (e: Exception) {
+                            logging.e(e, "WebRTC.optimizeVideoEncoder.maxBitrateBps")
+                        }
                     }
 
                     // Enable low latency mode in codec settings

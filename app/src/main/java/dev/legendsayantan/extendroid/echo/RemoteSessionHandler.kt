@@ -146,68 +146,87 @@ class RemoteSessionHandler {
                 }
                 PacketType.RunApp -> {
                     //content is packageName here
-                    mediaCore.echoDisplayParams[connectionId]?.let { params ->
-                        val displayId = params[0]
-                        if (mediaCore.lockedTaskDisplays.contains(displayId)) {
-                            // Buffer it
-                            val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
-                            requests.launchAppPkg = content
-                            dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered RunApp request for $content", "RemoteSessionHandler")
-                        } else {
-                            svc.launchAppOnDisplay(content, displayId)
-                            mediaCore.appRemoteAccessHistory[connectionId]?.let {
-                                if (!it.contains(content)) {
-                                    mediaCore.appRemoteAccessHistory[connectionId] = it + content
+                    try {
+                        if (Prefs(ctx).echoBlackList.contains(content)) {
+                            Logging(ctx).i("Refused to launch blacklisted app $content", "RemoteSessionHandler")
+                            return
+                        }
+                        mediaCore.echoDisplayParams[connectionId]?.let { params ->
+                            val displayId = params[0]
+                            if (mediaCore.lockedTaskDisplays.contains(displayId)) {
+                                // Buffer it
+                                val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
+                                requests.launchAppPkg = content
+                                dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered RunApp request for $content", "RemoteSessionHandler")
+                            } else {
+                                svc.launchAppOnDisplay(content, displayId)
+                                mediaCore.appRemoteAccessHistory[connectionId]?.let {
+                                    if (!it.contains(content)) {
+                                        mediaCore.appRemoteAccessHistory[connectionId] = it + content
+                                    }
+                                } ?: run {
+                                    mediaCore.appRemoteAccessHistory[connectionId] = listOf(content)
                                 }
-                            } ?: run {
-                                mediaCore.appRemoteAccessHistory[connectionId] = listOf(content)
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        print("Error processing RunApp: ${e.message}")
                     }
                 }
 
                 PacketType.StopApp -> {
                     //content is packageName here
-                    svc.exitTasks(content)?.let {
-                        if (it.contains("error", true)) {
-                            print(it)
-                        } else {
-                            mediaCore.appRemoteAccessHistory[connectionId]?.let { apps ->
-                                mediaCore.appRemoteAccessHistory[connectionId] = apps - content
+                    try {
+                        svc.exitTasks(content)?.let {
+                            if (it.contains("error", true)) {
+                                print(it)
+                            } else {
+                                mediaCore.appRemoteAccessHistory[connectionId]?.let { apps ->
+                                    mediaCore.appRemoteAccessHistory[connectionId] = apps - content
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        print("Error processing StopApp: ${e.message}")
                     }
                 }
 
                 PacketType.Resize -> {
                     //content is json hashmap of width, height, scale
-                    val dimensions = jsonToHashMap(content)
-                    if (dimensions.isNotEmpty()) {
-                        mediaCore.echoDisplayParams[connectionId]?.let { params ->
-                            val displayId = params[0]
-                            val width = dimensions["width"]?.toIntOrNull() ?: params[1]
-                            val height = dimensions["height"]?.toIntOrNull() ?: params[2]
-                            val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
-                            val density = computedDensity(ctx, width, height, scale)
-                            
-                            if (mediaCore.lockedTaskDisplays.contains(displayId)) {
-                                // Buffer it
-                                val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
-                                requests.resizeWidth = width
-                                requests.resizeHeight = height
-                                requests.scale = scale
-                                dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered Resize request: $width x $height x $scale", "RemoteSessionHandler")
-                            } else {
-                                mediaCore.echoDisplayParams[connectionId] = arrayOf(
-                                    displayId, width, height, density
-                                )
-                                mediaCore.sessionCapturerResizers[connectionId]?.invoke(
-                                    width,
-                                    height,
-                                    density
-                                )
+                    try {
+                        val dimensions = jsonToHashMap(content)
+                        if (dimensions.isNotEmpty()) {
+                            mediaCore.echoDisplayParams[connectionId]?.let { params ->
+                                val displayId = params[0]
+                                val width = dimensions["width"]?.toIntOrNull() ?: params[1]
+                                val height = dimensions["height"]?.toIntOrNull() ?: params[2]
+                                val scale = dimensions["scale"]?.toFloatOrNull() ?: 1f
+                                val density = computedDensity(ctx, width, height, scale)
+
+                                if (mediaCore.lockedTaskDisplays.contains(displayId)) {
+                                    // Buffer it
+                                    val requests = mediaCore.queuedDisplayRequests.getOrPut(displayId) { dev.legendsayantan.extendroid.lib.MediaCore.DisplayRequests() }
+                                    requests.resizeWidth = width
+                                    requests.resizeHeight = height
+                                    requests.scale = scale
+                                    dev.legendsayantan.extendroid.lib.Logging(ctx).i("Display $displayId is locked by task. Buffered Resize request: $width x $height x $scale", "RemoteSessionHandler")
+                                } else {
+                                    mediaCore.echoDisplayParams[connectionId] = arrayOf(
+                                        displayId, width, height, density
+                                    )
+                                    mediaCore.sessionCapturerResizers[connectionId]?.invoke(
+                                        width,
+                                        height,
+                                        density
+                                    )
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        print("Error processing Resize: ${e.message}")
                     }
                 }
 
@@ -319,6 +338,12 @@ class RemoteSessionHandler {
                                 mediaCore.echoDataChannels[connectionId]?.send(createDataChannelPacket("{\"taskKey\":\"${task.taskKey}\",\"status\":\"error\",\"message\":\"$err\"}", PacketType.TaskStatus))
                             }
                         )
+                    } else {
+                        // Without this, a stale/deleted taskKey silently does nothing: the web
+                        // UI has already optimistically shown "checking..." and disabled the
+                        // Start button, and with no response ever coming back it stays stuck
+                        // that way indefinitely.
+                        mediaCore.echoDataChannels[connectionId]?.send(createDataChannelPacket("{\"taskKey\":\"$content\",\"status\":\"error\",\"message\":\"Task not found on device\"}", PacketType.TaskStatus))
                     }
                 }
 

@@ -68,7 +68,8 @@ class RemoteUnlocker(val ctx: Context) {
                     println("RMEL")
                     val motionCallback = object : IEventCallback.Stub() {
                         override fun onMotionEvent(json: String) {
-                            println("Client got: $json")
+                            // Do not log the raw payload here: it's the literal recorded
+                            // lockscreen-unlock gesture (coordinates/timing) being trained.
                             val motionEventData = gson.fromJson(json, MotionEventData::class.java)
                             if(startDownTime == 0L){
                                 startDownTime = motionEventData.downTime
@@ -116,32 +117,72 @@ class RemoteUnlocker(val ctx: Context) {
     }
 
     fun unlock(svc: IRootService){
-        svc.wakeUp();
+        // Every Unlock packet used to spawn its own independent, unsynchronized timer/thread.
+        // Firing it repeatedly in quick succession (e.g. rapid remote lock/unlock cycles) let
+        // multiple scheduled touch-event sequences run concurrently and interleave onto the same
+        // display - a DOWN from one attempt landing between the MOVE/UP of another - which
+        // corrupts Android's touch dispatch state (stuck pointer), stalling input system-wide and
+        // freezing the mirrored frame. Only one unlock sequence is allowed in flight at a time;
+        // overlapping requests are dropped instead of interleaved.
+        if (!unlockInProgress.compareAndSet(false, true)) {
+            Logging(ctx).i("Ignoring Unlock request - one is already in progress", "RemoteUnlocker")
+            return
+        }
+
         val timer = Timer()
         activeTimers.add(timer)
-        val handler = Handler(ctx.mainLooper)
-        val scaling = determineScaling(svc) // This can take 500ms-1500ms to run shell commands
-        val now = System.currentTimeMillis()+1000;
-        val uptimeMillis = SystemClock.uptimeMillis()+1000;
-        Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
-        
-        val data = unlockData
-        val lastIndex = data.size - 1
-        data.forEachIndexed { index, eventData ->
-            val timeToRun = now + eventData.eventTime
-            eventData.downTime += uptimeMillis;
-            eventData.eventTime += uptimeMillis;
-            val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scaling)
-            timer.schedule(timerTask {
-                println("posting $eventData")
-                handler.post { 
-                    svc.dispatch(motionEvent,0) 
-                    if (index == lastIndex) {
-                        timer.cancel()
-                        activeTimers.remove(timer)
+
+        // Cleanup must run no matter how this unlock sequence ends, otherwise a single failure
+        // (e.g. the last dispatch throwing) would leak the Timer's background thread forever and
+        // permanently wedge unlockInProgress, blocking every future unlock attempt.
+        fun finish() {
+            try {
+                timer.cancel()
+            } catch (_: Exception) {
+            }
+            activeTimers.remove(timer)
+            unlockInProgress.set(false)
+        }
+
+        try {
+            svc.wakeUp();
+            val handler = Handler(ctx.mainLooper)
+            val scaling = determineScaling(svc) // This can take 500ms-1500ms to run shell commands
+            if (scaling == null) {
+                Logging(ctx).e("Could not determine touchscreen scaling; aborting unlock attempt instead of guessing", "RemoteUnlocker")
+                finish()
+                return
+            }
+            val now = System.currentTimeMillis()+1000;
+            val uptimeMillis = SystemClock.uptimeMillis()+1000;
+            Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
+
+            val data = unlockData
+            if (data.isEmpty()) {
+                finish()
+                return
+            }
+            val lastIndex = data.size - 1
+            data.forEachIndexed { index, eventData ->
+                val timeToRun = now + eventData.eventTime
+                eventData.downTime += uptimeMillis;
+                eventData.eventTime += uptimeMillis;
+                val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scaling)
+                timer.schedule(timerTask {
+                    handler.post {
+                        try {
+                            svc.dispatch(motionEvent,0)
+                        } catch (e: Exception) {
+                            Logging(ctx).e(e, "RemoteUnlocker")
+                        } finally {
+                            if (index == lastIndex) finish()
+                        }
                     }
-                }
-            }, Date(timeToRun))
+                }, Date(timeToRun))
+            }
+        } catch (e: Exception) {
+            Logging(ctx).e(e, "RemoteUnlocker")
+            finish()
         }
     }
 
@@ -153,24 +194,34 @@ class RemoteUnlocker(val ctx: Context) {
     companion object {
         const val FILENAME = "remote_unlock.json"
 
+        // Shared across every RemoteUnlocker instance (a new one is created per Unlock packet)
+        // so overlapping unlock() calls can be detected and dropped instead of interleaving.
+        private val unlockInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
+
 
         fun isScreenLocked(context: Context): Boolean {
             val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             return keyguardManager.isKeyguardLocked
         }
 
-        fun determineScaling(svc: IRootService): Pair<Float, Float> {
+        // Returns null (instead of a guessed 1:1 scale) when the touchscreen's raw coordinate
+        // range or the screen size can't be determined - replaying an unlock gesture with a
+        // wrong scale would tap the wrong spots, and repeated wrong PIN/pattern attempts risk
+        // tripping Android's own attempt-limit lockout. Better to abort than to guess.
+        fun determineScaling(svc: IRootService): Pair<Float, Float>? {
             // run getevent -p and wm size
             val geteventOut = try {
                 svc.executeCommand("getevent -p")
             } catch (e: Exception) {
-                return Pair(1f, 1f)
+                Log.e("RemoteUnlocker", "determineScaling: 'getevent -p' failed: ${e.message}")
+                return null
             }
 
             val wmOut = try {
                 svc.executeCommand("wm size")
             } catch (e: Exception) {
-                return Pair(1f, 1f)
+                Log.e("RemoteUnlocker", "determineScaling: 'wm size' failed: ${e.message}")
+                return null
             }
 
             // Regex to extract device blocks:
@@ -229,7 +280,10 @@ class RemoteUnlocker(val ctx: Context) {
                 else -> candidates.maxByOrNull { (it.xMax.toLong() + it.yMax.toLong()) }
             }
 
-            if (chosen == null) return Pair(1f, 1f)
+            if (chosen == null) {
+                Log.e("RemoteUnlocker", "determineScaling: no candidate touchscreen input device found")
+                return null
+            }
 
             // parse screen size
             val sizeRe = Regex("""Physical size:\s*(\d+)x(\d+)""", RegexOption.IGNORE_CASE)
@@ -237,7 +291,10 @@ class RemoteUnlocker(val ctx: Context) {
             val screenW = sizeMatch?.groupValues?.get(1)?.toIntOrNull()
             val screenH = sizeMatch?.groupValues?.get(2)?.toIntOrNull()
 
-            if (screenW == null || screenH == null) return Pair(1f, 1f)
+            if (screenW == null || screenH == null) {
+                Log.e("RemoteUnlocker", "determineScaling: could not parse 'wm size' output")
+                return null
+            }
 
             val rangeX = (chosen.xMax - chosen.xMin).toFloat()
             val rangeY = (chosen.yMax - chosen.yMin).toFloat()

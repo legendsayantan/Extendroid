@@ -192,49 +192,62 @@ class TaskRunner(val ctx: Context) {
     private fun cleanup(task: TaskData, svc: IRootService) {
         val mediaCore = dev.legendsayantan.extendroid.lib.MediaCore.mInstance
         if (isHijacked && mediaCore != null) {
-            val req = mediaCore.queuedDisplayRequests[displayId]
-            
-            // Check app launch
-            val appToLaunch = req?.launchAppPkg
-            
-            // Apply scale / resize OR restore original
-            if (req?.resizeWidth != null && req.resizeHeight != null) {
-                val newDpi = dev.legendsayantan.extendroid.echo.RemoteSessionHandler.computedDensity(ctx, req.resizeWidth!!, req.resizeHeight!!, req.scale ?: 1f)
-                svc.resizeVirtualDisplay(displayId, req.resizeWidth!!, req.resizeHeight!!, newDpi)
-                val connId = mediaCore.echoDisplayParams.entries.find { it.value[0] == displayId }?.key
-                if (connId != null) {
-                    mediaCore.echoDisplayParams[connId] = arrayOf(displayId, req.resizeWidth!!, req.resizeHeight!!, newDpi)
-                    mediaCore.sessionCapturerResizers[connId]?.invoke(req.resizeWidth!!, req.resizeHeight!!, newDpi)
-                }
-            } else {
-                // Restore original
-                val orig = mediaCore.originalDisplayParams[displayId]
-                if (orig != null) {
-                    svc.resizeVirtualDisplay(displayId, orig[0], orig[1], orig[2])
-                }
-            }
-            
-            // Launch requested app if any
-            if (appToLaunch != null) {
-                svc.launchAppOnDisplay(appToLaunch, displayId)
-                // We update history so web UI knows the new app
-                val connId = mediaCore.echoDisplayParams.entries.find { it.value[0] == displayId }?.key
-                if (connId != null) {
-                    mediaCore.appRemoteAccessHistory[connId]?.let {
-                        if (!it.contains(appToLaunch)) {
-                            mediaCore.appRemoteAccessHistory[connId] = it + appToLaunch
+            // The unlock bookkeeping below must run no matter what happens above - previously,
+            // if restoring the display's size/content threw (e.g. the root service call failed),
+            // the display was left in mediaCore.lockedTaskDisplays forever, silently wedging
+            // every future RunApp/Resize for that session with no error surfaced to the user.
+            try {
+                val req = mediaCore.queuedDisplayRequests[displayId]
+
+                // Check app launch
+                val appToLaunch = req?.launchAppPkg
+
+                // Apply scale / resize OR restore original
+                try {
+                    if (req?.resizeWidth != null && req.resizeHeight != null) {
+                        val newDpi = dev.legendsayantan.extendroid.echo.RemoteSessionHandler.computedDensity(ctx, req.resizeWidth!!, req.resizeHeight!!, req.scale ?: 1f)
+                        svc.resizeVirtualDisplay(displayId, req.resizeWidth!!, req.resizeHeight!!, newDpi)
+                        val connId = mediaCore.echoDisplayParams.entries.find { it.value[0] == displayId }?.key
+                        if (connId != null) {
+                            mediaCore.echoDisplayParams[connId] = arrayOf(displayId, req.resizeWidth!!, req.resizeHeight!!, newDpi)
+                            mediaCore.sessionCapturerResizers[connId]?.invoke(req.resizeWidth!!, req.resizeHeight!!, newDpi)
                         }
-                    } ?: run {
-                        mediaCore.appRemoteAccessHistory[connId] = listOf(appToLaunch)
+                    } else {
+                        // Restore original
+                        val orig = mediaCore.originalDisplayParams[displayId]
+                        if (orig != null) {
+                            svc.resizeVirtualDisplay(displayId, orig[0], orig[1], orig[2])
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logging(ctx).e(e, "TaskRunner.cleanup.resize")
+                }
+
+                // Launch requested app if any
+                if (appToLaunch != null) {
+                    try {
+                        svc.launchAppOnDisplay(appToLaunch, displayId)
+                        // We update history so web UI knows the new app
+                        val connId = mediaCore.echoDisplayParams.entries.find { it.value[0] == displayId }?.key
+                        if (connId != null) {
+                            mediaCore.appRemoteAccessHistory[connId]?.let {
+                                if (!it.contains(appToLaunch)) {
+                                    mediaCore.appRemoteAccessHistory[connId] = it + appToLaunch
+                                }
+                            } ?: run {
+                                mediaCore.appRemoteAccessHistory[connId] = listOf(appToLaunch)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Logging(ctx).e(e, "TaskRunner.cleanup.launchApp")
                     }
                 }
+            } finally {
+                // Unlock - always, even if restoring the display above failed.
+                mediaCore.lockedTaskDisplays.remove(displayId)
+                mediaCore.originalDisplayParams.remove(displayId)
+                mediaCore.queuedDisplayRequests.remove(displayId)
             }
-            
-            // Unlock
-            mediaCore.lockedTaskDisplays.remove(displayId)
-            mediaCore.originalDisplayParams.remove(displayId)
-            mediaCore.queuedDisplayRequests.remove(displayId)
-            
         } else {
             if (task.stopAfter && !wasAlreadyRunning) {
                 android.os.Handler(android.os.Looper.getMainLooper()).post {

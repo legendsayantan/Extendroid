@@ -16,6 +16,26 @@ class Logging(val ctx: Context) {
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(Date())
         val logEntry = if(tag!=null) "[$tag] $message\n" else "$message\n"
         logs.edit().putString("$timestamp|${level.key}", logEntry).apply()
+        maybePrune()
+    }
+
+    // SharedPreferences backs this with a single in-memory map serialized to one XML file on
+    // every write - it was never bounded, so a long/verbose echo session could grow it
+    // indefinitely. Only check the size every PRUNE_CHECK_INTERVAL writes to keep the overhead
+    // of this safety net low; an occasional missed or extra check is harmless.
+    private fun maybePrune() {
+        if (writeCounter.incrementAndGet() % PRUNE_CHECK_INTERVAL != 0) return
+        val all = logs.all
+        if (all.size <= MAX_LOG_ENTRIES) return
+        // Keys are "yyyy-MM-dd HH:mm:ss.SSS|level" - fixed-width and zero-padded, so lexical
+        // sort order matches chronological order (same assumption getLogsOf/clearLogsOlderThan
+        // already rely on).
+        val oldestFirst = all.keys.sorted()
+        val toRemove = oldestFirst.size - MAX_LOG_ENTRIES
+        if (toRemove <= 0) return
+        logs.edit().apply {
+            oldestFirst.take(toRemove).forEach { remove(it) }
+        }.apply()
     }
 
     fun d(debug: String, tag: String?) {
@@ -114,4 +134,9 @@ class Logging(val ctx: Context) {
         }
     }
 
+    companion object {
+        private const val MAX_LOG_ENTRIES = 2000
+        private const val PRUNE_CHECK_INTERVAL = 50
+        private val writeCounter = java.util.concurrent.atomic.AtomicInteger(0)
+    }
 }
