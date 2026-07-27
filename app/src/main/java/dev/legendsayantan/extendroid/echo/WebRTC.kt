@@ -15,6 +15,12 @@ import java.util.TimerTask
 class WebRTC {
     companion object {
 
+        // ICE DISCONNECTED is frequently transient (brief NAT rebind, network handover) and the
+        // ICE agent keeps retrying connectivity checks on its own. Tearing the session down the
+        // instant it happens made the connection far more fragile than the underlying network
+        // actually was, so we wait this long for it to self-recover before giving up.
+        private const val ICE_RECONNECT_GRACE_MS = 20_000L
+
         private val eglBase = EglBase.create()
         private val peerConnections = hashMapOf<Long, PeerConnection>()
 
@@ -229,6 +235,15 @@ class WebRTC {
                     private val candidateTimestamps = mutableListOf<Long>()
                     private var gatheringFinalized = false
 
+                    // --- grace-period state for transient ICE disconnects ---
+                    private var reconnectHandler: android.os.Handler? = android.os.Handler(android.os.Looper.getMainLooper())
+                    private var reconnectRunnable: Runnable? = null
+
+                    private fun cancelPendingDisconnectTimeout() {
+                        reconnectRunnable?.let { reconnectHandler?.removeCallbacks(it) }
+                        reconnectRunnable = null
+                    }
+
                     // helper that packages & posts SDP + ICE candidates (runs once)
                     private fun postLocalSdpAndCandidates() {
                         synchronized(gatherLock) {
@@ -353,9 +368,37 @@ class WebRTC {
                     }
 
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
-                        if (state != null) onStateChanged(state)
-                        if (listOf(FAILED, CLOSED, DISCONNECTED).contains(state)) {
-                            closeConnection(connectionId)
+                        if (state == null) return
+                        when (state) {
+                            DISCONNECTED -> {
+                                // Don't tear down immediately: this is often a brief blip (network
+                                // handover, NAT rebind) that the ICE agent recovers from by itself.
+                                // Give it a grace window before treating it as a real failure.
+                                logging.i(
+                                    "ICE disconnected, waiting up to ${ICE_RECONNECT_GRACE_MS}ms for recovery",
+                                    "WebRTC.start"
+                                )
+                                cancelPendingDisconnectTimeout()
+                                reconnectRunnable = Runnable {
+                                    logging.i("ICE did not recover in time, closing connection", "WebRTC.start")
+                                    onStateChanged(FAILED)
+                                    closeConnection(connectionId)
+                                }
+                                reconnectHandler?.postDelayed(reconnectRunnable!!, ICE_RECONNECT_GRACE_MS)
+                            }
+
+                            CONNECTED, COMPLETED -> {
+                                cancelPendingDisconnectTimeout()
+                                onStateChanged(state)
+                            }
+
+                            FAILED, CLOSED -> {
+                                cancelPendingDisconnectTimeout()
+                                onStateChanged(state)
+                                closeConnection(connectionId)
+                            }
+
+                            else -> onStateChanged(state)
                         }
                     }
 

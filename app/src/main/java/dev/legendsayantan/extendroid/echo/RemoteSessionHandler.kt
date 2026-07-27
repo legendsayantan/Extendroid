@@ -32,6 +32,32 @@ class RemoteSessionHandler {
     companion object {
         private val backgroundExecutor = Executors.newSingleThreadExecutor()
 
+        // Web already pings us every 15s to keep NAT bindings alive on its end, but that alone
+        // isn't enough on networks (esp. mobile carrier NAT) whose UDP mappings expire based on
+        // outbound traffic. Ping back on the same cadence so both directions of the flow stay warm.
+        private const val PING_INTERVAL_MS = 15_000L
+        private val pingTimers = java.util.concurrent.ConcurrentHashMap<String, java.util.Timer>()
+
+        private fun startPingTimer(connectionId: String, mediaCore: MediaCore) {
+            pingTimers.remove(connectionId)?.cancel()
+            val timer = java.util.Timer("echo-ping-$connectionId", true)
+            timer.scheduleAtFixedRate(object : java.util.TimerTask() {
+                override fun run() {
+                    val channel = mediaCore.echoDataChannels[connectionId]
+                    if (channel != null && channel.state() == DataChannel.State.OPEN) {
+                        channel.send(createDataChannelPacket("ing", PacketType.Ping))
+                    } else {
+                        stopPingTimer(connectionId)
+                    }
+                }
+            }, PING_INTERVAL_MS, PING_INTERVAL_MS)
+            pingTimers[connectionId] = timer
+        }
+
+        private fun stopPingTimer(connectionId: String) {
+            pingTimers.remove(connectionId)?.cancel()
+        }
+
         fun handleDataChannel(
             ctx: Context,
             connectionId: String,
@@ -42,7 +68,7 @@ class RemoteSessionHandler {
             val prefs = Prefs(ctx)
             when (dataChannel.state()) {
                 DataChannel.State.CLOSED, DataChannel.State.CLOSING -> {
-                    //do nothing
+                    stopPingTimer(connectionId)
                 }
 
                 DataChannel.State.CONNECTING -> {
@@ -51,6 +77,7 @@ class RemoteSessionHandler {
 
                 DataChannel.State.OPEN -> {
                     mediaCore.echoDataChannels[connectionId] = dataChannel
+                    startPingTimer(connectionId, mediaCore)
                     if(!noDisplay){
                         backgroundExecutor.execute {
                             val allAppsMap =
@@ -307,6 +334,7 @@ class RemoteSessionHandler {
             mediaCore: MediaCore,
             svc: IRootService
         ) {
+            stopPingTimer(connectionId)
             mediaCore.onRunningRemoteAppsUpdate = {}
             mediaCore.appRemoteAccessHistory[connectionId]?.forEach { appPackage ->
                 svc.exitTasks(appPackage)
