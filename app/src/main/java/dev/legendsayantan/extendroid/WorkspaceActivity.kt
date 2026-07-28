@@ -15,6 +15,10 @@ class WorkspaceActivity : AppCompatActivity() {
         val name = intent.getStringExtra(EXTRA_WORKSPACE_NAME) ?: "Workspace"
         findViewById<TextView>(R.id.workspaceTitle).text = name
         title = name
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val taskDescription = ActivityManager.TaskDescription.Builder()

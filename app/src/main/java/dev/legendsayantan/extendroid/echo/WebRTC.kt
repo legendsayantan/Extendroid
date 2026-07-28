@@ -11,10 +11,12 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.webrtc.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import org.webrtc.PeerConnection.IceConnectionState.*;
 
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 class WebRTC {
     companion object {
@@ -32,7 +34,7 @@ class WebRTC {
         // sessionId -> PeerConnection: routes inbound FCM ICE candidate batches to the right PC
         private val sessionToPeer = ConcurrentHashMap<String, PeerConnection>()
         // sessionId -> buffered candidate JSON arrays (arrive before SDP is set)
-        private val pendingCandidatesBySession = ConcurrentHashMap<String, MutableList<String>>()
+        private val pendingCandidatesBySession = ConcurrentHashMap<String, CopyOnWriteArrayList<String>>()
         // connectionId -> sessionId: for cleanup on closeConnection
         private val connectionIdToSession = ConcurrentHashMap<Long, String>()
 
@@ -46,7 +48,7 @@ class WebRTC {
             if (pc == null) {
                 // PC not yet registered: buffer until setRemoteDescription completes
                 pendingCandidatesBySession
-                    .getOrPut(sessionId) { mutableListOf() }
+                    .getOrPut(sessionId) { CopyOnWriteArrayList() }
                     .add(candidatesJson)
                 return
             }
@@ -79,7 +81,7 @@ class WebRTC {
                 peerConnectionFactory =
                     PeerConnectionFactory.builder()
                         .setVideoEncoderFactory(
-                            DefaultVideoEncoderFactory(
+                            HardwareVideoEncoderFactory(
                                 eglBaseContext,
                                 true,
                                 true
@@ -468,7 +470,7 @@ class WebRTC {
                                     localDescriptionSet.set(true)
                                     // Negotiation is now complete: sender.parameters.encodings
                                     // is populated and parameters can actually be applied.
-                                    optimizeVideoEncoder(peerConnection, logging)
+                                    optimizeVideoEncoder(peerConnection, width, height, logging)
 
                                     // Flush pre-localDescription candidate buffer into the batch
                                     val toFlush: List<IceCandidate>
@@ -480,7 +482,7 @@ class WebRTC {
 
                                     GlobalScope.launch(Dispatchers.IO) {
                                         // 50ms window for pre-localDesc candidates then flush + send SDP
-                                        delay(50)
+                                        delay(50.milliseconds)
                                         flushCandidateBatch()
                                         // POST SDP-only answer (no deviceice in v2)
                                         EchoNetworkUtils.postSignal(
@@ -518,6 +520,9 @@ class WebRTC {
          */
         fun closeAll() {
             peerConnections.keys.toList().forEach { closeConnection(it) }
+            sessionToPeer.clear()
+            pendingCandidatesBySession.clear()
+            connectionIdToSession.clear()
         }
 
         fun closeConnection(connectionId: Long) {
@@ -615,7 +620,7 @@ class WebRTC {
         }
 
 
-        private fun optimizeVideoEncoder(peerConnection: PeerConnection, logging: Logging) {
+        private fun optimizeVideoEncoder(peerConnection: PeerConnection, width: Int, height: Int, logging: Logging) {
             try {
                 val videoSender = peerConnection.senders.firstOrNull {
                     it.track()?.kind() == "video"
@@ -628,16 +633,18 @@ class WebRTC {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.scaleResolutionDownBy")
                         }
                         // Priority values: VERY_LOW=0, LOW=1, MEDIUM=2, HIGH=3.
-                        // Was incorrectly set to 1 (LOW). Use 3 for HIGH priority.
                         try { encoding.networkPriority = 3 } catch (e: Exception) {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.networkPriority")
                         }
-                        // Bitrate floor prevents GCC from starving the stream on transient
-                        // congestion; ceiling prevents encoder buffer build-up.
-                        try { encoding.minBitrateBps = 200_000 } catch (e: Exception) {
+                        // Dynamic bitrate based on resolution
+                        val pixelCount = width * height
+                        val minBitrate = (pixelCount * 1.0).toInt().coerceAtLeast(500_000)
+                        val maxBitrate = (pixelCount * 5.0).toInt().coerceAtMost(20_000_000).coerceAtLeast(2_000_000)
+                        
+                        try { encoding.minBitrateBps = minBitrate } catch (e: Exception) {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.minBitrateBps")
                         }
-                        try { encoding.maxBitrateBps = 4_000_000 } catch (e: Exception) {
+                        try { encoding.maxBitrateBps = maxBitrate } catch (e: Exception) {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.maxBitrateBps")
                         }
                     }

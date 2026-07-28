@@ -250,6 +250,8 @@ class ExtendService : Service() {
 
         prefs.registerConfigChangeListener(prefsChangedListener)
 
+        dev.legendsayantan.extendroid.echo.WebRTC.ensurePeerConnectionFactory(this)
+
         bindPrivilegedService()
     }
 

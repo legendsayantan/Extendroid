@@ -38,6 +38,7 @@
                 android:taskAffinity=""
                 android:launchMode="singleInstancePerTask"
                 android:excludeFromRecents="true"
+                android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
                 android:theme="@style/Theme.Extendroid.NoContent">
         </activity>
         <activity
@@ -64,6 +65,7 @@
                 android:name=".WorkspaceActivity"
                 android:exported="false"
                 android:documentLaunchMode="always"
+                android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
                 android:theme="@style/Theme.Extendroid.Workspace" />
 
         <activity

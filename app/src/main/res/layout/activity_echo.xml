@@ -239,27 +239,35 @@
                         </LinearLayout>
                         <LinearLayout
                             android:layout_marginTop="15dp"
-                            android:gravity="center"
+                            android:gravity="center_vertical"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content">
                             <ImageView
                                 android:src="@drawable/rounded_hourglass_top_24"
                                 android:layout_width="40dp"
-                                android:layout_height="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical"
                                 app:tint="?attr/colorOnSecondary"/>
-                            <TextView
-                                android:text="Estimated Usage: "
-                                android:layout_width="wrap_content"
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
                                 android:layout_height="wrap_content"
-                                android:textSize="22sp"/>
-                            <TextView
-                                android:id="@+id/quotaTime"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:gravity="start"
-                                android:textColor="?attr/colorOnSecondary"
-                                android:text="0 h 0 m"
-                                android:textSize="22sp" />
+                                android:orientation="vertical"
+                                android:layout_marginStart="4dp">
+                                <TextView
+                                    android:text="Estimated Usage:"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textSize="22sp"/>
+                                <TextView
+                                    android:id="@+id/quotaTime"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="start"
+                                    android:textColor="?attr/colorOnSecondary"
+                                    android:text="0 h 0 m"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
                         </LinearLayout>
                         <TextView
                             android:text="@string/booster_info"
