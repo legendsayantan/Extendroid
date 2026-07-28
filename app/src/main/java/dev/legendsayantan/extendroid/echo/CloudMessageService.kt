@@ -55,6 +55,17 @@ class CloudMessageService : FirebaseMessagingService(){
         val a = remoteMessage.data
         logging = Logging(applicationContext)
         if (a.toString().isNotBlank()) {
+
+            // --- Short-circuit: trickle ICE candidate batch ---
+            // These messages are pure WebRTC plumbing: no Shizuku, no ExtendService needed.
+            // Route directly to the waiting PeerConnection and return immediately.
+            val iceCandidatesJson = a["icecandidates"]
+            val sessionId = a["sessionId"]
+            if (!iceCandidatesJson.isNullOrBlank() && !sessionId.isNullOrBlank()) {
+                WebRTC.addIceCandidateForSession(sessionId, iceCandidatesJson)
+                return
+            }
+
             FirebaseAuth.getInstance().currentUser?.getIdToken(false)?.addOnCompleteListener { tokenResult->
                 val idToken = tokenResult.result!!.token!!
                 if (!Utils.isShizukuSetup() || !Utils.isShizukuAllowed()) {

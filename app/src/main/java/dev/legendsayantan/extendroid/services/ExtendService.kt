@@ -90,6 +90,11 @@ class ExtendService : Service() {
         //ECHO
         setupEchoCommand = { data, uid, token ->
             val connectionId = System.currentTimeMillis()
+            // sessionId is required for trickle ICE routing (v2). Guard against missing value
+            // (e.g., old web client sends no sessionId — fall back to a local UUID so the rest
+            // of the signaling still works correctly, though ICE batches won't be routed).
+            val sessionId = data["sessionId"]?.takeIf { it.isNotBlank() }
+                ?: java.util.UUID.randomUUID().toString()
             var width = 0
             var height = 0
             var capturer: VideoCapturer? = null
@@ -125,6 +130,7 @@ class ExtendService : Service() {
             WebRTC.checkAndStart(
                 applicationContext,
                 connectionId,
+                sessionId,
                 uid,
                 token,
                 data,

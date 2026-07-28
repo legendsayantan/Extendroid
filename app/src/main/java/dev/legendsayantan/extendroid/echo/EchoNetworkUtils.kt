@@ -102,22 +102,24 @@ class EchoNetworkUtils {
         }
 
         /**
-         * GET /signal with uid, token, client="device" and return JSON response via callback
+         * GET /signal with uid, token, client="device", sessionId, and return JSON response via callback
          */
         fun getSignalWithCallback(
             ctx: Context,
             uid: String,
             token: String,
+            sessionId: String,
             callback: (String?, Exception?) -> Unit
         ) {
             val client = OkHttpClient()
-            val url = getBackendUrl(ctx) + "/signal?uid=$uid&token=$token&client=device"
+            val url = getBackendUrl(ctx) + "/signal?uid=$uid&token=$token&client=device&sessionId=$sessionId"
             val request = Request.Builder()
                 .url(url)
                 .get()
                 .addHeader("Content-Type", "application/json")
                 .addHeader("X-UID", uid)
                 .addHeader("Authorization", "Bearer $token")
+                .addHeader("X-Echo-Version", "2")
                 .build()
             client.newCall(request).enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
@@ -137,7 +139,7 @@ class EchoNetworkUtils {
         }
 
         /**
-         * POST /signal with uid, token, devicesdp, deviceice
+         * POST /signal with uid, token, devicesdp (v2: no deviceice, includes sessionId)
          */
         fun postSignal(
             ctx: Context,
@@ -145,21 +147,20 @@ class EchoNetworkUtils {
             token: String,
             error: String? = null,
             devicesdp: String = "",
-            deviceice: String = ""
+            sessionId: String = ""
         ) {
             val client = OkHttpClient()
-
 
             val json = if (error.isNullOrBlank()) {
                 """
         {
             "uid": "$uid",
             "token": "$token",
-            "devicesdp": ${org.json.JSONObject.quote(devicesdp)},
-            "deviceice": ${org.json.JSONObject.quote(deviceice)}
+            "sessionId": ${org.json.JSONObject.quote(sessionId)},
+            "devicesdp": ${org.json.JSONObject.quote(devicesdp)}
         }
     """.trimIndent()
-            } else { """{"uid": "$uid","token": "$token","error": ${org.json.JSONObject.quote(error)}}""" }
+            } else { """{"uid": "$uid","token": "$token","sessionId":${org.json.JSONObject.quote(sessionId)},"error": ${org.json.JSONObject.quote(error)}}""" }
 
             val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
 
@@ -169,6 +170,7 @@ class EchoNetworkUtils {
                 .addHeader("Content-Type", "application/json")
                 .addHeader("X-UID", uid)
                 .addHeader("Authorization", "Bearer $token")
+                .addHeader("X-Echo-Version", "2")
                 .build()
             val logging = Logging(ctx)
             client.newCall(request).enqueue(object : okhttp3.Callback {
@@ -180,6 +182,42 @@ class EchoNetworkUtils {
                     response.use { resp ->
                         logging.i("${resp.code}  ${resp.body?.string()}", "postSignal")
                     }
+                }
+            })
+        }
+
+        /**
+         * POST /signal/ice — sends a batch of trickle ICE candidates (device→web direction).
+         *
+         * Fire-and-forget: a lost batch degrades ICE gathering speed but never breaks the session.
+         */
+        fun sendIceCandidateBatch(
+            ctx: Context,
+            uid: String,
+            token: String,
+            sessionId: String,
+            candidatesJson: String  // JSON array of { sdpMid, sdpMLineIndex, candidate }
+        ) {
+            val bodyJson = """
+                {"uid":"$uid","token":"$token","sessionId":${org.json.JSONObject.quote(sessionId)},
+                 "candidates":$candidatesJson,"direction":"device"}
+            """.trimIndent()
+            val body = bodyJson.toRequestBody("application/json; charset=utf-8".toMediaType())
+
+            val request = Request.Builder()
+                .url(getBackendUrl(ctx) + "/signal/ice")
+                .post(body)
+                .addHeader("X-Echo-Version", "2")
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+
+            val logging = Logging(ctx)
+            OkHttpClient().newCall(request).enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) {
+                    logging.e(e, "sendIceCandidateBatch")
+                }
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    response.close() // fire-and-forget: just release the connection
                 }
             })
         }

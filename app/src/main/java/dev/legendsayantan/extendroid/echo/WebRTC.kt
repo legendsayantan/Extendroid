@@ -1,28 +1,23 @@
 package dev.legendsayantan.extendroid.echo
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import dev.legendsayantan.extendroid.lib.Logging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import org.webrtc.*
-import java.util.Timer
-import kotlin.concurrent.timerTask
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import org.webrtc.PeerConnection.IceConnectionState.*;
+
 import java.util.Locale
-import java.util.TimerTask
 
 class WebRTC {
     companion object {
-
-        // How long to wait, after the most recent ICE candidate, before finalizing gathering
-        // and sending what we have - and the absolute cap on total gathering time regardless of
-        // how many candidates keep trickling in. Replaces a previous "30 / candidateCount
-        // seconds" heuristic whose wait time swung wildly depending on how many candidates a
-        // given network happened to produce (could cut gathering short on sparse networks or
-        // wait needlessly long on fast ones).
-        private const val ICE_GATHER_DEBOUNCE_MS = 1500L
-        private const val ICE_GATHER_MAX_TOTAL_MS = 5000L
 
         // ICE DISCONNECTED is frequently transient (brief NAT rebind, network handover) and the
         // ICE agent keeps retrying connectivity checks on its own. Tearing the session down the
@@ -32,6 +27,41 @@ class WebRTC {
 
         private val eglBase = EglBase.create()
         private val peerConnections = hashMapOf<Long, PeerConnection>()
+
+        // --- Trickle ICE routing tables ---
+        // sessionId -> PeerConnection: routes inbound FCM ICE candidate batches to the right PC
+        private val sessionToPeer = ConcurrentHashMap<String, PeerConnection>()
+        // sessionId -> buffered candidate JSON arrays (arrive before SDP is set)
+        private val pendingCandidatesBySession = ConcurrentHashMap<String, MutableList<String>>()
+        // connectionId -> sessionId: for cleanup on closeConnection
+        private val connectionIdToSession = ConcurrentHashMap<Long, String>()
+
+        /**
+         * Route an inbound trickle ICE candidate batch to the correct PeerConnection.
+         * Called from CloudMessageService when an `icecandidates` FCM message arrives.
+         */
+        fun addIceCandidateForSession(sessionId: String, candidatesJson: String) {
+            val arr = try { org.json.JSONArray(candidatesJson) } catch (e: Exception) { return }
+            val pc = sessionToPeer[sessionId]
+            if (pc == null) {
+                // PC not yet registered: buffer until setRemoteDescription completes
+                pendingCandidatesBySession
+                    .getOrPut(sessionId) { mutableListOf() }
+                    .add(candidatesJson)
+                return
+            }
+            for (i in 0 until arr.length()) {
+                try {
+                    val obj = arr.getJSONObject(i)
+                    val candidate = IceCandidate(
+                        obj.getString("sdpMid"),
+                        obj.getInt("sdpMLineIndex"),
+                        obj.getString("candidate")
+                    )
+                    Handler(Looper.getMainLooper()).post { pc.addIceCandidate(candidate) }
+                } catch (e: Exception) { /* skip malformed candidate */ }
+            }
+        }
 
         fun getPeerConnectionCount(): Int = peerConnections.size
         private lateinit var peerConnectionFactory: PeerConnectionFactory
@@ -63,6 +93,7 @@ class WebRTC {
         fun checkAndStart(
             ctx: Context,
             connectionId: Long,
+            sessionId: String,
             uid: String,
             token: String,
             data: Map<String, String>,
@@ -73,7 +104,7 @@ class WebRTC {
             val logging = Logging(ctx)
             if (data["fetchsdp"] == "true") {
                 //if so, fetch the sdp from the backend
-                EchoNetworkUtils.getSignalWithCallback(ctx, uid, token) { str, ex ->
+                EchoNetworkUtils.getSignalWithCallback(ctx, uid, token, sessionId) { str, ex ->
                     if (str != null && ex == null) {
                         try {
                             // Not logging the raw body: it carries TURN credentials + SDP/ICE.
@@ -101,7 +132,9 @@ class WebRTC {
                             }
 
                             // --- Remote ICE candidates ---
-                            val remoteIceJson = obj.getString("webice")
+                            // v2 response has no 'webice' — optString returns "[]" (empty array)
+                            // v1 fetchsdp response still includes 'webice' — backward compat
+                            val remoteIceJson = obj.optString("webice", "[]")
                             val remoteIceArray = org.json.JSONArray(remoteIceJson)
                             val remoteIce = Array(remoteIceArray.length()) { idx ->
                                 val cand = remoteIceArray.getJSONObject(idx)
@@ -117,6 +150,7 @@ class WebRTC {
 
                             start(
                                 ctx, connectionId,
+                                sessionId,
                                 uid,
                                 token,
                                 iceServers,
@@ -166,7 +200,8 @@ class WebRTC {
                     }
 
                     // --- Remote ICE candidates ---
-                    val remoteIceJson = data["webice"]!!
+                    // v2 inline FCM path has no 'webice'; optString returns "[]" safely
+                    val remoteIceJson = data["webice"] ?: "[]"
                     val remoteIceArray = org.json.JSONArray(remoteIceJson)
                     val remoteIce = Array(remoteIceArray.length()) { idx ->
                         val cand = remoteIceArray.getJSONObject(idx)
@@ -182,6 +217,7 @@ class WebRTC {
 
                     start(
                         ctx, connectionId,
+                        sessionId,
                         uid,
                         token,
                         iceServers,
@@ -211,6 +247,7 @@ class WebRTC {
         fun start(
             ctx: Context,
             connectionId: Long,
+            sessionId: String,
             uid: String,
             token: String,
             iceServers: MutableList<PeerConnection.IceServer>,
@@ -230,22 +267,45 @@ class WebRTC {
                 enableDscp = false
             }
 
-            val thisConnectionIceCandidates = mutableListOf<IceCandidate>()
+            // --- per-connection state for trickle 50ms batching ---
+            val localDescriptionSet = AtomicBoolean(false)
+            val pendingLocalCandidates = mutableListOf<IceCandidate>()
+            val localCandidateLock = Any()
+
+            var batchHandler: Handler? = Handler(Looper.getMainLooper())
+            var batchRunnable: Runnable? = null
+            val batchBuffer = mutableListOf<IceCandidate>()
+            val batchLock = Any()
+
+            fun flushCandidateBatch() {
+                val batch: List<IceCandidate>
+                synchronized(batchLock) {
+                    batch = batchBuffer.toList()
+                    batchBuffer.clear()
+                }
+                if (batch.isEmpty()) return
+                val arr = org.json.JSONArray()
+                batch.forEach { c ->
+                    arr.put(JSONObject().apply {
+                        put("sdpMid", c.sdpMid)
+                        put("sdpMLineIndex", c.sdpMLineIndex)
+                        put("candidate", c.sdp)
+                    })
+                }
+                GlobalScope.launch(Dispatchers.IO) {
+                    EchoNetworkUtils.sendIceCandidateBatch(
+                        ctx, uid, token, sessionId, arr.toString()
+                    )
+                }
+            }
 
             lateinit var peerConnection: PeerConnection
             peerConnection = peerConnectionFactory.createPeerConnection(
                 rtcConfig,
                 object : PeerConnection.Observer {
 
-                    // --- per-connection state for the countdown logic ---
-                    private val gatherLock = Any()
-                    private var gatherHandler: android.os.Handler? = android.os.Handler(android.os.Looper.getMainLooper())
-                    private var gatherRunnable: Runnable? = null
-                    private val candidateTimestamps = mutableListOf<Long>()
-                    private var gatheringFinalized = false
-
                     // --- grace-period state for transient ICE disconnects ---
-                    private var reconnectHandler: android.os.Handler? = android.os.Handler(android.os.Looper.getMainLooper())
+                    private var reconnectHandler: Handler? = Handler(Looper.getMainLooper())
                     private var reconnectRunnable: Runnable? = null
 
                     private fun cancelPendingDisconnectTimeout() {
@@ -253,112 +313,25 @@ class WebRTC {
                         reconnectRunnable = null
                     }
 
-                    // helper that packages & posts SDP + ICE candidates (runs once)
-                    private fun postLocalSdpAndCandidates() {
-                        synchronized(gatherLock) {
-                            if (gatheringFinalized) return
-                            gatheringFinalized = true
-                            gatherRunnable?.let { gatherHandler?.removeCallbacks(it) }
-                        }
-
-                        peerConnection.localDescription?.let { localSdp ->
-                            val iceCandidatesJson = org.json.JSONArray()
-                            thisConnectionIceCandidates.forEach { candidate ->
-                                val candidateJson = org.json.JSONObject().apply {
-                                    put("sdpMid", candidate.sdpMid)
-                                    put("sdpMLineIndex", candidate.sdpMLineIndex)
-                                    put("candidate", candidate.sdp)
-                                }
-                                iceCandidatesJson.put(candidateJson)
-                            }
-                            val ourIce = iceCandidatesJson.toString()
-                            GlobalScope.launch(Dispatchers.IO) {
-                                EchoNetworkUtils.postSignal(
-                                    ctx,
-                                    uid,
-                                    token,
-                                    devicesdp = localSdp.description,
-                                    deviceice = ourIce
-                                )
-                            }
-                        }
-                    }
-
-                    // schedule/reset countdown based on recorded timestamps & candidate count
-                    private fun resetGatheringCountdown() {
-                        synchronized(gatherLock) {
-                            // Don't schedule if we already finalized (e.g. COMPLETE or timer fired)
-                            if (gatheringFinalized) return
-
-                            // cancel previous timer/task
-                            try {
-                                gatherRunnable?.let { gatherHandler?.removeCallbacks(it) }
-                            } catch (_: Exception) { /* ignore */
-                            }
-
-                            // candidateTimestamps already updated by caller (onIceCandidate)
-                            // Bounded debounce: wait a short quiet period after the most recent
-                            // candidate, but never past an absolute cap measured from the first
-                            // candidate, so gathering always terminates in predictable time.
-                            val firstCandidateAt = candidateTimestamps.firstOrNull() ?: System.currentTimeMillis()
-                            val elapsedSinceFirst = System.currentTimeMillis() - firstCandidateAt
-                            val remainingUntilCap = (ICE_GATHER_MAX_TOTAL_MS - elapsedSinceFirst).coerceAtLeast(0L)
-                            val countdownMs = minOf(ICE_GATHER_DEBOUNCE_MS, remainingUntilCap)
-
-                            // Debug/log
-                            logging.d(
-                                "resetGatheringCountdown -> candidates=${candidateTimestamps.size}, countdownMs=$countdownMs",
-                                "WebRTC.start"
-                            )
-
-                            // schedule new timer task
-                            gatherRunnable = Runnable {
-                                // when countdown finishes, send SDP+ICE (only once)
-                                postLocalSdpAndCandidates()
-                            }
-                            // schedule
-                            gatherHandler?.postDelayed(gatherRunnable!!, countdownMs)
-                        }
-                    }
-
                     override fun onIceCandidate(candidate: IceCandidate?) {
                         if (candidate == null) return
-                        // add candidate and timestamp, then reset countdown
-                        thisConnectionIceCandidates.add(candidate)
-                        val now = System.currentTimeMillis()
-                        synchronized(gatherLock) {
-                            candidateTimestamps.add(now)
+                        if (!localDescriptionSet.get()) {
+                            // Buffer candidates produced before setLocalDescription completes
+                            synchronized(localCandidateLock) { pendingLocalCandidates.add(candidate) }
+                            return
                         }
-                        logging.d(
-                            "found candidate : ${thisConnectionIceCandidates.size}",
-                            "WebRTC.start"
-                        )
-
-                        // Reset/start the countdown after each discovered candidate
-                        resetGatheringCountdown()
+                        // Add to outbound 50ms batch
+                        synchronized(batchLock) { batchBuffer.add(candidate) }
+                        batchRunnable?.let { batchHandler?.removeCallbacks(it) }
+                        batchRunnable = Runnable { flushCandidateBatch() }
+                        batchHandler?.postDelayed(batchRunnable!!, 50L)
                     }
 
-
-                    override fun onIceCandidatesRemoved(p0: Array<out IceCandidate?>?) {
-                        p0?.forEach {
-                            thisConnectionIceCandidates.remove(it)
-                        }
-                    }
+                    override fun onIceCandidatesRemoved(p0: Array<out IceCandidate?>?) {}
 
                     override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
+                        // Logging only — ICE sending is now driven by the trickle 50ms batch mechanism
                         logging.i("ICE Gathering State Changed: $state", "WebRTC.start")
-                        when (state) {
-                            PeerConnection.IceGatheringState.COMPLETE -> {
-                                // ICE finished normally: cancel countdown and send immediately (if not already sent)
-                                postLocalSdpAndCandidates()
-                            }
-
-                            PeerConnection.IceGatheringState.GATHERING -> {
-                                logging.i("ICE gathering started", "WebRTC.start")
-                            }
-
-                            else -> {}
-                        }
                     }
 
                     override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
@@ -387,6 +360,12 @@ class WebRTC {
                             }
 
                             FAILED, CLOSED -> {
+                                // Cancel the batch timer BEFORE closeConnection so no flush fires
+                                // after the PC has been disposed.
+                                synchronized(batchLock) {
+                                    batchRunnable?.let { batchHandler?.removeCallbacks(it) }
+                                    batchHandler = null
+                                }
                                 cancelPendingDisconnectTimeout()
                                 onStateChanged(state)
                                 closeConnection(connectionId)
@@ -462,8 +441,17 @@ class WebRTC {
             val offer = SessionDescription(SessionDescription.Type.OFFER, remoteSdp)
             peerConnection.setRemoteDescription(object : SdpObserver {
                 override fun onSetSuccess() {
-                    remoteIce.forEach {
-                        peerConnection.addIceCandidate(it)
+                    // Add any legacy inline ICE candidates (v1 backward compat; empty array for v2)
+                    remoteIce.forEach { peerConnection.addIceCandidate(it) }
+
+                    // Register PC so future trickle ICE candidates from FCM route here immediately
+                    sessionToPeer[sessionId] = peerConnection
+                    connectionIdToSession[connectionId] = sessionId
+
+                    // Flush any trickle candidates that arrived before SDP was set (pre-SDP buffer)
+                    val buffered = pendingCandidatesBySession.remove(sessionId) ?: emptyList()
+                    for (json in buffered) {
+                        addIceCandidateForSession(sessionId, json)
                     }
 
                     // Explicitly declare this as send-only: we don't receive audio/video
@@ -477,9 +465,30 @@ class WebRTC {
                             logging.d("Created Answer SDP: ${answer.description}", "WebRTC.start")
                             peerConnection.setLocalDescription(object : SdpObserver {
                                 override fun onSetSuccess() {
+                                    localDescriptionSet.set(true)
                                     // Negotiation is now complete: sender.parameters.encodings
                                     // is populated and parameters can actually be applied.
                                     optimizeVideoEncoder(peerConnection, logging)
+
+                                    // Flush pre-localDescription candidate buffer into the batch
+                                    val toFlush: List<IceCandidate>
+                                    synchronized(localCandidateLock) {
+                                        toFlush = pendingLocalCandidates.toList()
+                                        pendingLocalCandidates.clear()
+                                    }
+                                    synchronized(batchLock) { batchBuffer.addAll(toFlush) }
+
+                                    GlobalScope.launch(Dispatchers.IO) {
+                                        // 50ms window for pre-localDesc candidates then flush + send SDP
+                                        delay(50)
+                                        flushCandidateBatch()
+                                        // POST SDP-only answer (no deviceice in v2)
+                                        EchoNetworkUtils.postSignal(
+                                            ctx, uid, token,
+                                            sessionId = sessionId,
+                                            devicesdp = peerConnection.localDescription?.description ?: return@launch
+                                        )
+                                    }
                                 }
                                 override fun onSetFailure(p0: String?) {}
                                 override fun onCreateSuccess(p0: SessionDescription?) {}
@@ -520,6 +529,13 @@ class WebRTC {
             videoSources.remove(connectionId)?.dispose()
             surfaceTextureHelpers.remove(connectionId)?.dispose()
             peerConnections.remove(connectionId)?.dispose()
+
+            // Trickle ICE cleanup: remove session routing entries
+            val sid = connectionIdToSession.remove(connectionId)
+            if (sid != null) {
+                sessionToPeer.remove(sid)
+                pendingCandidatesBySession.remove(sid)
+            }
         }
 
         // Whether this device's hardware encoder actually accelerates H264, rather than assuming
