@@ -140,7 +140,22 @@ class RemoteSessionHandler {
                 Logging(ctx).d("Discarding Packet - Unknown packet type: ${message[0]}", "RemoteSessionHandler")
                 return
             }
-            val content = message.substring(1)
+            if (type == PacketType.Ping) {
+                return
+            }
+            backgroundExecutor.execute {
+                processDataPacketContent(ctx, connectionId, type, message.substring(1), mediaCore, svc)
+            }
+        }
+
+        private fun processDataPacketContent(
+            ctx: Context,
+            connectionId: String,
+            type: PacketType,
+            content: String,
+            mediaCore: MediaCore,
+            svc: IRootService
+        ) {
             when (type) {
                 PacketType.Ping -> {
                     // Do nothing. This is just a keep-alive packet to prevent NAT timeouts on zero frame rate.
@@ -272,7 +287,9 @@ class RemoteSessionHandler {
                 PacketType.Unlock -> {
                     Thread {
                         try {
-                            RemoteUnlocker(ctx).unlock(svc) { reason ->
+                            RemoteUnlocker(ctx).unlock(svc, onSuccess = {
+                                // Do nothing: let SystemUI keyguard animations finish uninterrupted on the stream
+                            }, onFailure = { reason ->
                                 mediaCore.echoDataChannels[connectionId]?.let { channel ->
                                     if (channel.state() == DataChannel.State.OPEN) {
                                         channel.send(
@@ -283,7 +300,7 @@ class RemoteSessionHandler {
                                         )
                                     }
                                 }
-                            }
+                            })
                         } catch (e: Exception) {
                             e.printStackTrace()
                             print("Error processing unlock event: ${e.message}")

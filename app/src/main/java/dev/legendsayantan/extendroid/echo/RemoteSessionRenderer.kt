@@ -75,37 +75,34 @@ class RemoteSessionRenderer(
         this.width = width
         this.height = height
 
-        createVirtualDisplay()
-
         capturerObserver?.onCapturerStarted(true)
         surfaceTextureHelper?.startListening(this)
+        createVirtualDisplay()
     }
 
     override fun stopCapture() {
         checkNotDisposed()
-        ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
-            surfaceTextureHelper?.stopListening()
-            capturerObserver?.onCapturerStopped()
-
-
-
-            if (displayId != -1) {
-                onSessionReleased()
-                val savedDisplayId = displayId
-                VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
-                }, 1000)
-                displayId = -1
-                currentSurface?.release()
-                currentSurface = null
+        surfaceTextureHelper?.handler?.let { handler ->
+            ThreadUtils.invokeAtFrontUninterruptibly(handler) {
+                surfaceTextureHelper?.stopListening()
+                capturerObserver?.onCapturerStopped()
             }
+        }
+        if (displayId != -1) {
+            onSessionReleased()
+            val savedDisplayId = displayId
+            VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
+            }, 1000)
+            displayId = -1
+            currentSurface?.release()
+            currentSurface = null
         }
     }
 
     override fun changeCaptureFormat(width: Int, height: Int, framerate: Int) {
         checkNotDisposed()
-        // Update the dimensions
         this.width = width
         this.height = height
 
@@ -113,19 +110,11 @@ class RemoteSessionRenderer(
             return
         }
 
-        ThreadUtils.invokeAtFrontUninterruptibly(surfaceTextureHelper?.handler) {
-            onSessionReleased()
-            val savedDisplayId = displayId
-            VirtualDisplayNoContentActivity.instances[savedDisplayId]?.finish()
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                ExtendService.svc?.destroyVirtualDisplay(savedDisplayId)
-            }, 500)
-            displayId = -1
-            currentSurface?.release()
-            currentSurface = null
-
-            createVirtualDisplay()
+        surfaceTextureHelper?.handler?.post {
+            surfaceTextureHelper?.setTextureSize(width, height)
         }
+        ExtendService.svc?.resizeVirtualDisplay(displayId, width, height, displayDpi)
+        refreshDisplaySurface()
     }
 
     fun updateDimensions(width: Int,height: Int, density:Int){
@@ -136,6 +125,12 @@ class RemoteSessionRenderer(
 
         if (displayId != -1) {
             ExtendService.svc?.resizeVirtualDisplay(displayId, width, height, density)
+        }
+    }
+
+    fun refreshDisplaySurface() {
+        if (displayId != -1 && currentSurface != null && !isDisposed) {
+            logging.d("VirtualDisplay surface check OK for display $displayId", "RemoteSessionRenderer")
         }
     }
 

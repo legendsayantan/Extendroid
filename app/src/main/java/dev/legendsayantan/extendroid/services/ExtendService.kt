@@ -222,6 +222,11 @@ class ExtendService : Service() {
             menu.show()
         }
     }
+    private val screenStateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent?) {
+            // No-op upon screen state change or user present to avoid interrupting ongoing EGL rendering animations.
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -246,6 +251,17 @@ class ExtendService : Service() {
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(menuOpenReceiver, IntentFilter(ACTION_MENU_OPEN))
+        }
+
+        val screenFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenStateReceiver, screenFilter, RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(screenStateReceiver, screenFilter)
         }
 
         prefs.registerConfigChangeListener(prefsChangedListener)

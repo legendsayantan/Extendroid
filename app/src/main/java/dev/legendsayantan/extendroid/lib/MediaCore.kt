@@ -34,6 +34,7 @@ open class MediaCore {
 
     var onRunningRemoteAppsUpdate : (String)-> Unit = { id-> }
     var sessionCapturerResizers : java.util.concurrent.ConcurrentHashMap<String,(Int, Int, Int) -> Unit> = java.util.concurrent.ConcurrentHashMap()
+    var sessionCapturerRefreshers : java.util.concurrent.ConcurrentHashMap<String,() -> Unit> = java.util.concurrent.ConcurrentHashMap()
     var echoDataChannels: java.util.concurrent.ConcurrentHashMap<String, org.webrtc.DataChannel> = java.util.concurrent.ConcurrentHashMap()
 
     var virtualDisplayIds: java.util.concurrent.ConcurrentHashMap<String, Int> = java.util.concurrent.ConcurrentHashMap()
@@ -143,12 +144,16 @@ open class MediaCore {
                 // The actual destruction is now safely handled inside RemoteSessionRenderer via ExtendService.svc
                 echoDisplayIds.remove(name)
                 echoDisplayParams.remove(name)
+                sessionCapturerRefreshers.remove(name)
             },
             displayName = name,
             displayDpi = density
         )
         sessionCapturerResizers[name] = { w, h, d ->
             capturer.updateDimensions(w, h, d)
+        }
+        sessionCapturerRefreshers[name] = {
+            capturer.refreshDisplaySurface()
         }
         return capturer
     }

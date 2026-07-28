@@ -120,43 +120,53 @@ class DisplayHelper {
             injectMethod.invoke(im, event, 0)
         }
 
+        private val cachedIInputManager by lazy {
+            try {
+                val smClass = Class.forName("android.os.ServiceManager")
+                val getService = smClass.getMethod("getService", String::class.java)
+                val inputBinder = getService.invoke(null, "input") as IBinder
+                val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
+                val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
+                asInterface.invoke(null, inputBinder)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private val cachedInjectInputEventMethod by lazy {
+            try {
+                cachedIInputManager?.javaClass?.getMethod(
+                    "injectInputEvent",
+                    InputEvent::class.java,
+                    Int::class.javaPrimitiveType
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private val cachedSetDisplayIdMotion by lazy {
+            try {
+                MotionEvent::class.java.getMethod("setDisplayId", Int::class.javaPrimitiveType)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun injectMotionEvent(
             event: MotionEvent,
             displayId: Int
         ) {
-            // 1) Build the MotionEvent
-            event.apply {
-                // set the target display
-                // API 30+ has setDisplayId; pre‑30 we reflect
-                val m =
-                    MotionEvent::class.java.getMethod("setDisplayId", Int::class.javaPrimitiveType)
-                m.invoke(this, displayId)
+            try {
+                cachedSetDisplayIdMotion?.invoke(event, displayId)
+                cachedIInputManager?.let { im ->
+                    cachedInjectInputEventMethod?.invoke(im, event, 0)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                event.recycle()
             }
-
-
-            // 2) Get the IInputManager binder
-            val smClass = Class.forName("android.os.ServiceManager")
-            val getService: Method = smClass.getMethod("getService", String::class.java)
-
-            @Suppress("UNCHECKED_CAST")
-            val inputBinder = getService.invoke(null, "input") as IBinder
-
-            // 3) Obtain IInputManager interface
-            val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
-            val asInterface: Method = stubClass.getMethod("asInterface", IBinder::class.java)
-            val inputManager = asInterface.invoke(null, inputBinder)
-
-            // 4) Call hidden injectInputEvent(InputEvent, int mode)
-            val injectMethod = inputManager.javaClass.getMethod(
-                "injectInputEvent",
-                InputEvent::class.java,
-                Int::class.javaPrimitiveType
-            )
-            // mode: 0 = INJECT_INPUT_EVENT_MODE_ASYNC
-            injectMethod.invoke(inputManager, event, 0)
-
-            // 5) Recycle the event
-            event.recycle()
         }
 
 

@@ -126,11 +126,11 @@ class RemoteUnlocker(val ctx: Context) {
     fun testUnlock(svc: IRootService, onFailure: (String) -> Unit = {}){
         svc.goToSleep()
         Handler(ctx.mainLooper).postDelayed({
-            unlock(svc, onFailure)
+            unlock(svc, {}, onFailure)
         },2000)
     }
 
-    fun unlock(svc: IRootService, onFailure: (String) -> Unit = {}){
+    fun unlock(svc: IRootService, onSuccess: () -> Unit = {}, onFailure: (String) -> Unit = {}){
         // Every Unlock packet used to spawn its own independent, unsynchronized timer/thread.
         // Firing it repeatedly in quick succession (e.g. rapid remote lock/unlock cycles) let
         // multiple scheduled touch-event sequences run concurrently and interleave onto the same
@@ -206,24 +206,28 @@ class RemoteUnlocker(val ctx: Context) {
                 eventData.eventTime += uptimeMillis;
                 val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scalePair)
                 timer.schedule(timerTask {
-                    handler.post {
-                        try {
-                            svc.dispatch(motionEvent,0)
-                        } catch (e: Exception) {
-                            Logging(ctx).e(e, "RemoteUnlocker")
-                        } finally {
-                            if (index == lastIndex) {
-                                // General, cause-agnostic failure signal: regardless of *why* the
-                                // replay didn't work (stale gesture, timing drift, changed
-                                // PIN/pattern), the one thing we can check with certainty is the
-                                // outcome. A short delay lets the keyguard UI settle before checking.
-                                handler.postDelayed({
-                                    if (isScreenLocked(ctx)) {
+                    try {
+                        svc.dispatch(motionEvent, 0)
+                    } catch (e: Exception) {
+                        Logging(ctx).e(e, "RemoteUnlocker")
+                    } finally {
+                        if (index == lastIndex) {
+                            var attempts = 0
+                            val checkLock = object : Runnable {
+                                override fun run() {
+                                    attempts++
+                                    if (!isScreenLocked(ctx)) {
+                                        onSuccess()
+                                        finish()
+                                    } else if (attempts >= 30) {
                                         onFailure("Remote unlock failed. Try again or retrain unlock on the device.")
+                                        finish()
+                                    } else {
+                                        handler.postDelayed(this, 300)
                                     }
-                                    finish()
-                                }, 700)
+                                }
                             }
+                            handler.postDelayed(checkLock, 500)
                         }
                     }
                 }, Date(timeToRun))
