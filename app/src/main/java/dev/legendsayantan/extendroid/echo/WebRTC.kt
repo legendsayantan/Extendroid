@@ -609,6 +609,19 @@ class WebRTC {
 
                 val newMLine = (existingParts.subList(0, 3) + newOrder).joinToString(" ")
                 lines[mLineIndex] = newMLine
+                lines.add(mLineIndex + 1, "b=AS:15000")
+                lines.add(mLineIndex + 2, "b=TIAS:15000000")
+
+                for (i in 0 until lines.size) {
+                    val line = lines[i]
+                    if (line.startsWith("a=fmtp:")) {
+                        val pt = line.substringAfter("a=fmtp:").split(" ", limit = 2)[0].trim()
+                        if (existingPayloads.contains(pt)) {
+                            val sep = if (line.contains(" ")) (if (line.endsWith(";")) " " else "; ") else " "
+                            lines[i] = "$line${sep}x-google-start-bitrate=2500;x-google-min-bitrate=1500;x-google-max-bitrate=15000"
+                        }
+                    }
+                }
 
                 val newSdp = lines.joinToString("\r\n")
                 return newSdp
@@ -636,10 +649,10 @@ class WebRTC {
                         try { encoding.networkPriority = 3 } catch (e: Exception) {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.networkPriority")
                         }
-                        // Dynamic bitrate based on resolution
+                        // Dynamic bitrate based on resolution with higher floor to prevent startup compression artifacts
                         val pixelCount = width * height
-                        val minBitrate = (pixelCount * 1.0).toInt().coerceAtLeast(500_000)
-                        val maxBitrate = (pixelCount * 5.0).toInt().coerceAtMost(20_000_000).coerceAtLeast(2_000_000)
+                        val minBitrate = (pixelCount * 1.0).toInt().coerceAtLeast(1_500_000)
+                        val maxBitrate = (pixelCount * 5.0).toInt().coerceAtMost(20_000_000).coerceAtLeast(2_500_000)
                         
                         try { encoding.minBitrateBps = minBitrate } catch (e: Exception) {
                             logging.e(e, "WebRTC.optimizeVideoEncoder.minBitrateBps")
@@ -649,7 +662,7 @@ class WebRTC {
                         }
                     }
 
-                    // Enable low latency mode in codec settings
+                    // For desktop and screencast streaming, maintain resolution so frames aren't downscaled or blurry during BWE ramps
                     params.degradationPreference =
                         RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
 
