@@ -124,7 +124,8 @@ class RemoteSessionHandler {
             TaskList("TaskList"),
             RunTask("RunTask"),
             TaskStatus("TaskStatus"),
-            Ping("Ping")
+            Ping("Ping"),
+            UnlockStatus("UnlockStatus")
         }
 
         fun processDataMessage(
@@ -271,7 +272,18 @@ class RemoteSessionHandler {
                 PacketType.Unlock -> {
                     Thread {
                         try {
-                            RemoteUnlocker(ctx).unlock(svc)
+                            RemoteUnlocker(ctx).unlock(svc) { reason ->
+                                mediaCore.echoDataChannels[connectionId]?.let { channel ->
+                                    if (channel.state() == DataChannel.State.OPEN) {
+                                        channel.send(
+                                            createDataChannelPacket(
+                                                "{\"status\":\"error\",\"message\":${JSONObject.quote(reason)}}",
+                                                PacketType.UnlockStatus
+                                            )
+                                        )
+                                    }
+                                }
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                             print("Error processing unlock event: ${e.message}")

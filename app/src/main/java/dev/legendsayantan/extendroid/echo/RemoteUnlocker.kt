@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.google.gson.Gson
 import dev.legendsayantan.extendroid.IEventCallback
+import dev.legendsayantan.extendroid.Prefs
 import dev.legendsayantan.extendroid.echo.RemoteSessionHandler.MotionEventData
 import dev.legendsayantan.extendroid.lib.Logging
 import dev.legendsayantan.extendroid.services.IRootService
@@ -53,7 +54,8 @@ class RemoteUnlocker(val ctx: Context) {
             }
         }
 
-    fun startTraining(svc: IRootService, onComplete: (success:Boolean) -> Unit) {
+    fun startTraining(svc: IRootService, onComplete: (success: Boolean) -> Unit) {
+        val prefs = Prefs(ctx)
         val trainingData: ArrayList<RemoteSessionHandler.MotionEventData> = arrayListOf()
         val keyguardManager =
             ctx.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -88,6 +90,18 @@ class RemoteUnlocker(val ctx: Context) {
                         onComplete(trainingData.isNotEmpty())
                         if(trainingData.isNotEmpty()){
                             unlockData = trainingData.toTypedArray()
+                            // Record the screen dimensions at training time so unlock() can later
+                            // detect an orientation flip (portrait<->landscape) between training
+                            // and replay - see the check in unlock().
+                            try {
+                                val wmOut = svc.executeCommand("wm size")
+                                parseWmSize(wmOut)?.let { (w, h) ->
+                                    prefs.unlockTrainedWidth = w
+                                    prefs.unlockTrainedHeight = h
+                                }
+                            } catch (e: Exception) {
+                                Logging(ctx).e(e, "RemoteUnlocker")
+                            }
                         }
                     } catch (t: Throwable) {
                         System.err.println(t.stackTraceToString())
@@ -109,14 +123,14 @@ class RemoteUnlocker(val ctx: Context) {
         }
     }
 
-    fun testUnlock(svc: IRootService){
+    fun testUnlock(svc: IRootService, onFailure: (String) -> Unit = {}){
         svc.goToSleep()
         Handler(ctx.mainLooper).postDelayed({
-            unlock(svc)
+            unlock(svc, onFailure)
         },2000)
     }
 
-    fun unlock(svc: IRootService){
+    fun unlock(svc: IRootService, onFailure: (String) -> Unit = {}){
         // Every Unlock packet used to spawn its own independent, unsynchronized timer/thread.
         // Firing it repeatedly in quick succession (e.g. rapid remote lock/unlock cycles) let
         // multiple scheduled touch-event sequences run concurrently and interleave onto the same
@@ -150,24 +164,47 @@ class RemoteUnlocker(val ctx: Context) {
             val scaling = determineScaling(svc) // This can take 500ms-1500ms to run shell commands
             if (scaling == null) {
                 Logging(ctx).e("Could not determine touchscreen scaling; aborting unlock attempt instead of guessing", "RemoteUnlocker")
+                onFailure("Could not verify the device's screen state; aborted remote unlock.")
                 finish()
                 return
             }
+
+            // Recorded gestures are raw touch-digitizer coordinates, which stay fixed to the
+            // physical panel regardless of the current logical rotation. determineScaling()
+            // already recompensates for plain resolution/DPI changes every call, but an
+            // orientation flip between training and now would swap which axis maps to width vs
+            // height - silently misplacing every tap (risking a lockout on a wrong PIN attempt)
+            // instead of erroring. Trained dimensions of 0 mean training predates this check, so
+            // there's nothing to compare against; fall back to the old best-effort behavior.
+            val prefs = Prefs(ctx)
+            val trainedWidth = prefs.unlockTrainedWidth
+            val trainedHeight = prefs.unlockTrainedHeight
+            if (trainedWidth > 0 && trainedHeight > 0 &&
+                (trainedWidth > trainedHeight) != (scaling.screenWidth > scaling.screenHeight)
+            ) {
+                Logging(ctx).e("Screen orientation changed since unlock training; aborting instead of guessing", "RemoteUnlocker")
+                onFailure("Device orientation changed since training. Retrain remote unlock on the device.")
+                finish()
+                return
+            }
+
             val now = System.currentTimeMillis()+1000;
             val uptimeMillis = SystemClock.uptimeMillis()+1000;
             Logging(ctx).d("Unlocking device with hardware scaling -> $scaling","RemoteUnlocker")
 
             val data = unlockData
             if (data.isEmpty()) {
+                onFailure("No remote-unlock gesture is trained on this device.")
                 finish()
                 return
             }
             val lastIndex = data.size - 1
+            val scalePair = scaling.scaleX to scaling.scaleY
             data.forEachIndexed { index, eventData ->
                 val timeToRun = now + eventData.eventTime
                 eventData.downTime += uptimeMillis;
                 eventData.eventTime += uptimeMillis;
-                val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scaling)
+                val motionEvent = RemoteSessionHandler.createMotionEventFromData(eventData,scalePair)
                 timer.schedule(timerTask {
                     handler.post {
                         try {
@@ -175,7 +212,18 @@ class RemoteUnlocker(val ctx: Context) {
                         } catch (e: Exception) {
                             Logging(ctx).e(e, "RemoteUnlocker")
                         } finally {
-                            if (index == lastIndex) finish()
+                            if (index == lastIndex) {
+                                // General, cause-agnostic failure signal: regardless of *why* the
+                                // replay didn't work (stale gesture, timing drift, changed
+                                // PIN/pattern), the one thing we can check with certainty is the
+                                // outcome. A short delay lets the keyguard UI settle before checking.
+                                handler.postDelayed({
+                                    if (isScreenLocked(ctx)) {
+                                        onFailure("Remote unlock failed. Try again or retrain unlock on the device.")
+                                    }
+                                    finish()
+                                }, 700)
+                            }
                         }
                     }
                 }, Date(timeToRun))
@@ -198,6 +246,20 @@ class RemoteUnlocker(val ctx: Context) {
         // so overlapping unlock() calls can be detected and dropped instead of interleaving.
         private val unlockInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
 
+        // scaleX/scaleY convert raw touch-digitizer coordinates to screen pixels; screenWidth/
+        // screenHeight are the current logical "wm size" dimensions used to derive them, exposed
+        // so callers can compare against the dimensions recorded at training time.
+        data class ScalingResult(val scaleX: Float, val scaleY: Float, val screenWidth: Int, val screenHeight: Int)
+
+        private val wmSizeRe = Regex("""Physical size:\s*(\d+)x(\d+)""", RegexOption.IGNORE_CASE)
+
+        fun parseWmSize(wmOut: String): Pair<Int, Int>? {
+            val m = wmSizeRe.find(wmOut) ?: return null
+            val w = m.groupValues[1].toIntOrNull() ?: return null
+            val h = m.groupValues[2].toIntOrNull() ?: return null
+            return w to h
+        }
+
 
         fun isScreenLocked(context: Context): Boolean {
             val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -208,7 +270,7 @@ class RemoteUnlocker(val ctx: Context) {
         // range or the screen size can't be determined - replaying an unlock gesture with a
         // wrong scale would tap the wrong spots, and repeated wrong PIN/pattern attempts risk
         // tripping Android's own attempt-limit lockout. Better to abort than to guess.
-        fun determineScaling(svc: IRootService): Pair<Float, Float>? {
+        fun determineScaling(svc: IRootService): ScalingResult? {
             // run getevent -p and wm size
             val geteventOut = try {
                 svc.executeCommand("getevent -p")
@@ -286,15 +348,12 @@ class RemoteUnlocker(val ctx: Context) {
             }
 
             // parse screen size
-            val sizeRe = Regex("""Physical size:\s*(\d+)x(\d+)""", RegexOption.IGNORE_CASE)
-            val sizeMatch = sizeRe.find(wmOut)
-            val screenW = sizeMatch?.groupValues?.get(1)?.toIntOrNull()
-            val screenH = sizeMatch?.groupValues?.get(2)?.toIntOrNull()
-
-            if (screenW == null || screenH == null) {
+            val parsedSize = parseWmSize(wmOut)
+            if (parsedSize == null) {
                 Log.e("RemoteUnlocker", "determineScaling: could not parse 'wm size' output")
                 return null
             }
+            val (screenW, screenH) = parsedSize
 
             val rangeX = (chosen.xMax - chosen.xMin).toFloat()
             val rangeY = (chosen.yMax - chosen.yMin).toFloat()
@@ -304,7 +363,7 @@ class RemoteUnlocker(val ctx: Context) {
             // debug log (optional)
             Log.i("SCALING", "picked device=${chosen.devPath} name=${chosen.name} x=${chosen.xMin}..${chosen.xMax} y=${chosen.yMin}..${chosen.yMax} -> scaleX=$scaleX scaleY=$scaleY")
 
-            return Pair(scaleX, scaleY)
+            return ScalingResult(scaleX, scaleY, screenW, screenH)
         }
 
     }

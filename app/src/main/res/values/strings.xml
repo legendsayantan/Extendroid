@@ -23,6 +23,7 @@
         fixed minimum amount of Booster is charged when a new session starts, and further charges are based on usage.
         Transferring large files may consume more Boosters.
     </string>
+    <string name="quota_estimate_caveat">≈%1$s remaining (estimate only — actual time varies with video quality and usage)</string>
     <string name="unlock_training">Unlock Training</string>
     <string name="training_steps">Your device will be locked, then the screen will light up. Unlock slowly and correctly
         using your pin/pattern/password only, NOT Biometrics.

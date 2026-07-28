@@ -81,7 +81,9 @@ class CloudMessageService : FirebaseMessagingService(){
                         listener = object : Utils.CommandResultListener {})
                 }
                 val scheduledChecker = Timer()
+                var attempts = 0
                 scheduledChecker.schedule(timerTask {
+                    attempts++
                     if(svc != null){
                         //we can start!
                         this.cancel()
@@ -90,6 +92,22 @@ class CloudMessageService : FirebaseMessagingService(){
 
                         ExtendService.setupEchoCommand(a,uid,idToken)
 
+                    } else if (attempts >= MAX_SERVICE_START_ATTEMPTS) {
+                        // ExtendService never came up (crashed, killed by the OS, etc). Without
+                        // this bound the checker polled forever with no feedback at all, leaving
+                        // the web client's "Waiting for..." status stuck indefinitely.
+                        this.cancel()
+                        scheduledChecker.cancel()
+                        logging.e("ExtendService did not start after $attempts attempts", "CloudMessageService")
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid
+                        if (uid != null) {
+                            EchoNetworkUtils.postSignal(
+                                applicationContext,
+                                uid,
+                                idToken,
+                                error = "Extendroid failed to start on the device"
+                            )
+                        }
                     }
                 },0,1000)
             }
@@ -105,6 +123,7 @@ class CloudMessageService : FirebaseMessagingService(){
     }
 
     companion object{
+        const val MAX_SERVICE_START_ATTEMPTS = 15
 
         fun registerTokenToBackend(ctx:Context,onSuccess: (String) -> Unit = {}, onFailure: (String) -> Unit = {}) {
             val user = FirebaseAuth.getInstance().currentUser ?: return

@@ -220,7 +220,7 @@ class EchoActivity : AppCompatActivity() {
 
     fun updateBoosterQuantity() {
         boosterAmountText?.text = String.format("%.2f", prefs.balance)
-        quotaTimeText?.text = estimateHourMinuteForBoosters(prefs.balance)
+        quotaTimeText?.text = getString(R.string.quota_estimate_caveat, estimateHourMinuteForBoosters(prefs.balance))
     }
 
     fun updateRemoteAccess() {
@@ -307,8 +307,12 @@ class EchoActivity : AppCompatActivity() {
         }
 
         fun estimateHourMinuteForBoosters(balance: Float): String {
-            return hourMinuteForBoosters(balance).let { it ->
-                if (it.first > 0) "${it.first} h" else "" + if (it.second > 0) " ${it.second} m" else ""
+            val (hours, minutes) = hourMinuteForBoosters(balance)
+            return when {
+                hours > 0 && minutes > 0 -> "$hours h $minutes m"
+                hours > 0 -> "$hours h"
+                minutes > 0 -> "$minutes m"
+                else -> "0 m"
             }
         }
     }

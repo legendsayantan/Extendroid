@@ -155,7 +155,7 @@ class Prefs(val context: Context) {
              * "2": "RunApp"
              * }
              */
-            val defaultMappings = "{\"0\":\"InstalledApps\",\"1\":\"RunningApps\",\"2\":\"RunApp\",\"3\":\"StopApp\",\"4\":\"Resize\",\"5\":\"KeyEvent\",\"6\":\"MotionEvent\",\"7\":\"Unlock\",\"8\":\"DisplayMode\",\"9\":\"TaskList\",\"a\":\"RunTask\",\"b\":\"TaskStatus\"}"
+            val defaultMappings = "{\"0\":\"InstalledApps\",\"1\":\"RunningApps\",\"2\":\"RunApp\",\"3\":\"StopApp\",\"4\":\"Resize\",\"5\":\"KeyEvent\",\"6\":\"MotionEvent\",\"7\":\"Unlock\",\"8\":\"DisplayMode\",\"9\":\"TaskList\",\"a\":\"RunTask\",\"b\":\"TaskStatus\",\"c\":\"UnlockStatus\"}"
             val jsonString = echo.getString("mappings", defaultMappings) ?: defaultMappings
             return try {
                 val jsonObject = org.json.JSONObject(jsonString)
@@ -192,6 +192,21 @@ class Prefs(val context: Context) {
         get() = echo.getStringSet("existingAccounts",setOf<String>()) ?: setOf<String>()
         set(value) {
             echo.edit { putStringSet("existingAccounts",value) }
+        }
+
+    // Screen dimensions ("wm size") at the time remote-unlock training completed. 0 means
+    // "unknown" (e.g. training data recorded before this field existed) - unlock() treats that
+    // as "can't verify, proceed as before" rather than forcing a retrain.
+    var unlockTrainedWidth : Int
+        get() = echo.getInt("unlockTrainedWidth", 0)
+        set(value) {
+            echo.edit { putInt("unlockTrainedWidth", value) }
+        }
+
+    var unlockTrainedHeight : Int
+        get() = echo.getInt("unlockTrainedHeight", 0)
+        set(value) {
+            echo.edit { putInt("unlockTrainedHeight", value) }
         }
 
 
